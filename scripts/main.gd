@@ -138,7 +138,7 @@ func _spawn_job() -> void:
 		cost += FAULTS[id].cost
 	jobs.append({"city": options[rng.randi() % options.size()], "type": t[0], "faults": faults,
 		"fixed": {}, "found": {}, "checked": {}, "reward": int(round((t[1] + cost * 2.0) / 50.0)) * 50,
-		"deadline": day + 7 + rng.randi() % 9, "color": Color.from_hsv(rng.randf(), 0.55, 0.85)})
+		"deadline": day + 7 + rng.randi() % 9})
 
 
 ## What the owner tells you on the radio: every fault's symptom, in random order.
@@ -181,6 +181,8 @@ func _inspect_zone(zone: String) -> void:
 	if not current_job.checked.has(zone):
 		current_job.checked[zone] = true
 		_advance(0.05)
+		if not current_job:  # the owner gave up while you were looking
+			return
 		var found: PackedStringArray = []
 		for id in current_job.faults:
 			if FAULTS[id].zone == zone:
@@ -312,7 +314,7 @@ func _can_finish_here() -> bool:
 	for id in current_job.faults:
 		var f: Dictionary = FAULTS[id]
 		if not current_job.fixed.has(id) and f.part != "" and inventory.get(f.part, 0) == 0:
-			need += f.cost
+			need += _price(id)
 	return money >= need
 
 
@@ -340,8 +342,7 @@ func _setup_input() -> void:
 
 func _process(delta: float) -> void:
 	_update_hud()
-	if world:
-		_animate_birds()
+	_animate_birds()
 	if msg_time > 0.0:
 		msg_time -= delta
 		if msg_time <= 0.0:
@@ -572,6 +573,11 @@ func _stocked(part_id: String) -> bool:
 	return r.randf() < 0.6
 
 
+## What this town's shed charges for a fault's part: shelf price, or +25% by mail.
+func _price(id: String) -> int:
+	return FAULTS[id].cost if _stocked(id) else int(FAULTS[id].cost * 1.25)
+
+
 func _open_shop() -> void:
 	var needed := {}
 	if current_job:
@@ -585,13 +591,13 @@ func _open_shop() -> void:
 			continue
 		var tag := "   << NEEDED" if needed.has(f.part) else ""
 		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
+		var price := _price(id)
 		if _stocked(id):
 			rows.append(["%s (have %d)%s" % [f.part, inventory.get(f.part, 0), tag],
-				"$%d" % f.cost, func(): _buy(f.part, f.cost), money >= f.cost, icon])
+				"$%d" % price, func(): _buy(f.part, price), money >= price, icon])
 		else:
-			var mail := int(f.cost * 1.25)
 			rows.append(["%s (have %d)%s\nNot in stock: mail order, 1 day" % [f.part, inventory.get(f.part, 0), tag],
-				"Order $%d" % mail, func(): _buy(f.part, mail, true), money >= mail, icon])
+				"Order $%d" % price, func(): _buy(f.part, price, true), money >= price, icon])
 	_open_panel("Parts & Supply  -  " + location, rows)
 
 
@@ -827,7 +833,7 @@ func _add_motes(region_name: String) -> GPUParticles3D:
 
 ## A small flock wheeling slowly over the field; wings flap now and then, otherwise glide.
 func _add_birds() -> void:
-	var flock := Node3D.new()
+	flock = Node3D.new()
 	flock.position = Vector3(r_bird.randf_range(-40, 40), 38, r_bird.randf_range(-60, 20))
 	world.add_child(flock)
 	var c := Color(0.12, 0.1, 0.1)
@@ -840,27 +846,26 @@ func _add_birds() -> void:
 		box(b, Vector3(0.1, 0.08, 0.35), Vector3.ZERO, c)
 		b.set_meta("phase", r_bird.randf() * TAU)
 		flock.add_child(b)
-	flock.set_meta("flock", true)
 
 
 var r_bird := RandomNumberGenerator.new()
 var motes: GPUParticles3D
+var flock: Node3D  # the current field's birds (freed with the world)
 
 
 func _animate_birds() -> void:
+	if not is_instance_valid(flock):
+		return
 	var t := Time.get_ticks_msec() / 1000.0
-	for flock in world.get_children():
-		if not flock.has_meta("flock"):
-			continue
-		flock.rotation.y = -t * 0.08  # ~80 s per lap
-		for b in flock.get_children():
-			var ph: float = b.get_meta("phase")
-			var flap := sin(t * 9.0 + ph) * 0.6 * float(sin(t * 0.7 + ph) > 0.2)  # bursts of flapping
-			for w in b.get_children():
-				if w.has_meta("side"):
-					w.rotation.z = flap * w.get_meta("side")
-					w.position.x = cos(flap) * 0.27 * w.get_meta("side")
-					w.position.y = sin(flap) * 0.27
+	flock.rotation.y = -t * 0.08  # ~80 s per lap
+	for b in flock.get_children():
+		var ph: float = b.get_meta("phase")
+		var flap := sin(t * 9.0 + ph) * 0.6 * float(sin(t * 0.7 + ph) > 0.2)  # bursts of flapping
+		for w in b.get_children():
+			if w.has_meta("side"):
+				w.rotation.z = flap * w.get_meta("side")
+				w.position.x = cos(flap) * 0.27 * w.get_meta("side")
+				w.position.y = sin(flap) * 0.27
 
 
 ## Each region gets its own light: golden plains, hot hazy desert, green-tinged forest, cold snow.
@@ -986,6 +991,9 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 			while x < 170.0:
 				rows.append(Vector3(x, 0, z + r.randf_range(-1.5, 1.5)))
 				x += r.randf_range(6.0, 10.0)
+	trunks = StaticBody3D.new()  # one body; every tree adds a post shape to it
+	world.add_child(trunks)
+	var cones: Array[Transform3D] = []  # forest pines, drawn as two MultiMeshes below
 	var placed := 0
 	while placed < region.count + rows.size():
 		var pos: Vector3
@@ -996,7 +1004,8 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 				continue
 		else:
 			pos = Vector3(r.randf_range(-400, 400), 0, r.randf_range(-400, 400))
-			if pos.length() < 32 or absf(pos.z - 14) < 16:  # keep the apron and runway clear
+			# same lot/runway rule as the grass, plus extra room so canopies clear the wingtips
+			if _kept_clear(pos) or pos.length() < 32 or absf(pos.z - 14) < 16:
 				continue
 			# groves and clearings; nothing in the pond or on cliffs
 			if r.randf() > terrain.grove(pos.x, pos.z) or terrain.in_water(pos.x, pos.z) or terrain.slope(pos.x, pos.z) > 0.35:
@@ -1011,8 +1020,8 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 				tree.set_meta("tree", true)
 				_paint_tree(tree, TREE_SPLIT[kind], Color.WHITE.darkened(r.randf() * 0.25))
 			"pine":  # shortcut: code-built cones until a plain (snowless) pine model exists
-				cyl(world, 0.2, 0.3, 1.2, pos + Vector3(0, 0.6, 0), tmat("bark"), 5, true)
-				cyl(world, 0, h * 0.3, h * 1.5, pos + Vector3(0, 1.0 + h * 0.75, 0), tmat("foliage", Color(0.55, 0.7, 0.6)), 6)
+				cones.append(Transform3D(Basis.from_scale(Vector3.ONE * h), pos))
+				_trunk(pos)
 			"snowpine":
 				var pine := prop("tree_pine_snow_a", pos, r.randf_range(6.0, 11.0), null, r.randf() * TAU, "trunk")
 				pine.set_meta("tree", true)
@@ -1026,6 +1035,21 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 				if r.randf() < 0.5:
 					var s := r.randf_range(0.6, 1.4)
 					_crag(Vector3(pos.x + 3, terrain.height(pos.x + 3, pos.z + 2) - 0.2, pos.z + 2), s, s * 1.1, Color(0.95, 0.75, 0.6), r)
+	if cones.size() > 0:  # meshes for h = 1 (trunk sized for an average 4.5 m pine); each instance scales by h
+		var trunk := CylinderMesh.new()
+		trunk.top_radius = 0.2 / 4.5
+		trunk.bottom_radius = 0.3 / 4.5
+		trunk.height = 1.2 / 4.5
+		trunk.radial_segments = 5
+		trunk.material = tmat("bark")
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0
+		cone.bottom_radius = 0.3
+		cone.height = 1.5
+		cone.radial_segments = 6
+		cone.material = tmat("foliage", Color(0.55, 0.7, 0.6))
+		_multi(trunk, cones.map(func(t): return t.translated_local(Vector3(0, 0.6 / 4.5, 0))))
+		_multi(cone, cones.map(func(t): return t.translated_local(Vector3(0, 0.75 + 1.0 / 4.5, 0))))
 	var rocks := 0  # outcrops half-buried in hillsides (the hills and mountains themselves are terrain)
 	var tries := 0
 	while rocks < (0 if region.prop == "tree" else 18) and tries < 2000:
@@ -1038,9 +1062,8 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 		_crag(p + Vector3(0, terrain.height(p.x, p.z) - s * 0.35, 0), s, s * 0.7, region.ground.lerp(Color(0.55, 0.5, 0.48), 0.7), r)
 
 
-## Faceted, jagged rock: 3 jittered rings tapering to an off-center peak, flat-shaded,
-## with vertex-colored snow above `snow` (fraction of height; >1 = no snow).
-func _crag(pos: Vector3, radius: float, height: float, base: Color, r: RandomNumberGenerator, snow := 2.0) -> void:
+## Faceted, jagged rock: 3 jittered rings tapering to an off-center peak, flat-shaded.
+func _crag(pos: Vector3, radius: float, height: float, base: Color, r: RandomNumberGenerator) -> void:
 	const N := 9
 	var rings := [[0.0, 1.0], [0.4, 0.62], [0.75, 0.3]]  # [height fraction, radius fraction]
 	var pts := []
@@ -1066,7 +1089,7 @@ func _crag(pos: Vector3, radius: float, height: float, base: Color, r: RandomNum
 		n = -n.normalized()
 		for v in [a, b, c]:
 			st.set_normal(n)
-			st.set_color(Color(0.97, 0.98, 1.0) if v.y > height * snow else base)
+			st.set_color(base)
 			st.add_vertex(v)
 	for k in pts.size() - 1:
 		for i in N:
@@ -1199,17 +1222,13 @@ func tmat(tex: String, tint := Color.WHITE, scale := 0.5) -> StandardMaterial3D:
 
 
 ## Flat see-through quad (stains, cracks, signs) facing `normal`. tex "" = plain quad.
-## uv_cell picks one cell of a 2x2 sprite sheet (e.g. ghost_signs), (-1,-1) = whole image.
-func decal(parent: Node, size: Vector2, pos: Vector3, tex: String, normal: Vector3, uv_cell := Vector2i(-1, -1)) -> MeshInstance3D:
+func decal(parent: Node, size: Vector2, pos: Vector3, tex: String, normal: Vector3) -> MeshInstance3D:
 	var q := QuadMesh.new()
 	q.size = size
 	var m := StandardMaterial3D.new()
 	if tex != "":
 		m.albedo_texture = load("res://textures/%s.png" % tex)
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	if uv_cell.x >= 0:
-		m.uv1_scale = Vector3(0.5, 0.5, 1)
-		m.uv1_offset = Vector3(uv_cell.x * 0.5, uv_cell.y * 0.5, 0)
 	q.material = m
 	var mi := _place(parent, q, pos, false)
 	var up := Vector3.UP if absf(normal.normalized().y) < 0.9 else Vector3.FORWARD
@@ -1256,8 +1275,7 @@ func prop(name: String, at: Vector3, size: float, look: Material, yaw := 0.0, co
 			for mi: MeshInstance3D in m.find_children("*", "MeshInstance3D", true, false):
 				mi.create_trimesh_collision()
 		"trunk":
-			var t := cyl(world, 0.3, 0.3, 3.0, Vector3(at.x, at.y + 1.5, at.z), Color.WHITE, 6, true)
-			t.visible = false
+			_trunk(at)
 	return m
 
 
@@ -1366,6 +1384,38 @@ void fragment() {
 """
 
 
+## Draws one mesh at many transforms in a single draw call.
+func _multi(mesh: Mesh, xforms: Array) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = xforms.size()
+	for i in xforms.size():
+		mm.set_instance_transform(i, xforms[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	world.add_child(mmi)
+
+
+var trunks: StaticBody3D  # this field's tree trunks, one shared shape each
+static var TRUNK_SHAPE := _trunk_shape()
+
+
+static func _trunk_shape() -> CylinderShape3D:
+	var s := CylinderShape3D.new()
+	s.radius = 0.3
+	s.height = 3.0
+	return s
+
+
+## A 3 m post the player bumps into instead of walking through a tree.
+func _trunk(at: Vector3) -> void:
+	var cs := CollisionShape3D.new()
+	cs.shape = TRUNK_SHAPE
+	cs.position = at + Vector3(0, 1.5, 0)
+	trunks.add_child(cs)
+
+
 ## Runway, apron and building lot stay free of grass and props.
 func _kept_clear(p: Vector3) -> bool:
 	return absf(p.z - 20) < 7.5 or (p.x > -26 and p.x < 20 and p.z > -24 and p.z < 15)
@@ -1442,6 +1492,7 @@ func _self_test(args: PackedStringArray) -> void:
 	for a in args:
 		if a.begins_with("--shot="):
 			shot = a.trim_prefix("--shot=")
+	var edges_ok := _edge_tests()
 	var job: Dictionary = jobs[0]
 	if "--all-faults" in args:  # every broken part on one plane, for screenshots
 		job.faults = FAULTS.keys()
@@ -1501,6 +1552,12 @@ func _self_test(args: PackedStringArray) -> void:
 				await get_tree().create_timer(2.0).timeout
 				print("FPS at vista: ", Engine.get_frames_per_second())
 			await _snap(shot, v[0])
+		if flock:  # look up at the birds
+			var bird: Vector3 = flock.get_child(0).global_position
+			player.position = Vector3(bird.x + 25, 0.1, bird.z + 25)
+			player.look_at(Vector3(bird.x, player.position.y, bird.z), Vector3.UP)
+			player.cam.rotation.x = atan2(bird.y - 1.7, Vector2(25, 25).length())
+			await _snap(shot, "birds")
 		if terrain.pond != Vector3.INF:
 			var pd: Vector3 = terrain.pond
 			player.position = Vector3(pd.x + pd.z + 6, terrain.height(pd.x + pd.z + 6, pd.y) + 0.2, pd.y)
@@ -1530,8 +1587,37 @@ func _self_test(args: PackedStringArray) -> void:
 	Input.action_release("move_forward")
 	Input.action_release("move_back")
 	ok = ok and ferry == null and rescued == 1 and money == start + job.reward and jobs.size() == MAX_JOBS
-	print("SELF-TEST ", "PASS" if ok else "FAIL", " faults=", job.faults, " day=%.1f" % day)
+	print("SELF-TEST ", "PASS" if ok and edges_ok else "FAIL", " edges=", edges_ok, " faults=", job.faults, " day=%.1f" % day)
 	get_tree().quit(0 if ok else 1)
+
+
+## Money and deadline edges, run at home before the main test; restores what it touches.
+func _edge_tests() -> bool:
+	var saved := [money, jobs, current_job, day]
+	var fake := func(id: String, deadline: float) -> Dictionary:
+		return {"city": location, "type": "Test", "faults": [id], "fixed": {}, "found": {}, "checked": {}, "reward": 0, "deadline": deadline}
+	var ok := true
+	# 1. Broke, no flight, the needed part is mail-order only: shelf price is affordable but the
+	#    real price isn't, so it must be game over rather than a dead end.
+	var mail_only := FAULTS.keys().filter(func(id): return FAULTS[id].part != "" and not _stocked(id))
+	if mail_only.size() > 0:
+		var id: String = mail_only[0]
+		jobs = []
+		current_job = fake.call(id, day + 30)
+		money = FAULTS[id].cost
+		_open_travel()
+		ok = ok and panel != null and not panel_closable  # the game-over panel can't be closed
+		_close_panel()
+	# 2. The owner's deadline passes during an inspection: the job is dropped cleanly.
+	jobs = [fake.call("tire", day + 0.01)]
+	current_job = jobs[0]
+	_inspect_zone("gear_l")
+	ok = ok and current_job == null and panel == null  # before the fix this line ran after a script error
+	money = saved[0]
+	jobs = saved[1]
+	current_job = saved[2]
+	day = saved[3]
+	return ok
 
 
 func _snap(prefix: String, name: String, wait := 0.4) -> void:

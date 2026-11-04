@@ -27,7 +27,8 @@ func start(m, p: Node3D, prop_node: Node3D) -> void:
 	prop = prop_node
 	cam = Camera3D.new()
 	cam.fov = 70
-	cam.position = Vector3(0, 1.95, 0.95)  # Cubs are flown solo from the back seat
+	# Seated eye in the back seat (Cubs fly solo from there): cushion top 1.33 m, roof 1.89 m.
+	cam.position = Vector3(0, 1.62, 0.85)
 	cam.rotation.x = -0.1
 	plane.add_child(cam)
 	cam.make_current()

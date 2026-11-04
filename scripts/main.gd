@@ -1,8 +1,8 @@
 extends Node3D
 ## Airplane Rescue: walk up to stranded planes, inspect them in a 2D panel,
 ## fix each fault (the 3D model updates), then sign off and fly to the next call.
-## All geometry is low-poly primitives built in code. Flat colors are placeholders
-## until the textures listed in TEXTURES.md arrive.
+## The plane and repair parts are .glb models from models/ (made by tools/optimize_models.py);
+## buildings and nature are still primitives built in code. Art direction: ART_DIRECTION.md.
 
 const Player := preload("res://scripts/player.gd")
 const GOAL := 10
@@ -10,24 +10,26 @@ const MAX_JOBS := 3
 const START_CITY := "Wichita"
 const FUEL_PER_MILE := 0.9
 
-# city: [lon, lat, region]
+# city: [lon, lat, region, map_x, map_y] — map_x/y are pixels on textures/us_map.png (2048x1280),
+# fitted from landmarks and checked by plotting.
 const CITIES := {
-	"Wichita": [-97.3, 37.7, "plains"], "Omaha": [-96.0, 41.3, "plains"],
-	"Dallas": [-96.8, 32.8, "plains"], "Chicago": [-87.6, 41.9, "plains"],
-	"Billings": [-108.5, 45.8, "plains"], "Miami": [-80.2, 25.8, "plains"],
-	"New York": [-74.0, 40.7, "plains"], "Seattle": [-122.3, 47.6, "forest"],
-	"Portland": [-122.7, 45.5, "forest"], "Atlanta": [-84.4, 33.7, "forest"],
-	"Nashville": [-86.8, 36.2, "forest"], "Bangor": [-68.8, 44.8, "forest"],
-	"Los Angeles": [-118.2, 34.1, "desert"], "Phoenix": [-112.1, 33.4, "desert"],
-	"Las Vegas": [-115.1, 36.2, "desert"], "Albuquerque": [-106.6, 35.1, "desert"],
-	"Denver": [-105.0, 39.7, "snow"], "Salt Lake City": [-111.9, 40.8, "snow"],
-	"Fargo": [-96.8, 46.9, "snow"], "Minneapolis": [-93.3, 45.0, "snow"],
+	"Wichita": [-97.3, 37.7, "plains", 998, 672], "Omaha": [-96.0, 41.3, "plains", 1036, 533],
+	"Dallas": [-96.8, 32.8, "plains", 1013, 867], "Chicago": [-87.6, 41.9, "plains", 1276, 498],
+	"Billings": [-108.5, 45.8, "plains", 703, 342], "Miami": [-80.2, 25.8, "plains", 1554, 1112],
+	"New York": [-74.0, 40.7, "plains", 1681, 481], "Seattle": [-122.3, 47.6, "forest", 358, 200],
+	"Portland": [-122.7, 45.5, "forest", 334, 276], "Atlanta": [-84.4, 33.7, "forest", 1390, 808],
+	"Nashville": [-86.8, 36.2, "forest", 1310, 716], "Bangor": [-68.8, 44.8, "forest", 1817, 289],
+	"Los Angeles": [-118.2, 34.1, "desert", 392, 751], "Phoenix": [-112.1, 33.4, "desert", 563, 811],
+	"Las Vegas": [-115.1, 36.2, "desert", 488, 684], "Albuquerque": [-106.6, 35.1, "desert", 726, 762],
+	"Denver": [-105.0, 39.7, "snow", 781, 585], "Salt Lake City": [-111.9, 40.8, "snow", 593, 519],
+	"Fargo": [-96.8, 46.9, "snow", 1018, 321], "Minneapolis": [-93.3, 45.0, "snow", 1113, 391],
 }
+# grass/wheat: how many grass cards to scatter
 const REGIONS := {
-	"plains": {"tex": "ground_grass", "ground": Color(0.45, 0.62, 0.3), "prop": "tree", "count": 30},
-	"forest": {"tex": "ground_forest", "ground": Color(0.28, 0.45, 0.22), "prop": "pine", "count": 110},
-	"desert": {"tex": "ground_sand", "ground": Color(0.82, 0.68, 0.45), "prop": "cactus", "count": 40},
-	"snow": {"tex": "ground_snow", "ground": Color(0.92, 0.94, 0.97), "prop": "snowpine", "count": 70},
+	"plains": {"tex": "ground_grass", "ground": Color(0.45, 0.62, 0.3), "prop": "tree", "count": 30, "grass": 6000, "wheat": 3000},
+	"forest": {"tex": "ground_forest", "ground": Color(0.28, 0.45, 0.22), "prop": "pine", "count": 110, "grass": 4000, "wheat": 0},
+	"desert": {"tex": "dirt_red", "ground": Color(0.82, 0.68, 0.45), "prop": "cactus", "count": 40, "grass": 600, "wheat": 0},
+	"snow": {"tex": "ground_snow", "ground": Color(0.92, 0.94, 0.97), "prop": "snowpine", "count": 70, "grass": 0, "wheat": 0},
 }
 const FAULTS := {
 	"tire": {"name": "Flat main tire", "part": "Tire & tube", "cost": 180},
@@ -276,32 +278,65 @@ func _say(text: String) -> void:
 	msg_time = 5.0
 
 
-## rows: [text] or [text, button_text, callable, enabled]. Docked left so the plane stays visible.
-func _open_panel(title: String, rows: Array, closable := true) -> void:
+## Vintage tool-catalog look: dark ink on paper, toolbox-red buttons.
+func _catalog_theme() -> Theme:
+	var t := Theme.new()
+	var ink := Color(0.2, 0.13, 0.08)
+	t.set_color("font_color", "Label", ink)
+	var states := {"normal": Color(0.7, 0.13, 0.1), "hover": Color(0.82, 0.2, 0.14),
+		"pressed": Color(0.5, 0.08, 0.06), "disabled": Color(0.55, 0.5, 0.45, 0.6)}
+	for state in states:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = states[state]
+		sb.set_corner_radius_all(3)
+		sb.set_content_margin_all(6)
+		sb.content_margin_left = 12
+		sb.content_margin_right = 12
+		t.set_stylebox(state, "Button", sb)
+	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
+		t.set_color(c, "Button", Color(0.98, 0.94, 0.85))
+	t.set_color("font_disabled_color", "Button", Color(0.95, 0.92, 0.85, 0.7))
+	return t
+
+
+## rows: [text] or [text, button_text, callable, enabled] with an optional 5th icon texture name.
+## Docked left so the plane stays visible. Returns the content box so callers can add more.
+func _open_panel(title: String, rows: Array, closable := true, paper := "paper_catalog", stamp := "") -> VBoxContainer:
 	_close_panel()
 	panel_closable = closable
-	panel = PanelContainer.new()
-	panel.position = Vector2(20, 80)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.1, 0.13, 0.92)
-	sb.set_content_margin_all(16)
-	sb.set_corner_radius_all(8)
-	panel.add_theme_stylebox_override("panel", sb)
+	panel = Control.new()
+	panel.position = Vector2(20, 70)
+	panel.theme = _catalog_theme()
+	var box_ := PanelContainer.new()
+	var sb := StyleBoxTexture.new()
+	sb.texture = load("res://textures/%s.png" % paper)
+	sb.set_content_margin_all(28)
+	box_.add_theme_stylebox_override("panel", sb)
+	panel.add_child(box_)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 8)
-	panel.add_child(vb)
+	box_.add_child(vb)
 	var head := Label.new()
 	head.text = title
-	head.add_theme_font_size_override("font_size", 22)
+	head.add_theme_font_size_override("font_size", 26)
 	vb.add_child(head)
 	for r in rows:
 		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 10)
 		vb.add_child(hb)
+		if r.size() > 4 and r[4] != "":
+			var icon := TextureRect.new()
+			icon.texture = load("res://textures/%s.png" % r[4])
+			icon.custom_minimum_size = Vector2(36, 36)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			hb.add_child(icon)
 		var l := Label.new()
 		l.text = r[0]
 		l.custom_minimum_size.x = 380
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		hb.add_child(l)
-		if r.size() > 1:
+		if r.size() > 1 and r[1] != "":
 			var b := Button.new()
 			b.text = r[1]
 			b.pressed.connect(r[2])
@@ -312,9 +347,19 @@ func _open_panel(title: String, rows: Array, closable := true) -> void:
 		c.text = "Close (Esc)"
 		c.pressed.connect(_close_panel)
 		vb.add_child(c)
+	if stamp != "":
+		var s := TextureRect.new()
+		s.texture = load("res://textures/%s.png" % stamp)
+		s.expand_mode = TextureRect.EXPAND_IGNORE_SIZE  # must come before size, or size snaps to the image
+		s.size = Vector2(170, 85)
+		s.rotation = -0.15
+		box_.resized.connect(func(): s.position = Vector2(box_.size.x - 130, -30))  # overhang the top-right corner
+		s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(s)
 	ui.add_child(panel)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	player.frozen = true
+	return vb
 
 
 func _close_panel() -> void:
@@ -329,17 +374,20 @@ func _open_inspection() -> void:
 	var rows := []
 	for id in current_job.faults:
 		var f: Dictionary = FAULTS[id]
+		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
 		if current_job.fixed.has(id):
-			rows.append(["[OK]  " + f.name])
+			rows.append(["OK  -  " + f.name, "", null, false, icon])
 		elif f.part == "":
-			rows.append(["[!!]  %s - no part needed" % f.name, "Repair", func(): _repair(id), true])
+			rows.append(["%s\nNo part needed" % f.name, "Repair", func(): _repair(id), true, icon])
 		else:
 			var have: int = inventory.get(f.part, 0)
-			rows.append(["[!!]  %s - needs %s (have %d)" % [f.name, f.part, have],
-				"Repair", func(): _repair(id), have > 0])
-	if current_job.fixed.size() == current_job.faults.size():
+			rows.append(["%s\nNeeds %s (have %d)" % [f.name, f.part, have],
+				"Repair", func(): _repair(id), have > 0, icon])
+	var done: bool = current_job.fixed.size() == current_job.faults.size()
+	if done:
 		rows.append(["Airworthy!", "Test flight & sign off (+$%d)" % current_job.reward, _sign_off, true])
-	_open_panel("Inspection: " + current_job.type, rows)
+	_open_panel("Inspection: " + current_job.type, rows, true, "paper_catalog",
+		"stamp_airworthy" if done else "stamp_inspected")
 
 
 func _open_shop() -> void:
@@ -353,10 +401,11 @@ func _open_shop() -> void:
 		var f: Dictionary = FAULTS[id]
 		if f.part == "":
 			continue
-		var tag := "   << needed" if needed.has(f.part) else ""
+		var tag := "   << NEEDED" if needed.has(f.part) else ""
+		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
 		rows.append(["%s (have %d)%s" % [f.part, inventory.get(f.part, 0), tag],
-			"$%d" % f.cost, func(): _buy(f.part, f.cost), money >= f.cost])
-	_open_panel("Parts shed", rows)
+			"$%d" % f.cost, func(): _buy(f.part, f.cost), money >= f.cost, icon])
+	_open_panel("Parts & Supply", rows)
 
 
 func _open_travel() -> void:
@@ -373,7 +422,34 @@ func _open_travel() -> void:
 		_open_panel("Out of money and grounded. Game over.",
 			[["You rescued %d planes." % rescued, "Play again", _restart, true]], false)
 		return
-	_open_panel("Rescue calls", rows)
+	var vb := _open_panel("Rescue calls", rows)
+	# Vintage map with a pin per rescue call (click to fly) and a green one for you.
+	var map := TextureRect.new()
+	map.texture = load("res://textures/us_map.png")
+	map.custom_minimum_size = Vector2(576, 360)
+	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	map.stretch_mode = TextureRect.STRETCH_SCALE
+	vb.add_child(map)
+	vb.move_child(map, 1)
+	var k := 576.0 / 2048.0
+	var here: Array = CITIES[location]
+	var you := ColorRect.new()
+	you.color = Color(0.1, 0.6, 0.2)
+	you.size = Vector2(12, 12)
+	you.position = Vector2(here[3], here[4]) * k - Vector2(6, 6)
+	map.add_child(you)
+	for job in jobs:
+		if job == current_job:
+			continue
+		var c: Array = CITIES[job.city]
+		var cost := int(miles(location, job.city) * FUEL_PER_MILE)
+		var pin := Button.new()
+		pin.text = job.city
+		pin.add_theme_font_size_override("font_size", 13)
+		pin.position = Vector2(c[3], c[4]) * k - Vector2(8, 12)
+		pin.disabled = money < cost
+		pin.pressed.connect(func(): _travel(job, cost))
+		map.add_child(pin)
 
 
 # ---------- 3D world ----------
@@ -382,18 +458,22 @@ func _setup_environment() -> void:
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
-	sky.sky_material = ProceduralSkyMaterial.new()
+	var pano := PanoramaSkyMaterial.new()
+	pano.panorama = load("res://textures/sky_golden.png")
+	sky.sky_material = pano
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
 	env.fog_density = 0.003
-	env.fog_light_color = Color(0.75, 0.82, 0.9)
+	env.fog_light_color = Color(0.92, 0.8, 0.62)  # warm haze
+	env.fog_sky_affect = 0.15  # keep the golden panorama visible
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-50, 30, 0)
+	sun.rotation_degrees = Vector3(-20, 30, 0)  # low golden-hour sun
+	sun.light_color = Color(1.0, 0.85, 0.65)
 	sun.shadow_enabled = true
 	add_child(sun)
 
@@ -424,10 +504,16 @@ func _load_field(city: String, job) -> void:
 	box(world, Vector3(160, 0.04, 12), Vector3(0, 0.02, 20), tmat("runway_asphalt", Color.WHITE, 0.15))
 	for x in range(-76, 80, 10):
 		box(world, Vector3(5, 0.05, 0.4), Vector3(x, 0.03, 20), Color(0.95, 0.95, 0.9))
-	_build_hangar(Vector3(-16, 0, -14))
+	box(world, Vector3(18, 0.03, 13), Vector3(0, 0.015, 7.5), tmat("gravel", Color.WHITE, 0.4))  # apron
+	_build_hangar(Vector3(-16, 0, -14), r)
 	_build_shed(Vector3(14, 0, -8))
-	_text3d(city.to_upper() + " FIELD", Vector3(-16, 7.5, -8), 160)
+	_build_sign(Vector3(9, 0, 4), city)
 	_scatter(region, r)
+	var field := Rect2(-120, -120, 240, 240)
+	if region.grass > 0:
+		_cards("grass_card", region.grass, 0.9, field, r, Color(1, 0.85, 0.6) if region.prop == "cactus" else Color.WHITE)
+	if region.wheat > 0:
+		_cards("wheat_card", region.wheat, 1.2, Rect2(25, -120, 95, 130), r)  # a wheat field east of the strip
 	if job:
 		_build_plane(job)
 	player.velocity = Vector3.ZERO
@@ -436,30 +522,57 @@ func _load_field(city: String, job) -> void:
 	player.cam.rotation = Vector3.ZERO
 
 
-func _build_hangar(at: Vector3) -> void:
+func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	var wall := tmat("hangar_metal", Color.WHITE, 0.3)
 	box(world, Vector3(14, 6, 0.3), at + Vector3(0, 3, -6), wall, true)
 	for s in [-1, 1]:
 		box(world, Vector3(0.3, 6, 12), at + Vector3(s * 7, 3, 0), wall, true)
+		box(world, Vector3(3.5, 6, 0.2), at + Vector3(s * 5.25, 3, 6.1), tmat("hangar_door", Color.WHITE, 0.17), true)  # door leaves, slid open
 	box(world, Vector3(14.6, 0.3, 12.6), at + Vector3(0, 6.1, 0), tmat("hangar_metal", Color(0.7, 0.7, 0.7), 0.3), true)
-	box(world, Vector3(13.4, 0.04, 11.6), at + Vector3(0, 0.03, 0), tmat("concrete", Color.WHITE, 0.25))
-	box(world, Vector3(2, 1, 0.8), at + Vector3(3, 0.5, -5.3), tmat("wood_planks"), true)  # desk
+	box(world, Vector3(13.4, 0.04, 11.6), at + Vector3(0, 0.03, 0), tmat("concrete_oily", Color.WHITE, 0.15))
+	box(world, Vector3(6, 2.4, 0.05), at + Vector3(-2, 2.2, -5.82), tmat("pegboard", Color.WHITE, 0.5))
+	box(world, Vector3(1.4, 1.1, 0.6), at + Vector3(-5.5, 0.55, -5.3), tmat("toolbox_red", Color.WHITE, 0.7), true)
+	decal(world, Vector2(1.0, 1.0), at + Vector3(-5.5, 0.6, -4.99), "sticker_sheet", Vector3.BACK)
+	decal(world, Vector2(5, 5), at + Vector3(7.17, 3, 0), "ghost_signs", Vector3.RIGHT,
+		Vector2i(r.randi() % 2, r.randi() % 2))  # faded wall ad, one of four
+	box(world, Vector3(2, 1, 0.8), at + Vector3(3, 0.5, -5.3), tmat("workbench_top", Color.WHITE, 0.6), true)  # desk
 	box(world, Vector3(0.7, 0.4, 0.4), at + Vector3(3, 1.2, -5.3), Color(0.15, 0.22, 0.15))  # radio
 	interactable(world, at + Vector3(3, 1.2, -5.0), Vector3(1.4, 0.9, 1.2), "radio")
 	_text3d("RADIO", at + Vector3(3, 2.2, -5.3), 48)
 
 
 func _build_shed(at: Vector3) -> void:
-	var c := tmat("wood_planks", Color.WHITE, 0.4)
+	var c := tmat("barn_boards", Color.WHITE, 0.35)
 	box(world, Vector3(5, 3, 0.2), at + Vector3(0, 1.5, -2.5), c, true)
 	for s in [-1, 1]:
 		box(world, Vector3(0.2, 3, 5), at + Vector3(s * 2.5, 1.5, 0), c, true)
 	box(world, Vector3(5.6, 0.2, 5.6), at + Vector3(0, 3.1, 0), tmat("hangar_metal", Color(0.6, 0.6, 0.6), 0.4))
-	box(world, Vector3(3, 1, 0.8), at + Vector3(0, 0.5, -1.5), tmat("wood_planks", Color(0.8, 0.7, 0.6)), true)  # counter
+	box(world, Vector3(4.6, 2.2, 0.05), at + Vector3(0, 1.7, -2.37), tmat("pegboard", Color.WHITE, 0.5))
+	box(world, Vector3(3, 1, 0.8), at + Vector3(0, 0.5, -1.5), tmat("workbench_top", Color.WHITE, 0.6), true)  # counter
 	for i in 4:
 		box(world, Vector3(0.5, 0.4, 0.5), at + Vector3(-1.2 + i * 0.8, 1.2, -1.5), Color.from_hsv(i * 0.2, 0.5, 0.7))
 	interactable(world, at + Vector3(0, 1.2, -1.2), Vector3(3.2, 1.2, 1.4), "shop")
 	_text3d("PARTS", at + Vector3(0, 3.9, 0), 72)
+
+
+## "MUNICIPAL AIRPORT" board on two posts, the town name lettered into its blank panel.
+func _build_sign(at: Vector3, city: String) -> void:
+	var facing := (Vector3(4, 0, -2) - at).normalized()  # toward the player's arrival spot
+	for s in [-1, 1]:
+		var post := box(world, Vector3(0.15, 2.2, 0.15), at + facing.cross(Vector3.UP) * s * 1.7 + Vector3(0, 1.1, 0), tmat("wood_planks"))
+		post.basis = Basis.looking_at(-facing, Vector3.UP)
+	var board := decal(world, Vector2(4, 2), at + Vector3(0, 2.2, 0) + facing * 0.09, "airfield_sign", facing)
+	var back := box(world, Vector3(4.1, 2.1, 0.1), at + Vector3(0, 2.2, 0), tmat("wood_planks"))
+	back.basis = board.basis
+	var l := Label3D.new()
+	l.text = city.to_upper()
+	l.font_size = 72
+	l.pixel_size = 0.005
+	l.modulate = Color(0.55, 0.12, 0.1)
+	l.outline_size = 0
+	l.position = at + Vector3(0, 2.05, 0) + facing * 0.11  # the blank box sits just below center
+	l.basis = board.basis
+	world.add_child(l)
 
 
 func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
@@ -498,96 +611,85 @@ func _build_plane(job: Dictionary) -> void:
 	plane.position = Vector3(0, 0, 8)
 	plane.rotation.y = PI / 2  # nose points down the runway (-X)
 	world.add_child(plane)
-	var c: Color = job.color
-	var skin := tmat("plane_body", c)
-	box(plane, Vector3(1.2, 1.2, 6), Vector3(0, 1.4, 0), skin, true)  # fuselage
-	box(plane, Vector3(1.22, 0.18, 5), Vector3(0, 1.15, 0.4), tmat("plane_body"))  # stripe
-	box(plane, Vector3(1.1, 1.1, 1.0), Vector3(0, 1.4, -3.4), tmat("cowling_metal", Color.WHITE, 1.0))  # cowling
-	box(plane, Vector3(10, 0.15, 1.6), Vector3(0, 2.1, -0.8), skin)  # wing
-	box(plane, Vector3(3.4, 0.1, 0.9), Vector3(0, 1.6, 2.9), skin)  # tailplane
-	box(plane, Vector3(0.1, 1.3, 0.8), Vector3(0, 2.3, 2.8), tmat("plane_body", c.darkened(0.2)))  # fin
-	var spinner := cyl(plane, 0.05, 0.3, 0.4, Vector3(0, 1.4, -4.1), tmat("cowling_metal"), 8)
-	spinner.rotation.x = -PI / 2
-	var tailwheel := cyl(plane, 0.15, 0.15, 0.12, Vector3(0, 0.15, 2.8), tmat("tire_tread", Color.WHITE, 2.0), 8)
-	tailwheel.rotation.z = PI / 2
-	var steel := tmat("metal_steel")
-	for s in [-1, 1]:
-		var strut := box(plane, Vector3(0.08, 2.17, 0.08), Vector3(s * 1.55, 1.5, -0.8), steel)
-		strut.rotation.z = -s * 1.07  # fuselage bottom to wing
-		var leg := box(plane, Vector3(0.1, 0.9, 0.1), Vector3(s * 0.8, 0.7, -1.2), steel)
-		leg.rotation.z = s * 0.4
+	# Model faces -X with wings along Z; turn it so the nose is -Z like the rest of this layout.
+	# Positions below come from probing the mesh: nose z=-4.5, mains at x=±0.9 z=-2.1,
+	# high wing y≈2.4 z -2.4..-1.0, fin z 3.1..4.3, cabin roof y≈2.5.
+	var body := model(plane, "plane_trainer", Vector3(0, 0.33 * 10.0 / 1.9, 0), 10.0, Vector3(0, -PI / 2, 0))
+	var tint: Color = job.color.lightened(0.25)
+	for mi in body.find_children("*", "MeshInstance3D", true, false):
+		for s in mi.mesh.get_surface_count():
+			var m: StandardMaterial3D = mi.get_active_material(s).duplicate()
+			m.albedo_color = tint
+			mi.set_surface_override_material(s, m)
+	var hull := StaticBody3D.new()  # keeps the player from walking through the plane
+	var hs := CollisionShape3D.new()
+	hs.shape = BoxShape3D.new()
+	hs.shape.size = Vector3(1.4, 2.0, 9.0)
+	hs.position = Vector3(0, 1.2, 0)
+	hull.add_child(hs)
+	plane.add_child(hull)
 	for id in FAULTS:
 		visuals[id] = _part_visual(id, job.fixed.has(id) or not job.faults.has(id))
-	interactable(plane, Vector3(0, 1.4, -0.5), Vector3(1.4, 1.4, 7.4), "plane")
-	interactable(plane, Vector3(0, 2.1, -0.8), Vector3(10.2, 0.4, 1.8), "plane")
+	interactable(plane, Vector3(0, 1.25, 0), Vector3(1.6, 2.4, 9.2), "plane")
+	interactable(plane, Vector3(0, 2.42, -1.7), Vector3(10.2, 0.6, 1.6), "plane")
 
 
 ## The piece of the plane each fault lives on, drawn broken or fixed.
 func _part_visual(id: String, ok: bool) -> Node3D:
 	var n := Node3D.new()
 	plane.add_child(n)
-	var black := Color(0.08, 0.08, 0.08)
-	var tire := tmat("tire_tread", Color.WHITE, 2.0)
-	var steel := tmat("metal_steel", Color.WHITE, 2.0)
-	var rust := tmat("metal_rust", Color.WHITE, 2.0)
-	var wood := tmat("prop_wood", Color.WHITE, 1.0)
+	var axle_x := Vector3(0, PI / 2, 0)  # wheel/disc models spin around Z; turn them to X
 	match id:
 		"tire":
-			var w := cyl(n, 0.35, 0.35, 0.25, Vector3(-1.0, 0.35, -1.2), tire, 10)
-			w.rotation.z = PI / 2
-			if not ok:  # squashed flat
-				w.scale.x = 0.55
-				w.position.y = 0.2
+			model(n, "tire_ok" if ok else "tire_broken", Vector3(-0.9, 0.45, -2.1), 0.95, axle_x)
 		"brakes":
-			var w := cyl(n, 0.35, 0.35, 0.25, Vector3(1.0, 0.35, -1.2), tire, 10)
-			w.rotation.z = PI / 2
-			var d := cyl(n, 0.22, 0.22, 0.04, Vector3(1.15, 0.35, -1.2), steel if ok else rust, 10)
-			d.rotation.z = PI / 2
+			model(n, "tire_ok", Vector3(0.9, 0.45, -2.1), 0.95, axle_x)
+			model(n, "brakes_ok" if ok else "brakes_broken", Vector3(1.22, 0.45, -2.1), 0.55, axle_x)
 		"battery":
-			var hatch := box(n, Vector3(0.05, 0.5, 0.7), Vector3(0.62, 1.2, 1.0), tmat("plane_body", current_job.color))
-			if not ok:  # hatch hanging open, corroded battery showing
-				hatch.position = Vector3(0.95, 1.2, 1.3)
+			var hatch := box(n, Vector3(0.05, 0.5, 0.7), Vector3(0.49, 1.2, 1.0), tmat("plane_body_worn", current_job.color))
+			if not ok:  # hatch hanging open, corroded battery pulled half out
+				hatch.position = Vector3(0.8, 1.2, 1.32)
 				hatch.rotation.y = -1.2
-				box(n, Vector3(0.3, 0.3, 0.4), Vector3(0.5, 1.2, 1.0), rust)
+				model(n, "battery_broken", Vector3(0.62, 1.2, 1.0), 0.45)
 		"spark_plugs":
 			if not ok:
-				box(n, Vector3(0.02, 0.4, 0.9), Vector3(0.57, 1.25, -3.3), black)  # soot streak
+				decal(n, Vector2(0.9, 0.45), Vector3(0.71, 1.05, -3.7), "decal_soot", Vector3.RIGHT)
 		"oil_leak":
 			if not ok:
-				decal(n, Vector2(1.8, 1.8), Vector3(0, 0.02, -3.2), "oil_puddle", Vector3(-PI / 2, 0, 0))
+				decal(n, Vector2(1.8, 1.8), Vector3(0, 0.02, -3.9), "oil_puddle", Vector3.UP)
 		"bird_nest":
 			if not ok:
-				cyl(n, 0.35, 0.22, 0.22, Vector3(0, 2.06, -3.3), Color(0.45, 0.32, 0.18), 7)
-				ball(n, 0.08, Vector3(0.05, 2.2, -3.3), Color(0.85, 0.9, 1.0))
+				cyl(n, 0.35, 0.22, 0.22, Vector3(0, 1.8, -3.8), tmat("bark", Color(0.8, 0.65, 0.45)), 7)
+				ball(n, 0.08, Vector3(0.05, 1.94, -3.8), Color(0.75, 0.88, 0.95))
 		"fuel_line":
 			if not ok:
-				var fuel := Color(0.35, 0.5, 0.85)
-				cyl(n, 0.9, 0.9, 0.02, Vector3(-2.5, 0.01, -0.8), fuel, 10)
-				box(n, Vector3(0.04, 1.9, 0.04), Vector3(-2.5, 1.0, -0.8), fuel)  # drip
+				decal(n, Vector2(1.8, 1.8), Vector3(-2.5, 0.02, -1.7), "decal_fuel_stain", Vector3.UP)
+				box(n, Vector3(0.04, 2.2, 0.04), Vector3(-2.5, 1.12, -1.7), Color(0.35, 0.5, 0.85))  # drip
 		"windshield":
-			box(n, Vector3(1.0, 0.55, 0.08), Vector3(0, 2.05, -2.0), Color(0.55, 0.8, 0.95) if ok else Color(0.3, 0.32, 0.34))
-			if not ok:  # crack overlay on the forward face (plane nose is -Z)
-				decal(n, Vector2(0.95, 0.5), Vector3(0, 2.05, -2.05), "windshield_cracked", Vector3(0, PI, 0))
+			if not ok:  # fogged glass + crack over the model's windshield (slopes up and back)
+				var face := Vector3(0, 0.6, -0.8).normalized()
+				var glass := decal(n, Vector2(1.15, 0.85), Vector3(0, 2.12, -2.78), "", face)
+				glass.mesh.material.albedo_color = Color(0.45, 0.47, 0.48, 0.85)
+				decal(n, Vector2(1.0, 0.75), Vector3(0, 2.13, -2.79), "windshield_cracked", face)
 		"starter":
-			box(n, Vector3(0.25, 0.25, 0.4), Vector3(-0.62, 1.2, -3.5), steel if ok else rust)
+			model(n, "starter_ok", Vector3(-0.78, 1.0, -3.6), 0.45, Vector3.ZERO,
+				null if ok else tmat("metal_rust", Color.WHITE, 3.0))
 		"magneto":
-			box(n, Vector3(0.25, 0.25, 0.3), Vector3(0.62, 1.7, -3.3), steel if ok else rust)
+			model(n, "magneto_ok" if ok else "magneto_broken", Vector3(0.8, 1.35, -3.4), 0.4, Vector3(0, PI / 2, 0))
 		"control_cables":
-			var rudder := box(n, Vector3(0.08, 1.1, 0.5), Vector3(0, 2.3, 3.45), Color(0.85, 0.2, 0.15))
+			var rudder := box(n, Vector3(0.08, 1.4, 0.45), Vector3(0, 2.6, 4.45), tmat("plane_body_worn", Color(0.85, 0.2, 0.15)))
 			if not ok:
 				rudder.rotation = Vector3(0.3, 0.6, 0.2)
 		"avionics":
-			var ant := box(n, Vector3(0.04, 0.6, 0.04), Vector3(0, 2.3, 1.0), black)
+			var ant := box(n, Vector3(0.04, 0.6, 0.04), Vector3(0, 2.41, 0.3), Color(0.08, 0.08, 0.08))
 			if not ok:  # snapped and lying flat
 				ant.rotation.x = 1.4
-				ant.position.y = 2.05
+				ant.position.y = 2.15
 		"propeller":
 			if ok:
-				box(n, Vector3(0.15, 2.4, 0.08), Vector3(0, 1.4, -3.97), wood)
+				model(n, "propeller_ok", Vector3(0, 1.29, -4.6), 2.3, Vector3.ZERO, tmat("prop_wood", Color.WHITE, 1.0))
 			else:
-				box(n, Vector3(0.15, 1.2, 0.08), Vector3(0, 2.0, -3.97), wood)
-				var bent := box(n, Vector3(0.15, 1.2, 0.08), Vector3(0, 0.9, -3.85), wood)
-				bent.rotation.x = -0.7
+				model(n, "propeller_broken", Vector3(0, 1.29, -4.6), 2.3)
 	return n
 
 
@@ -612,16 +714,76 @@ func tmat(tex: String, tint := Color.WHITE, scale := 0.5) -> StandardMaterial3D:
 	return m
 
 
-## Flat see-through quad (oil stain, windshield crack). Faces +Z before rot.
-func decal(parent: Node, size: Vector2, pos: Vector3, tex: String, rot: Vector3) -> void:
+## Flat see-through quad (stains, cracks, signs) facing `normal`. tex "" = plain quad.
+## uv_cell picks one cell of a 2x2 sprite sheet (e.g. ghost_signs), (-1,-1) = whole image.
+func decal(parent: Node, size: Vector2, pos: Vector3, tex: String, normal: Vector3, uv_cell := Vector2i(-1, -1)) -> MeshInstance3D:
 	var q := QuadMesh.new()
 	q.size = size
 	var m := StandardMaterial3D.new()
-	m.albedo_texture = load("res://textures/%s.png" % tex)
+	if tex != "":
+		m.albedo_texture = load("res://textures/%s.png" % tex)
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	if uv_cell.x >= 0:
+		m.uv1_scale = Vector3(0.5, 0.5, 1)
+		m.uv1_offset = Vector3(uv_cell.x * 0.5, uv_cell.y * 0.5, 0)
 	q.material = m
 	var mi := _place(parent, q, pos, false)
-	mi.rotation = rot
+	var up := Vector3.UP if absf(normal.normalized().y) < 0.9 else Vector3.FORWARD
+	mi.basis = Basis.looking_at(-normal, up)  # quads face +Z; looking_at aims -Z
+	return mi
+
+
+## Instance res://models/<name>.glb. tools/optimize_models.py leaves every model centered
+## and 1.9 m across its longest side, so `size` is the wanted longest side in meters.
+func model(parent: Node, name: String, pos: Vector3, size: float, rot := Vector3.ZERO, override: Material = null) -> Node3D:
+	var m: Node3D = load("res://models/%s.glb" % name).instantiate()
+	m.position = pos
+	m.rotation = rot
+	m.scale = Vector3.ONE * size / 1.9
+	parent.add_child(m)
+	if override:
+		for mi in m.find_children("*", "MeshInstance3D", true, false):
+			mi.material_override = override
+	return m
+
+
+## Scatter `count` crossed-quad cards of textures/<tex>.png (grass, wheat) as one MultiMesh.
+func _cards(tex: String, count: int, height: float, area: Rect2, r: RandomNumberGenerator, tint := Color.WHITE) -> void:
+	var q := QuadMesh.new()
+	q.size = Vector2(height * 1.2, height)
+	q.center_offset = Vector3(0, height / 2, 0)
+	var st := SurfaceTool.new()
+	st.append_from(q, 0, Transform3D.IDENTITY)
+	st.append_from(q, 0, Transform3D(Basis(Vector3.UP, PI / 2), Vector3.ZERO))
+	var mesh := st.commit()
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = load("res://textures/%s.png" % tex)
+	m.albedo_color = tint
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	m.alpha_scissor_threshold = 0.4
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh.surface_set_material(0, m)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = count
+	var i := 0
+	while i < count:
+		var p := Vector3(r.randf_range(area.position.x, area.end.x), 0, r.randf_range(area.position.y, area.end.y))
+		if _kept_clear(p):
+			continue
+		var b := Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.7, 1.3))
+		mm.set_instance_transform(i, Transform3D(b, p))
+		i += 1
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	world.add_child(mmi)
+
+
+## Runway, apron and building lot stay free of grass and props.
+func _kept_clear(p: Vector3) -> bool:
+	return absf(p.z - 20) < 7.5 or (p.x > -26 and p.x < 20 and p.z > -24 and p.z < 15)
 
 
 func box(parent: Node, size: Vector3, pos: Vector3, c, solid := false) -> MeshInstance3D:
@@ -688,7 +850,7 @@ func _text3d(text: String, pos: Vector3, size: int) -> void:
 	world.add_child(l)
 
 
-# ---------- self-test: godot --path . -- --self-test [--shot=prefix] ----------
+# ---------- self-test: godot --path . -- --self-test [--shot=prefix] [--all-faults] ----------
 
 func _self_test(args: PackedStringArray) -> void:
 	var shot := ""
@@ -696,22 +858,35 @@ func _self_test(args: PackedStringArray) -> void:
 		if a.begins_with("--shot="):
 			shot = a.trim_prefix("--shot=")
 	var job: Dictionary = jobs[0]
+	if "--all-faults" in args:  # every broken part on one plane, for screenshots
+		job.faults = FAULTS.keys()
 	var start := money
 	_travel(job, 0)
-	await get_tree().create_timer(1.0).timeout
-	if shot:
-		get_viewport().get_texture().get_image().save_png(shot + "_broken.png")
+	await _snap(shot, "broken", 1.5)
+	_open_inspection()
+	await _snap(shot, "inspect")
+	_open_shop()
+	await _snap(shot, "shop")
 	for id in job.faults:
 		var part: String = FAULTS[id].part
 		if part != "":
 			inventory[part] = 1
 		_repair(id)
-	if shot:
-		_close_panel()
-		await get_tree().create_timer(0.5).timeout
-		get_viewport().get_texture().get_image().save_png(shot + "_fixed.png")
+	await _snap(shot, "airworthy")
+	_close_panel()
+	await _snap(shot, "fixed")
+	_open_travel()
+	await _snap(shot, "travel")
+	_close_panel()
 	var ok: bool = job.fixed.size() == job.faults.size()
 	_sign_off()
 	ok = ok and rescued == 1 and money == start + job.reward and jobs.size() == MAX_JOBS
 	print("SELF-TEST ", "PASS" if ok else "FAIL", " faults=", job.faults)
 	get_tree().quit(0 if ok else 1)
+
+
+func _snap(prefix: String, name: String, wait := 0.4) -> void:
+	if prefix == "":
+		return
+	await get_tree().create_timer(wait).timeout
+	get_viewport().get_texture().get_image().save_png("%s_%s.png" % [prefix, name])

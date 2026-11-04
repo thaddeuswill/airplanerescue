@@ -24,10 +24,10 @@ const CITIES := {
 	"Fargo": [-96.8, 46.9, "snow"], "Minneapolis": [-93.3, 45.0, "snow"],
 }
 const REGIONS := {
-	"plains": {"ground": Color(0.45, 0.62, 0.3), "prop": "tree", "count": 30},
-	"forest": {"ground": Color(0.28, 0.45, 0.22), "prop": "pine", "count": 110},
-	"desert": {"ground": Color(0.82, 0.68, 0.45), "prop": "cactus", "count": 40},
-	"snow": {"ground": Color(0.92, 0.94, 0.97), "prop": "snowpine", "count": 70},
+	"plains": {"tex": "ground_grass", "ground": Color(0.45, 0.62, 0.3), "prop": "tree", "count": 30},
+	"forest": {"tex": "ground_forest", "ground": Color(0.28, 0.45, 0.22), "prop": "pine", "count": 110},
+	"desert": {"tex": "ground_sand", "ground": Color(0.82, 0.68, 0.45), "prop": "cactus", "count": 40},
+	"snow": {"tex": "ground_snow", "ground": Color(0.92, 0.94, 0.97), "prop": "snowpine", "count": 70},
 }
 const FAULTS := {
 	"tire": {"name": "Flat main tire", "part": "Tire & tube", "cost": 180},
@@ -413,7 +413,7 @@ func _load_field(city: String, job) -> void:
 	var ground := MeshInstance3D.new()
 	var pm := PlaneMesh.new()
 	pm.size = Vector2(400, 400)
-	pm.material = mat(region.ground)
+	pm.material = tmat(region.tex, Color.WHITE, 0.2)
 	ground.mesh = pm
 	world.add_child(ground)
 	var floor_body := StaticBody3D.new()
@@ -421,7 +421,7 @@ func _load_field(city: String, job) -> void:
 	fs.shape = WorldBoundaryShape3D.new()
 	floor_body.add_child(fs)
 	world.add_child(floor_body)
-	box(world, Vector3(160, 0.04, 12), Vector3(0, 0.02, 20), Color(0.28, 0.28, 0.3))  # runway
+	box(world, Vector3(160, 0.04, 12), Vector3(0, 0.02, 20), tmat("runway_asphalt", Color.WHITE, 0.15))
 	for x in range(-76, 80, 10):
 		box(world, Vector3(5, 0.05, 0.4), Vector3(x, 0.03, 20), Color(0.95, 0.95, 0.9))
 	_build_hangar(Vector3(-16, 0, -14))
@@ -437,25 +437,25 @@ func _load_field(city: String, job) -> void:
 
 
 func _build_hangar(at: Vector3) -> void:
-	var c := Color(0.62, 0.64, 0.66)
-	box(world, Vector3(14, 6, 0.3), at + Vector3(0, 3, -6), c, true)
+	var wall := tmat("hangar_metal", Color.WHITE, 0.3)
+	box(world, Vector3(14, 6, 0.3), at + Vector3(0, 3, -6), wall, true)
 	for s in [-1, 1]:
-		box(world, Vector3(0.3, 6, 12), at + Vector3(s * 7, 3, 0), c, true)
-	box(world, Vector3(14.6, 0.3, 12.6), at + Vector3(0, 6.1, 0), c.darkened(0.3), true)
-	box(world, Vector3(13.4, 0.04, 11.6), at + Vector3(0, 0.03, 0), Color(0.4, 0.4, 0.42))
-	box(world, Vector3(2, 1, 0.8), at + Vector3(3, 0.5, -5.3), Color(0.45, 0.3, 0.2), true)  # desk
+		box(world, Vector3(0.3, 6, 12), at + Vector3(s * 7, 3, 0), wall, true)
+	box(world, Vector3(14.6, 0.3, 12.6), at + Vector3(0, 6.1, 0), tmat("hangar_metal", Color(0.7, 0.7, 0.7), 0.3), true)
+	box(world, Vector3(13.4, 0.04, 11.6), at + Vector3(0, 0.03, 0), tmat("concrete", Color.WHITE, 0.25))
+	box(world, Vector3(2, 1, 0.8), at + Vector3(3, 0.5, -5.3), tmat("wood_planks"), true)  # desk
 	box(world, Vector3(0.7, 0.4, 0.4), at + Vector3(3, 1.2, -5.3), Color(0.15, 0.22, 0.15))  # radio
 	interactable(world, at + Vector3(3, 1.2, -5.0), Vector3(1.4, 0.9, 1.2), "radio")
 	_text3d("RADIO", at + Vector3(3, 2.2, -5.3), 48)
 
 
 func _build_shed(at: Vector3) -> void:
-	var c := Color(0.55, 0.25, 0.2)
+	var c := tmat("wood_planks", Color.WHITE, 0.4)
 	box(world, Vector3(5, 3, 0.2), at + Vector3(0, 1.5, -2.5), c, true)
 	for s in [-1, 1]:
 		box(world, Vector3(0.2, 3, 5), at + Vector3(s * 2.5, 1.5, 0), c, true)
-	box(world, Vector3(5.6, 0.2, 5.6), at + Vector3(0, 3.1, 0), Color(0.3, 0.3, 0.32))
-	box(world, Vector3(3, 1, 0.8), at + Vector3(0, 0.5, -1.5), Color(0.45, 0.3, 0.2), true)  # counter
+	box(world, Vector3(5.6, 0.2, 5.6), at + Vector3(0, 3.1, 0), tmat("hangar_metal", Color(0.6, 0.6, 0.6), 0.4))
+	box(world, Vector3(3, 1, 0.8), at + Vector3(0, 0.5, -1.5), tmat("wood_planks", Color(0.8, 0.7, 0.6)), true)  # counter
 	for i in 4:
 		box(world, Vector3(0.5, 0.4, 0.5), at + Vector3(-1.2 + i * 0.8, 1.2, -1.5), Color.from_hsv(i * 0.2, 0.5, 0.7))
 	interactable(world, at + Vector3(0, 1.2, -1.2), Vector3(3.2, 1.2, 1.4), "shop")
@@ -472,25 +472,25 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 		var h := r.randf_range(3.0, 6.0)
 		match region.prop:
 			"tree":
-				cyl(world, 0.2, 0.3, 1.6, pos + Vector3(0, 0.8, 0), Color(0.4, 0.27, 0.15), 5, true)
-				ball(world, h * 0.35, pos + Vector3(0, 1.4 + h * 0.3, 0), Color(0.3, 0.55, 0.22).lightened(r.randf() * 0.2))
+				cyl(world, 0.2, 0.3, 1.6, pos + Vector3(0, 0.8, 0), tmat("bark"), 5, true)
+				ball(world, h * 0.35, pos + Vector3(0, 1.4 + h * 0.3, 0), tmat("foliage", Color.WHITE.darkened(r.randf() * 0.2)))
 			"pine", "snowpine":
-				cyl(world, 0.2, 0.3, 1.2, pos + Vector3(0, 0.6, 0), Color(0.35, 0.23, 0.13), 5, true)
-				cyl(world, 0, h * 0.3, h * 1.5, pos + Vector3(0, 1.0 + h * 0.75, 0), Color(0.15, 0.35, 0.18), 6)
+				cyl(world, 0.2, 0.3, 1.2, pos + Vector3(0, 0.6, 0), tmat("bark"), 5, true)
+				cyl(world, 0, h * 0.3, h * 1.5, pos + Vector3(0, 1.0 + h * 0.75, 0), tmat("foliage", Color(0.55, 0.7, 0.6)), 6)
 				if region.prop == "snowpine":
-					cyl(world, 0, h * 0.12, h * 0.6, pos + Vector3(0, 1.0 + h * 1.2, 0), Color(0.95, 0.97, 1.0), 6)
+					cyl(world, 0, h * 0.12, h * 0.6, pos + Vector3(0, 1.0 + h * 1.2, 0), tmat("ground_snow"), 6)
 			"cactus":
-				var g := Color(0.3, 0.55, 0.3)
+				var g := tmat("foliage", Color(0.7, 0.85, 0.7))
 				cyl(world, 0.25, 0.3, h * 0.6, pos + Vector3(0, h * 0.3, 0), g, 6, true)
 				box(world, Vector3(0.9, 0.3, 0.3), pos + Vector3(0.45, h * 0.3, 0), g)
 				box(world, Vector3(0.3, 0.9, 0.3), pos + Vector3(0.8, h * 0.3 + 0.45, 0), g)
 				if r.randf() < 0.5:
-					ball(world, r.randf_range(0.5, 1.5), pos + Vector3(3, 0.2, 2), Color(0.6, 0.45, 0.35))
+					ball(world, r.randf_range(0.5, 1.5), pos + Vector3(3, 0.2, 2), tmat("rock", Color(1, 0.85, 0.75)))
 	for i in 8:  # distant mountains
 		var a := r.randf() * TAU
 		var height := r.randf_range(25.0, 60.0)
 		cyl(world, 0, r.randf_range(25, 45), height, Vector3(cos(a) * 180, height / 2, sin(a) * 180),
-			region.ground.darkened(0.35), 5)
+			tmat("rock", region.ground.lightened(0.3), 0.08), 5)
 
 
 func _build_plane(job: Dictionary) -> void:
@@ -499,21 +499,22 @@ func _build_plane(job: Dictionary) -> void:
 	plane.rotation.y = PI / 2  # nose points down the runway (-X)
 	world.add_child(plane)
 	var c: Color = job.color
-	var dark := Color(0.15, 0.15, 0.17)
-	box(plane, Vector3(1.2, 1.2, 6), Vector3(0, 1.4, 0), c, true)  # fuselage
-	box(plane, Vector3(1.22, 0.18, 5), Vector3(0, 1.15, 0.4), Color.WHITE)  # stripe
-	box(plane, Vector3(1.1, 1.1, 1.0), Vector3(0, 1.4, -3.4), Color(0.22, 0.22, 0.24))  # cowling
-	box(plane, Vector3(10, 0.15, 1.6), Vector3(0, 2.1, -0.8), c)  # wing
-	box(plane, Vector3(3.4, 0.1, 0.9), Vector3(0, 1.6, 2.9), c)  # tailplane
-	box(plane, Vector3(0.1, 1.3, 0.8), Vector3(0, 2.3, 2.8), c.darkened(0.2))  # fin
-	var spinner := cyl(plane, 0.05, 0.3, 0.4, Vector3(0, 1.4, -4.1), dark, 8)
+	var skin := tmat("plane_body", c)
+	box(plane, Vector3(1.2, 1.2, 6), Vector3(0, 1.4, 0), skin, true)  # fuselage
+	box(plane, Vector3(1.22, 0.18, 5), Vector3(0, 1.15, 0.4), tmat("plane_body"))  # stripe
+	box(plane, Vector3(1.1, 1.1, 1.0), Vector3(0, 1.4, -3.4), tmat("cowling_metal", Color.WHITE, 1.0))  # cowling
+	box(plane, Vector3(10, 0.15, 1.6), Vector3(0, 2.1, -0.8), skin)  # wing
+	box(plane, Vector3(3.4, 0.1, 0.9), Vector3(0, 1.6, 2.9), skin)  # tailplane
+	box(plane, Vector3(0.1, 1.3, 0.8), Vector3(0, 2.3, 2.8), tmat("plane_body", c.darkened(0.2)))  # fin
+	var spinner := cyl(plane, 0.05, 0.3, 0.4, Vector3(0, 1.4, -4.1), tmat("cowling_metal"), 8)
 	spinner.rotation.x = -PI / 2
-	var tailwheel := cyl(plane, 0.15, 0.15, 0.12, Vector3(0, 0.15, 2.8), dark, 8)
+	var tailwheel := cyl(plane, 0.15, 0.15, 0.12, Vector3(0, 0.15, 2.8), tmat("tire_tread", Color.WHITE, 2.0), 8)
 	tailwheel.rotation.z = PI / 2
+	var steel := tmat("metal_steel")
 	for s in [-1, 1]:
-		var strut := box(plane, Vector3(0.08, 2.17, 0.08), Vector3(s * 1.55, 1.5, -0.8), Color(0.6, 0.6, 0.62))
+		var strut := box(plane, Vector3(0.08, 2.17, 0.08), Vector3(s * 1.55, 1.5, -0.8), steel)
 		strut.rotation.z = -s * 1.07  # fuselage bottom to wing
-		var leg := box(plane, Vector3(0.1, 0.9, 0.1), Vector3(s * 0.8, 0.7, -1.2), Color(0.6, 0.6, 0.62))
+		var leg := box(plane, Vector3(0.1, 0.9, 0.1), Vector3(s * 0.8, 0.7, -1.2), steel)
 		leg.rotation.z = s * 0.4
 	for id in FAULTS:
 		visuals[id] = _part_visual(id, job.fixed.has(id) or not job.faults.has(id))
@@ -526,23 +527,24 @@ func _part_visual(id: String, ok: bool) -> Node3D:
 	var n := Node3D.new()
 	plane.add_child(n)
 	var black := Color(0.08, 0.08, 0.08)
-	var steel := Color(0.78, 0.78, 0.8)
-	var rust := Color(0.55, 0.28, 0.12)
-	var wood := Color(0.15, 0.12, 0.1)
+	var tire := tmat("tire_tread", Color.WHITE, 2.0)
+	var steel := tmat("metal_steel", Color.WHITE, 2.0)
+	var rust := tmat("metal_rust", Color.WHITE, 2.0)
+	var wood := tmat("prop_wood", Color.WHITE, 1.0)
 	match id:
 		"tire":
-			var w := cyl(n, 0.35, 0.35, 0.25, Vector3(-1.0, 0.35, -1.2), black, 10)
+			var w := cyl(n, 0.35, 0.35, 0.25, Vector3(-1.0, 0.35, -1.2), tire, 10)
 			w.rotation.z = PI / 2
 			if not ok:  # squashed flat
 				w.scale.x = 0.55
 				w.position.y = 0.2
 		"brakes":
-			var w := cyl(n, 0.35, 0.35, 0.25, Vector3(1.0, 0.35, -1.2), black, 10)
+			var w := cyl(n, 0.35, 0.35, 0.25, Vector3(1.0, 0.35, -1.2), tire, 10)
 			w.rotation.z = PI / 2
 			var d := cyl(n, 0.22, 0.22, 0.04, Vector3(1.15, 0.35, -1.2), steel if ok else rust, 10)
 			d.rotation.z = PI / 2
 		"battery":
-			var hatch := box(n, Vector3(0.05, 0.5, 0.7), Vector3(0.62, 1.2, 1.0), Color(0.5, 0.5, 0.52))
+			var hatch := box(n, Vector3(0.05, 0.5, 0.7), Vector3(0.62, 1.2, 1.0), tmat("plane_body", current_job.color))
 			if not ok:  # hatch hanging open, corroded battery showing
 				hatch.position = Vector3(0.95, 1.2, 1.3)
 				hatch.rotation.y = -1.2
@@ -552,7 +554,7 @@ func _part_visual(id: String, ok: bool) -> Node3D:
 				box(n, Vector3(0.02, 0.4, 0.9), Vector3(0.57, 1.25, -3.3), black)  # soot streak
 		"oil_leak":
 			if not ok:
-				cyl(n, 0.8, 0.8, 0.02, Vector3(0, 0.01, -3.2), black, 10)
+				decal(n, Vector2(1.8, 1.8), Vector3(0, 0.02, -3.2), "oil_puddle", Vector3(-PI / 2, 0, 0))
 		"bird_nest":
 			if not ok:
 				cyl(n, 0.35, 0.22, 0.22, Vector3(0, 2.06, -3.3), Color(0.45, 0.32, 0.18), 7)
@@ -564,9 +566,8 @@ func _part_visual(id: String, ok: bool) -> Node3D:
 				box(n, Vector3(0.04, 1.9, 0.04), Vector3(-2.5, 1.0, -0.8), fuel)  # drip
 		"windshield":
 			box(n, Vector3(1.0, 0.55, 0.08), Vector3(0, 2.05, -2.0), Color(0.55, 0.8, 0.95) if ok else Color(0.3, 0.32, 0.34))
-			if not ok:
-				var crack := box(n, Vector3(0.9, 0.03, 0.1), Vector3(0, 2.05, -2.01), Color.WHITE)
-				crack.rotation.z = 0.5
+			if not ok:  # crack overlay on the forward face (plane nose is -Z)
+				decal(n, Vector2(0.95, 0.5), Vector3(0, 2.05, -2.05), "windshield_cracked", Vector3(0, PI, 0))
 		"starter":
 			box(n, Vector3(0.25, 0.25, 0.4), Vector3(-0.62, 1.2, -3.5), steel if ok else rust)
 		"magneto":
@@ -592,21 +593,45 @@ func _part_visual(id: String, ok: bool) -> Node3D:
 
 # ---------- mesh helpers ----------
 
-func mat(c: Color) -> StandardMaterial3D:
+func mat(c) -> Material:  # c: Color, or an already-built Material
+	if c is Material:
+		return c
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
 	m.roughness = 0.85
 	return m
 
 
-func box(parent: Node, size: Vector3, pos: Vector3, c: Color, solid := false) -> MeshInstance3D:
+## Textured material from textures/<tex>.png. Triplanar mapping, so no mesh UVs needed;
+## scale = repeats per meter. Tint multiplies the texture.
+func tmat(tex: String, tint := Color.WHITE, scale := 0.5) -> StandardMaterial3D:
+	var m: StandardMaterial3D = mat(tint)
+	m.albedo_texture = load("res://textures/%s.png" % tex)
+	m.uv1_triplanar = true
+	m.uv1_scale = Vector3.ONE * scale
+	return m
+
+
+## Flat see-through quad (oil stain, windshield crack). Faces +Z before rot.
+func decal(parent: Node, size: Vector2, pos: Vector3, tex: String, rot: Vector3) -> void:
+	var q := QuadMesh.new()
+	q.size = size
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = load("res://textures/%s.png" % tex)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	q.material = m
+	var mi := _place(parent, q, pos, false)
+	mi.rotation = rot
+
+
+func box(parent: Node, size: Vector3, pos: Vector3, c, solid := false) -> MeshInstance3D:
 	var bm := BoxMesh.new()
 	bm.size = size
 	bm.material = mat(c)
 	return _place(parent, bm, pos, solid)
 
 
-func cyl(parent: Node, top: float, bottom: float, h: float, pos: Vector3, c: Color, segs := 6, solid := false) -> MeshInstance3D:
+func cyl(parent: Node, top: float, bottom: float, h: float, pos: Vector3, c, segs := 6, solid := false) -> MeshInstance3D:
 	var cm := CylinderMesh.new()
 	cm.top_radius = top
 	cm.bottom_radius = bottom
@@ -617,7 +642,7 @@ func cyl(parent: Node, top: float, bottom: float, h: float, pos: Vector3, c: Col
 	return _place(parent, cm, pos, solid)
 
 
-func ball(parent: Node, radius: float, pos: Vector3, c: Color) -> MeshInstance3D:
+func ball(parent: Node, radius: float, pos: Vector3, c) -> MeshInstance3D:
 	var sm := SphereMesh.new()
 	sm.radius = radius
 	sm.height = radius * 2

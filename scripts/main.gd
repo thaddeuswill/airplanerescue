@@ -523,40 +523,29 @@ func _load_field(city: String, job) -> void:
 
 
 func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
-	var wall := tmat("hangar_metal", Color.WHITE, 0.3)
-	box(world, Vector3(14, 6, 0.3), at + Vector3(0, 3, -6), wall, true)
-	for s in [-1, 1]:
-		box(world, Vector3(0.3, 6, 12), at + Vector3(s * 7, 3, 0), wall, true)
-		box(world, Vector3(3.5, 6, 0.2), at + Vector3(s * 5.25, 3, 6.1), tmat("hangar_door", Color.WHITE, 0.17), true)  # door leaves, slid open
-	box(world, Vector3(14.6, 0.3, 12.6), at + Vector3(0, 6.1, 0), tmat("hangar_metal", Color(0.7, 0.7, 0.7), 0.3), true)
-	box(world, Vector3(13.4, 0.04, 11.6), at + Vector3(0, 0.03, 0), tmat("concrete_oily", Color.WHITE, 0.15))
-	box(world, Vector3(6, 2.4, 0.05), at + Vector3(-2, 2.2, -5.82), tmat("pegboard", Color.WHITE, 0.5))
-	prop("toolbox", at + Vector3(-5.5, 0, -5.2), 1.1, tmat("toolbox_red", Color.WHITE, 1.5))  # drawers face +Z
-	decal(world, Vector2(0.5, 0.5), at + Vector3(-5.03, 0.75, -5.2), "sticker_sheet", Vector3.RIGHT)
+	# Quonset-hut model: open end faces +Z (the runway). Longest side is its depth;
+	# 15.8 m deep makes it 14 m wide and 7 m tall. Back wall sits near at.z - 7.2.
+	prop("hangar", at, 15.8, null, 0.0, "mesh")
+	const BACK := -7.0
+	box(world, Vector3(5, 2.4, 0.05), at + Vector3(-1.5, 2.0, BACK + 0.1), tmat("pegboard", Color.WHITE, 0.5))
+	prop("toolbox", at + Vector3(-4.5, 0, BACK + 0.6), 1.1, tmat("toolbox_red", Color.WHITE, 1.5))  # drawers face +Z
+	decal(world, Vector2(0.5, 0.5), at + Vector3(-4.03, 0.75, BACK + 0.6), "sticker_sheet", Vector3.RIGHT)
 	var drum_paint := [Color(0.45, 0.6, 0.85), Color(0.8, 0.35, 0.3), Color(0.5, 0.6, 0.45)]
-	for p in [Vector3(7.8, 0, -4), Vector3(8.5, 0, -3.2), Vector3(7.9, 0, -2.4), Vector3(-6.2, 0, 3)]:
+	for p in [Vector3(8.3, 0, -4), Vector3(9.0, 0, -3.2), Vector3(8.4, 0, -2.4), Vector3(-5.0, 0, 3)]:
 		prop("barrel_a", at + p, 0.9, tmat("galvanized_metal", drum_paint[r.randi() % 3], 2.0), r.randf() * TAU)
-	for p in [Vector3(-8.2, 0, 4), Vector3(-8.3, 0, 5.2)]:
+	for p in [Vector3(-8.7, 0, 4), Vector3(-8.8, 0, 5.2)]:
 		prop("crate_a", at + p, 1.0, tmat("wood_planks", Color(0.9, 0.8, 0.65), 1.5), r.randf_range(-0.3, 0.3))
-	decal(world, Vector2(5, 5), at + Vector3(7.17, 3, 0), "ghost_signs", Vector3.RIGHT,
-		Vector2i(r.randi() % 2, r.randi() % 2))  # faded wall ad, one of four
-	box(world, Vector3(2, 1, 0.8), at + Vector3(3, 0.5, -5.3), tmat("workbench_top", Color.WHITE, 0.6), true)  # desk
-	box(world, Vector3(0.7, 0.4, 0.4), at + Vector3(3, 1.2, -5.3), Color(0.15, 0.22, 0.15))  # radio
-	interactable(world, at + Vector3(3, 1.2, -5.0), Vector3(1.4, 0.9, 1.2), "radio")
-	_text3d("RADIO", at + Vector3(3, 2.2, -5.3), 48)
+	box(world, Vector3(2, 1, 0.8), at + Vector3(3, 0.5, BACK + 0.6), tmat("workbench_top", Color.WHITE, 0.6), true)  # desk
+	box(world, Vector3(0.7, 0.4, 0.4), at + Vector3(3, 1.2, BACK + 0.6), Color(0.15, 0.22, 0.15))  # radio
+	interactable(world, at + Vector3(3, 1.2, BACK + 0.9), Vector3(1.4, 0.9, 1.2), "radio")
+	_text3d("RADIO", at + Vector3(3, 2.2, BACK + 0.6), 48)
 
 
 func _build_shed(at: Vector3) -> void:
-	var c := tmat("barn_boards", Color.WHITE, 0.35)
-	box(world, Vector3(5, 3, 0.2), at + Vector3(0, 1.5, -2.5), c, true)
-	for s in [-1, 1]:
-		box(world, Vector3(0.2, 3, 5), at + Vector3(s * 2.5, 1.5, 0), c, true)
-	box(world, Vector3(5.6, 0.2, 5.6), at + Vector3(0, 3.1, 0), tmat("hangar_metal", Color(0.6, 0.6, 0.6), 0.4))
-	box(world, Vector3(4.6, 2.2, 0.05), at + Vector3(0, 1.7, -2.37), tmat("pegboard", Color.WHITE, 0.5))
-	box(world, Vector3(3, 1, 0.8), at + Vector3(0, 0.5, -1.5), tmat("workbench_top", Color.WHITE, 0.6), true)  # counter
-	for i in 4:
-		box(world, Vector3(0.5, 0.4, 0.5), at + Vector3(-1.2 + i * 0.8, 1.2, -1.5), Color.from_hsv(i * 0.2, 0.5, 0.7))
-	interactable(world, at + Vector3(0, 1.2, -1.2), Vector3(3.2, 1.2, 1.4), "shop")
+	# Parts-counter model: open stocked counter faces +Z, "AIRCRAFT PARTS" painted on the +X side.
+	# 5.4 m wide -> about 2.8 m deep and 3.7 m tall.
+	prop("parts_shed", at, 5.4, null, 0.0, "mesh")
+	interactable(world, at + Vector3(0, 1.2, 1.1), Vector3(4.6, 1.6, 1.2), "shop")
 	var crate := tmat("wood_planks", Color(0.9, 0.8, 0.65), 1.5)
 	prop("crate_a", at + Vector3(3.4, 0, -1.2), 1.0, crate, 0.2)  # delivery stack beside the shed
 	prop("crate_a", at + Vector3(3.5, 0.87, -1.2), 0.9, crate, -0.3)
@@ -595,8 +584,10 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 		var h := r.randf_range(3.0, 6.0)
 		match region.prop:
 			"tree":
-				cyl(world, 0.2, 0.3, 1.6, pos + Vector3(0, 0.8, 0), tmat("bark"), 5, true)
-				ball(world, h * 0.35, pos + Vector3(0, 1.4 + h * 0.3, 0), tmat("foliage", Color.WHITE.darkened(r.randf() * 0.2)))
+				var kind: String = TREE_SPLIT.keys()[r.randi() % TREE_SPLIT.size()]
+				var tree := prop(kind, pos, r.randf_range(5.5, 9.0), null, r.randf() * TAU, "trunk")
+				tree.set_meta("tree", true)
+				_paint_tree(tree, TREE_SPLIT[kind], Color.WHITE.darkened(r.randf() * 0.25))
 			"pine", "snowpine":
 				cyl(world, 0.2, 0.3, 1.2, pos + Vector3(0, 0.6, 0), tmat("bark"), 5, true)
 				cyl(world, 0, h * 0.3, h * 1.5, pos + Vector3(0, 1.0 + h * 0.75, 0), tmat("foliage", Color(0.55, 0.7, 0.6)), 6)
@@ -759,11 +750,13 @@ func model(parent: Node, name: String, pos: Vector3, size: float, rot := Vector3
 	m.rotation = rot
 	m.scale = Vector3.ONE * size / bounds.get_longest_axis_size()
 	m.position = pos - m.basis * bounds.get_center()
+	m.set_meta("bounds", bounds)  # unscaled, in the model's own space
 	return m
 
 
-## A model resting on the floor at `at` (x/z), with an invisible box collider around it.
-func prop(name: String, at: Vector3, size: float, look: Material, yaw := 0.0) -> Node3D:
+## A model resting on the floor at `at` (x/z). collide: "box" = invisible box around it,
+## "mesh" = exact walls (buildings you walk into), "trunk" = thin post (trees).
+func prop(name: String, at: Vector3, size: float, look: Material, yaw := 0.0, collide := "box") -> Node3D:
 	var m := model(world, name, at, size, Vector3(0, yaw, 0), look)
 	var bounds := AABB()
 	var first := true
@@ -772,9 +765,54 @@ func prop(name: String, at: Vector3, size: float, look: Material, yaw := 0.0) ->
 		bounds = b if first else bounds.merge(b)
 		first = false
 	m.position.y += at.y - bounds.position.y  # drop it onto the floor
-	var hit := box(world, bounds.size, Vector3(at.x, at.y + bounds.size.y / 2, at.z), Color.WHITE, true)
-	hit.visible = false
+	match collide:
+		"box":
+			var hit := box(world, bounds.size, Vector3(at.x, at.y + bounds.size.y / 2, at.z), Color.WHITE, true)
+			hit.visible = false
+		"mesh":
+			for mi: MeshInstance3D in m.find_children("*", "MeshInstance3D", true, false):
+				mi.create_trimesh_collision()
+		"trunk":
+			var t := cyl(world, 0.3, 0.3, 3.0, Vector3(at.x, at.y + 1.5, at.z), Color.WHITE, 6, true)
+			t.visible = false
 	return m
+
+
+const TREE_SPLIT := {"tree_broadleaf_a": 0.33, "tree_broadleaf_b": 0.12, "tree_broadleaf_c": 0.42}  # trunk share of height
+var _tree_shader: Shader
+
+## The tree models come untextured as one mesh: bark below `split` of the height, leaves above.
+func _paint_tree(m: Node3D, split: float, tint: Color) -> void:
+	if not _tree_shader:
+		_tree_shader = Shader.new()
+		_tree_shader.code = """
+shader_type spatial;
+uniform sampler2D bark : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D leaves : source_color, filter_linear_mipmap, repeat_enable;
+uniform float y0;
+uniform float h = 1.0;
+uniform float split = 0.3;
+uniform vec3 tint = vec3(1.0);
+varying vec3 lp;
+void vertex() { lp = VERTEX; }
+void fragment() {
+	float t = (lp.y - y0) / h;
+	vec3 b = texture(bark, vec2(lp.x + lp.z, lp.y) * 6.0).rgb;
+	vec3 l = texture(leaves, (lp.xz + lp.y) * 5.0).rgb * tint;
+	ALBEDO = mix(b, l, smoothstep(split - 0.03, split + 0.03, t));
+	ROUGHNESS = 0.9;
+}"""
+	var bounds: AABB = m.get_meta("bounds")
+	var sm := ShaderMaterial.new()
+	sm.shader = _tree_shader
+	sm.set_shader_parameter("bark", load("res://textures/bark.png"))
+	sm.set_shader_parameter("leaves", load("res://textures/foliage.png"))
+	sm.set_shader_parameter("y0", bounds.position.y)
+	sm.set_shader_parameter("h", bounds.size.y)
+	sm.set_shader_parameter("split", split)
+	sm.set_shader_parameter("tint", Vector3(tint.r, tint.g, tint.b))
+	for mi: MeshInstance3D in m.find_children("*", "MeshInstance3D", true, false):
+		mi.material_override = sm
 
 
 ## Scatter `count` crossed-quad cards of textures/<tex>.png (grass, wheat) as one MultiMesh.
@@ -890,6 +928,9 @@ func _self_test(args: PackedStringArray) -> void:
 	var job: Dictionary = jobs[0]
 	if "--all-faults" in args:  # every broken part on one plane, for screenshots
 		job.faults = FAULTS.keys()
+	for a in args:
+		if a.begins_with("--city="):  # pick the field, e.g. a plains town to see trees
+			job.city = a.trim_prefix("--city=")
 	var start := money
 	_travel(job, 0)
 	await _snap(shot, "broken", 1.5)
@@ -906,12 +947,20 @@ func _self_test(args: PackedStringArray) -> void:
 	_close_panel()
 	await _snap(shot, "fixed")
 	if shot != "":  # extra viewpoints of the hangar and the parts shed
-		for v in [["hangar", Vector3(-18, 0.1, -15.5), Vector3(-21.5, 0, -19.2)], ["drums", Vector3(-4.5, 0.1, -14), Vector3(-8, 0, -17)],
-				["shed", Vector3(21, 0.1, -5.5), Vector3(17.4, 0, -9.2)]]:
+		for v in [["hangar_out", Vector3(-10, 0.1, 4), Vector3(-16, 0, -14)], ["hangar", Vector3(-14, 0.1, -12), Vector3(-19, 0, -20)],
+				["drums", Vector3(-3.5, 0.1, -13), Vector3(-7.5, 0, -17)], ["shed", Vector3(18, 0.1, -1), Vector3(14, 0, -8)],
+				["trees", Vector3(-20, 0.1, -25), Vector3(-60, 0, -60)]]:
 			player.position = v[1]
 			player.look_at(Vector3(v[2].x, player.position.y, v[2].z), Vector3.UP)
 			player.cam.rotation.x = -0.35
 			await _snap(shot, v[0])
+		var trees := world.get_children().filter(func(n): return n.has_meta("tree"))
+		for i in mini(3, trees.size()):  # close-ups to check the bark/leaf split
+			var spot: Vector3 = trees[i].position
+			player.position = Vector3(spot.x + 9, 0.1, spot.z + 9)
+			player.look_at(Vector3(spot.x, player.position.y, spot.z), Vector3.UP)
+			player.cam.rotation.x = 0.15
+			await _snap(shot, "tree%d" % i)
 		_load_field(location, job)  # put the player back by the plane
 	_open_travel()
 	await _snap(shot, "travel")

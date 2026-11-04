@@ -18,6 +18,7 @@ TRIS = {"plane_trainer": 10000}  # face budget after remesh; triangulating rough
 DEFAULT_TRIS = 2500
 TEX = {"plane_trainer": 2048}    # everything else: DEFAULT_TEX
 DEFAULT_TEX = 1024
+WELD_ONLY = {"plane_trainer"}  # watertight once welded: decimate directly, skip the voxel remesh
 LIGHT_TRIS = 25000  # at or under this, skip the remesh/bake (it would smear thin parts like needles)
 
 files = {}
@@ -77,11 +78,18 @@ for name, f in sorted(files.items()):
     bpy.context.scene.collection.objects.link(low)
     # Meshy meshes are triangle soup split at every UV seam, so decimating them directly
     # tears holes. Rebuild a clean watertight surface first (voxel remesh), then decimate.
-    rm = low.modifiers.new("remesh", "REMESH")
-    rm.mode = "VOXEL"
-    rm.voxel_size = radius * 0.008
-    with ctx(low, [low]):
-        bpy.ops.object.modifier_apply(modifier="remesh")
+    if name in WELD_ONLY:  # thin skins (fuselage) fall through the voxel grid and leave holes
+        with ctx(low, [low]):
+            bpy.ops.object.mode_set(mode="EDIT")
+            bpy.ops.mesh.select_all(action="SELECT")
+            bpy.ops.mesh.remove_doubles(threshold=radius * 1e-5)
+            bpy.ops.object.mode_set(mode="OBJECT")
+    else:
+        rm = low.modifiers.new("remesh", "REMESH")
+        rm.mode = "VOXEL"
+        rm.voxel_size = radius * 0.008
+        with ctx(low, [low]):
+            bpy.ops.object.modifier_apply(modifier="remesh")
     budget = TRIS.get(name, DEFAULT_TRIS)
     remeshed = len(low.data.polygons)
     if remeshed > budget:

@@ -8,6 +8,7 @@ const MOUSE_SENS := 0.0025
 var frozen := false  # true while a 2D panel is open
 var cam: Camera3D
 var ray: RayCast3D
+var bob_t := 0.0
 
 
 func _ready() -> void:
@@ -51,6 +52,10 @@ func _physics_process(delta: float) -> void:
 	velocity.x = dir.x * SPEED
 	velocity.z = dir.z * SPEED
 	move_and_slide()
+	# Small head bob while walking, easing back to rest when you stop.
+	var walking := dir != Vector3.ZERO and is_on_floor()
+	bob_t += delta * 9.0 if walking else 0.0
+	cam.position.y = lerpf(cam.position.y, 1.65 + (sin(bob_t) * 0.03 if walking else 0.0), minf(1.0, delta * 12.0))
 
 
 func target() -> Object:

@@ -27,7 +27,7 @@ func start(m, p: Node3D, prop_node: Node3D) -> void:
 	prop = prop_node
 	cam = Camera3D.new()
 	cam.fov = 70
-	cam.position = Vector3(0, 2.05, -1.65)  # pilot's eye, looking over the panel
+	cam.position = Vector3(0, 1.95, 0.95)  # Cubs are flown solo from the back seat
 	cam.rotation.x = -0.1
 	plane.add_child(cam)
 	cam.make_current()
@@ -36,10 +36,10 @@ func start(m, p: Node3D, prop_node: Node3D) -> void:
 
 func _line_up() -> void:
 	speed = 0.0
-	pitch = 0.0
+	pitch = main.SIT_PITCH
 	alt = 0.0
-	plane.position = Vector3(LINE_UP_X, 0, 20)
-	plane.rotation = Vector3(0, PI / 2, 0)
+	plane.position = Vector3(LINE_UP_X, main.MAIN_Z * sin(pitch), 20)
+	plane.rotation = Vector3(pitch, PI / 2, 0)
 
 
 func _process(delta: float) -> void:
@@ -49,12 +49,12 @@ func _process(delta: float) -> void:
 	speed = move_toward(speed, TOP_SPEED if throttle else 0.0, (7.0 if throttle else 3.0) * delta)
 	if speed >= ROTATE and Input.is_action_pressed("move_back"):
 		pitch = move_toward(pitch, 0.22, 0.3 * delta)
-	elif alt < 0.05:
-		pitch = move_toward(pitch, 0.0, 0.6 * delta)
+	elif alt < 0.05:  # the tail lifts off its wheel as speed builds
+		pitch = move_toward(pitch, main.SIT_PITCH * (1.0 - clampf(speed / (ROTATE * 0.8), 0.0, 1.0)), 0.6 * delta)
 	if speed >= ROTATE * 0.9:
 		alt = maxf(0.0, alt + speed * sin(pitch) * delta)
 	plane.position.x -= speed * cos(pitch) * delta
-	plane.position.y = alt
+	plane.position.y = alt + main.MAIN_Z * sin(pitch)  # pitch pivots on the main tires
 	plane.rotation = Vector3(pitch, PI / 2, 0)  # positive pitch raises the nose
 	if is_instance_valid(prop):
 		prop.rotate_object_local(Vector3.FORWARD, (speed * 1.5 + (25.0 if throttle else 6.0)) * delta)

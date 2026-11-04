@@ -20,9 +20,14 @@ Rescue 10 planes to win. Owners scrap their planes if you're too late. Run out o
 ## Layout
 - `scripts/main.gd`: game state, world and plane building, panels
 - `scripts/player.gd`: first-person controller
+- `scripts/terrain.gd`: noise terrain per region (flat airfield, hills to mountains, ponds), slope/height ground blending
 - `scripts/ferry.gd`: cockpit takeoff
 - `scripts/sound.gd`: procedural wind, engine and wrench sounds (no audio files yet)
 - `tools/optimize_models.py`: Blender batch that makes Meshy exports game-ready (`models_raw/` → `models/`)
+- `tools/ac3d_to_glb.py`: converts FlightGear `.ac` models to `.glb` (used for `models/plane_cub.glb`)
+
+## Credits
+- Plane: Piper J-3 Cub for FlightGear by Don Lavelle (model), David Megginson and Jim Wilson, GPLv3 ([source](https://github.com/wlbragg/J3Cub)). Source files and license are in `models_raw/j3cub_fg/`.
 - `ART_DIRECTION.md`, `TEXTURES.md`, `MODELS.md`: art direction and asset lists
 - `prototype/index.html`: the original 2D browser prototype
 

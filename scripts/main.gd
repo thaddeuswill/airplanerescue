@@ -7,6 +7,7 @@ extends Node3D
 const Player := preload("res://scripts/player.gd")
 const Ferry := preload("res://scripts/ferry.gd")
 const Sound := preload("res://scripts/sound.gd")
+const Terrain := preload("res://scripts/terrain.gd")
 const GOAL := 10
 const MAX_JOBS := 3
 const START_CITY := "Wichita"
@@ -28,10 +29,10 @@ const CITIES := {
 }
 # grass/wheat: how many grass cards to scatter
 const REGIONS := {
-	"plains": {"tex": "ground_grass", "ground": Color(0.45, 0.62, 0.3), "prop": "tree", "count": 30, "grass": 6000, "wheat": 3000},
-	"forest": {"tex": "ground_forest", "ground": Color(0.28, 0.45, 0.22), "prop": "pine", "count": 110, "grass": 4000, "wheat": 0},
-	"desert": {"tex": "dirt_red", "ground": Color(0.82, 0.68, 0.45), "prop": "cactus", "count": 40, "grass": 600, "wheat": 0},
-	"snow": {"tex": "ground_snow", "ground": Color(0.92, 0.94, 0.97), "prop": "snowpine", "count": 55, "grass": 0, "wheat": 0},
+	"plains": {"tex": "ground_grass", "ground": Color(0.45, 0.62, 0.3), "prop": "tree", "count": 800, "grass": 14000, "wheat": 4000},
+	"forest": {"tex": "ground_forest", "ground": Color(0.28, 0.45, 0.22), "prop": "pine", "count": 2000, "grass": 9000, "wheat": 0},
+	"desert": {"tex": "dirt_red", "ground": Color(0.82, 0.68, 0.45), "prop": "cactus", "count": 400, "grass": 1500, "wheat": 0},
+	"snow": {"tex": "ground_snow", "ground": Color(0.92, 0.94, 0.97), "prop": "snowpine", "count": 1000, "grass": 0, "wheat": 0},
 }
 # symptom: what the owner reports on the radio. zone: where on the plane you find it.
 const FAULTS := {
@@ -51,14 +52,14 @@ const FAULTS := {
 }
 # Walk-around inspection spots, in plane-local coords (nose -Z), probed from the plane model.
 const ZONES := {
-	"prop": {"name": "propeller", "pos": Vector3(0, 1.3, -4.7), "size": Vector3(2.4, 2.4, 0.3)},
-	"engine": {"name": "engine", "pos": Vector3(0, 1.2, -3.8), "size": Vector3(1.7, 1.3, 1.4)},
-	"cabin": {"name": "cabin & windshield", "pos": Vector3(0, 2.2, -2.3), "size": Vector3(1.7, 1.0, 1.6)},
-	"gear_l": {"name": "left main gear", "pos": Vector3(-0.95, 0.45, -2.1), "size": Vector3(0.8, 0.9, 1.0)},
-	"gear_r": {"name": "right main gear", "pos": Vector3(0.95, 0.45, -2.1), "size": Vector3(0.8, 0.9, 1.0)},
-	"wing_l": {"name": "left wing", "pos": Vector3(-2.6, 2.3, -1.7), "size": Vector3(2.0, 0.7, 1.6)},
-	"battery": {"name": "battery bay", "pos": Vector3(0.75, 1.2, 1.0), "size": Vector3(0.4, 0.8, 1.0)},
-	"tail": {"name": "tail & rudder", "pos": Vector3(0, 2.4, 4.2), "size": Vector3(1.6, 2.0, 1.4)},
+	"prop": {"name": "propeller", "pos": Vector3(0, 1.2, -1.45), "size": Vector3(1.9, 1.9, 0.3)},
+	"engine": {"name": "engine", "pos": Vector3(0, 1.15, -0.9), "size": Vector3(1.0, 0.9, 0.8)},
+	"cabin": {"name": "cabin & windshield", "pos": Vector3(0, 1.6, 0.4), "size": Vector3(0.9, 0.9, 1.6)},
+	"gear_l": {"name": "left main gear", "pos": Vector3(-0.85, 0.3, 0), "size": Vector3(0.6, 0.7, 0.7)},
+	"gear_r": {"name": "right main gear", "pos": Vector3(0.85, 0.3, 0), "size": Vector3(0.6, 0.7, 0.7)},
+	"wing_l": {"name": "left wing", "pos": Vector3(-2.4, 1.95, 0.8), "size": Vector3(2.4, 0.6, 1.8)},
+	"battery": {"name": "battery bay", "pos": Vector3(0.45, 1.45, 1.7), "size": Vector3(0.3, 0.6, 0.8)},
+	"tail": {"name": "tail & rudder", "pos": Vector3(0, 2.0, 4.7), "size": Vector3(1.6, 1.6, 1.4)},
 }
 const DIFFICULTY := {1: "easy", 2: "fiddly", 3: "tricky"}  # by part cost, see _difficulty()
 const PLANE_TYPES := [["High-wing trainer", 1500], ["Rag-wing taildragger", 2000],
@@ -75,6 +76,7 @@ var rng := RandomNumberGenerator.new()
 
 var world: Node3D
 var plane: Node3D
+var cub: Node3D  # the plane model; its parts (tyre_l, rudder, antenna_elt...) are named nodes
 var visuals := {}  # fault id -> Node3D showing broken/fixed state
 var player
 var ui: CanvasLayer
@@ -90,6 +92,7 @@ var ferry: Node = null  # active ferry flight
 var sound
 var env: Environment
 var sun: DirectionalLight3D
+var terrain  # Terrain for the current field
 
 
 func _ready() -> void:
@@ -264,11 +267,10 @@ func _start_ferry() -> void:
 	for c in plane.get_children():
 		if c.has_meta("kind"):
 			c.queue_free()  # inspection spots
-	decal(plane, Vector2(1.25, 0.55), Vector3(0, 1.72, -2.25), "cockpit_panel", Vector3.BACK)
 	ferry = Ferry.new()
 	add_child(ferry)
 	ferry.finished.connect(_ferry_done)
-	ferry.start(self, plane, visuals["propeller"].get_child(0))
+	ferry.start(self, plane, visuals["propeller"].get_child(-1))
 	_say("Hold W to open the throttle. At 55 knots, hold S to lift off.")
 
 
@@ -338,6 +340,8 @@ func _setup_input() -> void:
 
 func _process(delta: float) -> void:
 	_update_hud()
+	if world:
+		_animate_birds()
 	if msg_time > 0.0:
 		msg_time -= delta
 		if msg_time <= 0.0:
@@ -608,34 +612,117 @@ func _open_travel() -> void:
 			[["You rescued %d planes." % rescued, "Play again", _restart, true]], false)
 		return
 	var vb := _open_panel("Rescue calls", rows)
-	# Vintage map with a pin per rescue call (click to fly) and a green one for you.
+	# Sectional-style nav chart: graticule, airport symbols, compass rose on your field and a
+	# magenta course line (true course + nautical miles) to each call. Click a field to fly.
 	var map := TextureRect.new()
 	map.texture = load("res://textures/us_map.png")
 	map.custom_minimum_size = Vector2(576, 360)
 	map.mouse_filter = Control.MOUSE_FILTER_PASS  # let the wheel scroll the panel
 	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	map.stretch_mode = TextureRect.STRETCH_SCALE
+	map.modulate = Color(0.93, 1.0, 0.93)  # pale green cast of a sectional chart
 	vb.add_child(map)
 	vb.move_child(map, 1)
-	var k := 576.0 / 2048.0
-	var here: Array = CITIES[location]
-	var you := ColorRect.new()
-	you.color = Color(0.1, 0.6, 0.2)
-	you.size = Vector2(12, 12)
-	you.position = Vector2(here[3], here[4]) * k - Vector2(6, 6)
-	map.add_child(you)
-	for job in jobs:
-		if job == current_job:
-			continue
-		var c: Array = CITIES[job.city]
+	var calls := jobs.filter(func(j): return j != current_job)
+	map.draw.connect(func(): _draw_chart(map, calls))
+	for job in calls:
 		var cost := int(miles(location, job.city) * FUEL_PER_MILE)
 		var pin := Button.new()
-		pin.text = job.city
-		pin.add_theme_font_size_override("font_size", 13)
-		pin.position = Vector2(c[3], c[4]) * k - Vector2(8, 12)
+		pin.flat = true
+		pin.text = job.city.to_upper()
+		pin.add_theme_font_size_override("font_size", 11)
+		pin.add_theme_color_override("font_color", CHART_MAGENTA)
+		pin.add_theme_color_override("font_hover_color", Color(0.9, 0.1, 0.5))
+		pin.position = _chart_px(job.city) + Vector2(6, -24)
 		pin.disabled = money < cost
+		pin.tooltip_text = "Fly to %s ($%d fuel)" % [job.city, cost]
 		pin.pressed.connect(func(): _travel(job, cost))
 		map.add_child(pin)
+
+
+const CHART_MAGENTA := Color(0.62, 0.12, 0.45)
+const CHART_BLUE := Color(0.16, 0.3, 0.55)
+const CHART_K := 576.0 / 2048.0
+# Quadratic fit lon/lat -> us_map.png pixels (same fit the CITIES pixels came from), for gridlines.
+const MAP_X := [5046.137508, 44.595404, -25.016715, 0.038367, 0.056775, -0.215379]
+const MAP_Y := [917.976027, -28.316197, -46.63631, -0.143734, 0.114237, 0.012057]
+
+
+func _chart_px(city: String) -> Vector2:
+	var c: Array = CITIES[city]
+	return Vector2(c[3], c[4]) * CHART_K
+
+
+func _lonlat_px(lon: float, lat: float) -> Vector2:
+	var v := [1.0, lon, lat, lon * lon, lat * lat, lon * lat]
+	var p := Vector2.ZERO
+	for i in 6:
+		p += Vector2(MAP_X[i], MAP_Y[i]) * v[i]
+	return p * CHART_K
+
+
+## Initial great-circle true course from a to b, degrees 0..360.
+func course(a: String, b: String) -> float:
+	var r := PI / 180.0
+	var p: Array = CITIES[a]
+	var q: Array = CITIES[b]
+	var dl: float = (q[0] - p[0]) * r
+	var y := sin(dl) * cos(q[1] * r)
+	var x: float = cos(p[1] * r) * sin(q[1] * r) - sin(p[1] * r) * cos(q[1] * r) * cos(dl)
+	return fposmod(rad_to_deg(atan2(y, x)), 360.0)
+
+
+func _draw_chart(map: Control, calls: Array) -> void:
+	var font := ThemeDB.fallback_font
+	var grid := Color(CHART_BLUE, 0.35)
+	for lon in range(-125, -64, 5):  # meridians
+		var pts := PackedVector2Array()
+		for lat in range(24, 51):
+			pts.append(_lonlat_px(lon, lat))
+		map.draw_polyline(pts, grid, 1.0)
+		map.draw_string(font, _lonlat_px(lon, 24.5) + Vector2(2, -2), "%d°W" % -lon, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, grid)
+	for lat in range(25, 51, 5):  # parallels
+		var pts := PackedVector2Array()
+		for lon in range(-126, -65):
+			pts.append(_lonlat_px(lon, lat))
+		map.draw_polyline(pts, grid, 1.0)
+		map.draw_string(font, _lonlat_px(-125.5, lat) + Vector2(2, -2), "%d°N" % lat, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, grid)
+	# every known field as a small non-towered airport symbol
+	for city in CITIES:
+		var p := _chart_px(city)
+		map.draw_arc(p, 3.5, 0, TAU, 12, Color(CHART_MAGENTA, 0.55), 1.2)
+	var home := _chart_px(location)
+	# compass rose around your field, 10° ticks, longer every 30°, N up (true)
+	var rose := 34.0
+	map.draw_arc(home, rose, 0, TAU, 48, CHART_BLUE, 1.2)
+	for d in range(0, 360, 10):
+		var a := deg_to_rad(d - 90.0)
+		var tick := 7.0 if d % 30 == 0 else 3.5
+		map.draw_line(home + Vector2(cos(a), sin(a)) * (rose - tick), home + Vector2(cos(a), sin(a)) * rose, CHART_BLUE, 1.0)
+	map.draw_string(font, home + Vector2(-4, -rose - 3), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, CHART_BLUE)
+	# course lines with true course / distance boxed at the midpoint
+	for job in calls:
+		var to := _chart_px(job.city)
+		map.draw_dashed_line(home, to, CHART_MAGENTA, 2.0, 8.0)
+		var tag := "%03d°  %d NM" % [roundi(course(location, job.city)), roundi(miles(location, job.city) * 0.869)]
+		var mid := home.lerp(to, clampf((rose + 45.0) / maxf(home.distance_to(to), 1.0), 0.5, 0.8))  # clear of the rose
+		var sz := font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 10)
+		map.draw_rect(Rect2(mid - Vector2(sz.x / 2 + 3, 10), sz + Vector2(6, 4)), Color(1, 1, 0.94, 0.9))
+		map.draw_rect(Rect2(mid - Vector2(sz.x / 2 + 3, 10), sz + Vector2(6, 4)), CHART_MAGENTA, false, 1.0)
+		map.draw_string(font, mid - Vector2(sz.x / 2, -1), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, CHART_MAGENTA)
+		_draw_airport(map, to, CHART_MAGENTA)
+	_draw_airport(map, home, Color(0.1, 0.45, 0.2))
+	var hw := font.get_string_size(location.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+	map.draw_string(font, home + Vector2(-hw / 2, rose + 13), location.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.1, 0.45, 0.2))
+
+
+## Sectional airport symbol: ring with four ticks and a runway bar.
+func _draw_airport(map: Control, p: Vector2, c: Color) -> void:
+	map.draw_circle(p, 5.5, Color(1, 1, 0.94))
+	map.draw_arc(p, 5.5, 0, TAU, 16, c, 2.0)
+	for a in [0.0, PI / 2, PI, PI * 1.5]:
+		map.draw_line(p + Vector2(cos(a), sin(a)) * 5.5, p + Vector2(cos(a), sin(a)) * 8.5, c, 2.0)
+	map.draw_line(p + Vector2(-3, 2), p + Vector2(3, -2), c, 2.0)
 
 
 # ---------- 3D world ----------
@@ -654,12 +741,126 @@ func _setup_environment() -> void:
 	env.fog_density = 0.003
 	env.fog_light_color = Color(0.92, 0.8, 0.62)  # warm haze
 	env.fog_sky_affect = 0.15  # keep the golden panorama visible
+	# Warm sun vs cool shadows: the ambient fill that lights shadowed sides is pulled toward blue.
+	env.ambient_light_color = Color(0.55, 0.65, 0.85)
+	env.ambient_light_sky_contribution = 0.6
+	env.glow_enabled = true  # gentle bloom on bright sky and sunlit paint only
+	env.glow_intensity = 0.4
+	env.glow_hdr_threshold = 0.9
+	env.ssao_enabled = true  # grounds wheels, props and trees
+	env.ssao_intensity = 1.5
+	# Grade: a touch of teal in the darks, warm highlights (each channel looks up its own curve).
+	var grade := Gradient.new()
+	grade.set_color(0, Color(0.0, 0.02, 0.04))
+	grade.set_color(1, Color(1.0, 0.97, 0.9))
+	grade.add_point(0.3, Color(0.27, 0.3, 0.32))
+	grade.add_point(0.75, Color(0.79, 0.75, 0.7))
+	var curve := GradientTexture1D.new()
+	curve.gradient = grade
+	env.adjustment_enabled = true
+	env.adjustment_color_correction = curve
+	env.adjustment_saturation = 1.08
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	sun = DirectionalLight3D.new()
 	sun.shadow_enabled = true
 	add_child(sun)
+	var vignette := TextureRect.new()  # soft dark corners pull the eye to the middle
+	var vg := GradientTexture2D.new()
+	vg.fill = GradientTexture2D.FILL_RADIAL
+	vg.fill_from = Vector2(0.5, 0.5)
+	vg.fill_to = Vector2(1.15, 0.5)
+	vg.gradient = Gradient.new()
+	vg.gradient.set_color(0, Color(0, 0, 0, 0))
+	vg.gradient.set_color(1, Color(0.05, 0.03, 0.08, 0.45))
+	vg.gradient.set_offset(0, 0.55)
+	vignette.texture = vg
+	vignette.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	vignette.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var layer := CanvasLayer.new()
+	layer.layer = -1  # over the 3D view, under the HUD and panels
+	layer.add_child(vignette)
+	add_child(layer)
+
+
+## A few dozen dust motes / pollen drifting around the player (snowflakes up north).
+func _add_motes(region_name: String) -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount = 60
+	p.lifetime = 8.0
+	p.preprocess = 8.0
+	p.local_coords = false
+	p.visibility_aabb = AABB(Vector3(-12, -4, -12), Vector3(24, 10, 24))
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(10, 3, 10)
+	pm.gravity = Vector3(0, -0.6 if region_name == "snow" else -0.02, 0)
+	pm.direction = Vector3(1, 0.2, 0.3)
+	pm.spread = 60
+	pm.initial_velocity_min = 0.1
+	pm.initial_velocity_max = 0.4
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 0.3
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * (0.05 if region_name == "snow" else 0.02)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(1, 1, 1, 0.8) if region_name == "snow" else Color(1.0, 0.92, 0.7, 0.55)
+	var dot := GradientTexture2D.new()  # soft round speck instead of a square
+	dot.fill = GradientTexture2D.FILL_RADIAL
+	dot.fill_from = Vector2(0.5, 0.5)
+	dot.fill_to = Vector2(1.0, 0.5)
+	dot.gradient = Gradient.new()
+	dot.gradient.set_color(1, Color(1, 1, 1, 0))
+	m.albedo_texture = dot
+	q.material = m
+	p.draw_pass_1 = q
+	p.position.y = 1.5
+	player.add_child(p)
+	return p
+
+
+## A small flock wheeling slowly over the field; wings flap now and then, otherwise glide.
+func _add_birds() -> void:
+	var flock := Node3D.new()
+	flock.position = Vector3(r_bird.randf_range(-40, 40), 38, r_bird.randf_range(-60, 20))
+	world.add_child(flock)
+	var c := Color(0.12, 0.1, 0.1)
+	for i in 7:
+		var b := Node3D.new()
+		b.position = Vector3(55 + r_bird.randf_range(-6, 6), r_bird.randf_range(-3, 3), i * 2.2 - 7)
+		for s in [-1, 1]:
+			var wing := box(b, Vector3(0.55, 0.03, 0.18), Vector3(s * 0.27, 0, 0), c)
+			wing.set_meta("side", s)
+		box(b, Vector3(0.1, 0.08, 0.35), Vector3.ZERO, c)
+		b.set_meta("phase", r_bird.randf() * TAU)
+		flock.add_child(b)
+	flock.set_meta("flock", true)
+
+
+var r_bird := RandomNumberGenerator.new()
+var motes: GPUParticles3D
+
+
+func _animate_birds() -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	for flock in world.get_children():
+		if not flock.has_meta("flock"):
+			continue
+		flock.rotation.y = -t * 0.08  # ~80 s per lap
+		for b in flock.get_children():
+			var ph: float = b.get_meta("phase")
+			var flap := sin(t * 9.0 + ph) * 0.6 * float(sin(t * 0.7 + ph) > 0.2)  # bursts of flapping
+			for w in b.get_children():
+				if w.has_meta("side"):
+					w.rotation.z = flap * w.get_meta("side")
+					w.position.x = cos(flap) * 0.27 * w.get_meta("side")
+					w.position.y = sin(flap) * 0.27
 
 
 ## Each region gets its own light: golden plains, hot hazy desert, green-tinged forest, cold snow.
@@ -692,13 +893,10 @@ func _load_field(city: String, job) -> void:
 	_apply_light(CITIES[city][2])
 	var r := RandomNumberGenerator.new()
 	r.seed = hash(city)
-	var ground := MeshInstance3D.new()
-	var pm := PlaneMesh.new()
-	pm.size = Vector2(400, 400)
-	pm.material = tmat(region.tex, Color.WHITE, 0.2)
-	ground.mesh = pm
-	world.add_child(ground)
-	var floor_body := StaticBody3D.new()
+	terrain = Terrain.new(CITIES[city][2], hash(city))
+	terrain.build(world, region.tex)
+	var floor_body := StaticBody3D.new()  # safety net under the terrain and pond
+	floor_body.position.y = -3.0
 	var fs := CollisionShape3D.new()
 	fs.shape = WorldBoundaryShape3D.new()
 	floor_body.add_child(fs)
@@ -719,6 +917,10 @@ func _load_field(city: String, job) -> void:
 		_cards("wheat_card", region.wheat, 1.2, Rect2(25, -120, 95, 130), r)  # a wheat field east of the strip
 	if job:
 		_build_plane(job)
+	_add_birds()
+	if motes:
+		motes.queue_free()
+	motes = _add_motes(CITIES[city][2])
 	player.velocity = Vector3.ZERO
 	player.position = Vector3(4, 0.1, -2)
 	player.rotation = Vector3(0, PI, 0)
@@ -777,12 +979,30 @@ func _build_sign(at: Vector3, city: String) -> void:
 
 
 func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
+	var rows := []  # windbreak tree lines along the field edges, like prairie shelterbelts
+	if region.prop != "cactus":
+		for z in [-58.0 + r.randf_range(-8, 8), 72.0 + r.randf_range(-8, 8)]:
+			var x := -170.0
+			while x < 170.0:
+				rows.append(Vector3(x, 0, z + r.randf_range(-1.5, 1.5)))
+				x += r.randf_range(6.0, 10.0)
 	var placed := 0
-	while placed < region.count:
-		var pos := Vector3(r.randf_range(-150, 150), 0, r.randf_range(-150, 150))
-		if pos.length() < 32 or absf(pos.z - 14) < 16:  # keep the apron and runway clear
-			continue
-		placed += 1
+	while placed < region.count + rows.size():
+		var pos: Vector3
+		if placed < rows.size():
+			pos = rows[placed]
+			placed += 1
+			if terrain.in_water(pos.x, pos.z):
+				continue
+		else:
+			pos = Vector3(r.randf_range(-400, 400), 0, r.randf_range(-400, 400))
+			if pos.length() < 32 or absf(pos.z - 14) < 16:  # keep the apron and runway clear
+				continue
+			# groves and clearings; nothing in the pond or on cliffs
+			if r.randf() > terrain.grove(pos.x, pos.z) or terrain.in_water(pos.x, pos.z) or terrain.slope(pos.x, pos.z) > 0.35:
+				continue
+			placed += 1
+		pos.y = terrain.height(pos.x, pos.z) - 0.1
 		var h := r.randf_range(3.0, 6.0)
 		match region.prop:
 			"tree":
@@ -805,13 +1025,17 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 					prop("cactus_c", pos, r.randf_range(1.0, 1.8), null, r.randf() * TAU)
 				if r.randf() < 0.5:
 					var s := r.randf_range(0.6, 1.4)
-					_crag(pos + Vector3(3, 0, 2), s, s * 1.1, Color(0.95, 0.75, 0.6), r)
-	var snowy: bool = region.prop == "snowpine"
-	for i in 12:  # distant mountain ring
-		var a := r.randf() * TAU
-		var height := r.randf_range(25.0, 70.0)
-		_crag(Vector3(cos(a), 0, sin(a)) * r.randf_range(165, 200), r.randf_range(25, 50), height,
-			region.ground.lightened(0.15).lerp(Color(0.55, 0.5, 0.48), 0.6), r, 0.45 if snowy else (0.75 if height > 50 else 2.0))
+					_crag(Vector3(pos.x + 3, terrain.height(pos.x + 3, pos.z + 2) - 0.2, pos.z + 2), s, s * 1.1, Color(0.95, 0.75, 0.6), r)
+	var rocks := 0  # outcrops half-buried in hillsides (the hills and mountains themselves are terrain)
+	var tries := 0
+	while rocks < (0 if region.prop == "tree" else 18) and tries < 2000:
+		tries += 1
+		var p := Vector3(r.randf_range(-300, 300), 0, r.randf_range(-300, 300))
+		if p.length() < 70 or terrain.slope(p.x, p.z) < 0.2 or terrain.height(p.x, p.z) < 4.0:
+			continue
+		rocks += 1
+		var s := r.randf_range(2.0, 6.0)
+		_crag(p + Vector3(0, terrain.height(p.x, p.z) - s * 0.35, 0), s, s * 0.7, region.ground.lerp(Color(0.55, 0.5, 0.48), 0.7), r)
 
 
 ## Faceted, jagged rock: 3 jittered rings tapering to an off-center peak, flat-shaded,
@@ -863,24 +1087,19 @@ func _crag(pos: Vector3, radius: float, height: float, base: Color, r: RandomNum
 
 func _build_plane(job: Dictionary) -> void:
 	plane = Node3D.new()
-	plane.position = Vector3(0, 0, 8)
-	plane.rotation.y = PI / 2  # nose points down the runway (-X)
+	plane.rotation = Vector3(SIT_PITCH, PI / 2, 0)  # nose down the runway (-X), resting back on the tailwheel
+	plane.position = Vector3(0, MAIN_Z * sin(SIT_PITCH), 8)  # keeps the main tires on the ground
 	world.add_child(plane)
-	# Model faces -X with wings along Z; turn it so the nose is -Z like the rest of this layout.
-	# Positions below come from probing the mesh: nose z=-4.5, mains at x=±0.9 z=-2.1,
-	# high wing y≈2.4 z -2.4..-1.0, fin z 3.1..4.3, cabin roof y≈2.5.
-	var body := model(plane, "plane_trainer", Vector3(0, 0.33 * 10.0 / 1.9, 0), 10.0, Vector3(0, -PI / 2, 0))
-	var tint: Color = Color.WHITE.lerp(job.color, 0.5)  # gentle: the tint also lands on tires and glass
-	for mi in body.find_children("*", "MeshInstance3D", true, false):
-		for s in mi.mesh.get_surface_count():
-			var m: StandardMaterial3D = mi.get_active_material(s).duplicate()
-			m.albedo_color = tint
-			mi.set_surface_override_material(s, m)
+	# FlightGear J-3 Cub (GPL, real scale: 10.65 m span). Model faces -X with wings along Z;
+	# turned so the nose is -Z. Plane origin = between the main tires on the ground.
+	# Probed parts (plane space): tyres x=±0.9 z=0, nose z=-1.33, cowl z -1.16..-0.69,
+	# windshield y 1.37..1.96 z -0.53..0.09, wing y≈1.95, rudder hinge z=4.44, tailwheel z=5.2.
+	cub = model(plane, "plane_cub", Vector3(-0.005, 1.37, 2.025), 10.65, Vector3(0, -PI / 2, 0))
 	var hull := StaticBody3D.new()  # keeps the player from walking through the plane
 	var hs := CollisionShape3D.new()
 	hs.shape = BoxShape3D.new()
-	hs.shape.size = Vector3(1.4, 2.0, 9.0)
-	hs.position = Vector3(0, 1.2, 0)
+	hs.shape.size = Vector3(0.9, 1.7, 6.6)
+	hs.position = Vector3(0, 1.55, 2.0)
 	hull.add_child(hs)
 	plane.add_child(hull)
 	for id in FAULTS:
@@ -889,62 +1108,72 @@ func _build_plane(job: Dictionary) -> void:
 		interactable(plane, ZONES[z].pos, ZONES[z].size, "zone").set_meta("zone", z)
 
 
+## Taildragger stance: the Cub model is built level, tailwheel bottom 1.04 m up at z=5.2 behind the mains.
+const MAIN_Z := 0.0  # main tire contact, plane space (the pitch pivot)
+const SIT_PITCH := 0.197  # atan(1.04 / 5.2): the real three-point attitude, about 11 degrees
+
+
+## Swings one of the Cub's named parts about a hinge (model space point and axis); angle 0 = as built.
+func _hinge(part: String, pivot: Vector3, axis: Vector3, angle: float) -> void:
+	var p: Node3D = cub.find_child(part, true, false)
+	p.transform = Transform3D(Basis(axis, angle), pivot) * Transform3D(Basis(), -pivot)
+
+
 ## The piece of the plane each fault lives on, drawn broken or fixed.
 func _part_visual(id: String, ok: bool) -> Node3D:
 	var n := Node3D.new()
 	plane.add_child(n)
 	var axle_x := Vector3(0, PI / 2, 0)  # wheel/disc models spin around Z; turn them to X
+	var level := Node3D.new()  # undoes the sit pitch, for things that hang plumb or lie on the ground
+	level.rotation.x = -SIT_PITCH
+	n.add_child(level)
 	match id:
-		"tire":
-			model(n, "tire_ok" if ok else "tire_broken", Vector3(-0.9, 0.45, -2.1), 0.95, axle_x)
-		"brakes":
-			model(n, "tire_ok", Vector3(0.9, 0.45, -2.1), 0.95, axle_x)
-			model(n, "brakes_ok" if ok else "brakes_broken", Vector3(1.22, 0.45, -2.1), 0.55, axle_x)
-		"battery":
-			var hatch := box(n, Vector3(0.05, 0.5, 0.7), Vector3(0.49, 1.2, 1.0), tmat("plane_body_worn", current_job.color))
+		"tire":  # the Cub's own tyre, swapped for a flat one sagging on its rim
+			cub.find_child("tyre_l", true, false).visible = ok
+			if not ok:
+				model(level, "tire_broken", Vector3(-0.9, 0.2, 0), 0.5, axle_x)
+		"brakes":  # disc on the outboard hub so it shows on the walk-around
+			model(n, "brakes_ok" if ok else "brakes_broken", Vector3(1.04, 0.25, 0), 0.22, axle_x)
+		"battery":  # access hatch on the right side of the turtle deck
+			var hatch := box(n, Vector3(0.03, 0.35, 0.5), Vector3(0.36, 1.45, 1.7), tmat("plane_body_worn", Color(0.95, 0.8, 0.3)))
 			if not ok:  # hatch hanging open, corroded battery pulled half out
-				hatch.position = Vector3(0.8, 1.2, 1.32)
+				hatch.position = Vector3(0.55, 1.45, 1.98)
 				hatch.rotation.y = -1.2
-				model(n, "battery_broken", Vector3(0.62, 1.2, 1.0), 0.45)
+				model(n, "battery_broken", Vector3(0.45, 1.45, 1.7), 0.35)
 		"spark_plugs":
 			if not ok:
-				decal(n, Vector2(0.9, 0.45), Vector3(0.71, 1.05, -3.7), "decal_soot", Vector3.RIGHT)
+				decal(n, Vector2(0.5, 0.3), Vector3(0.35, 1.1, -0.92), "decal_soot", Vector3.RIGHT)
 		"oil_leak":
 			if not ok:
-				decal(n, Vector2(1.8, 1.8), Vector3(0, 0.02, -3.9), "oil_puddle", Vector3.UP)
+				decal(level, Vector2(1.4, 1.4), Vector3(0, 0.02, -1.2), "oil_puddle", Vector3.UP)
 		"bird_nest":
 			if not ok:
-				cyl(n, 0.35, 0.22, 0.22, Vector3(0, 1.8, -3.8), tmat("bark", Color(0.8, 0.65, 0.45)), 7)
-				ball(n, 0.08, Vector3(0.05, 1.94, -3.8), Color(0.75, 0.88, 0.95))
-		"fuel_line":
+				cyl(n, 0.25, 0.16, 0.16, Vector3(0, 1.6, -0.95), tmat("bark", Color(0.8, 0.65, 0.45)), 7)
+				ball(n, 0.06, Vector3(0.04, 1.71, -0.95), Color(0.75, 0.88, 0.95))
+		"fuel_line":  # wing tank seeping at the left wing root
 			if not ok:
-				decal(n, Vector2(1.8, 1.8), Vector3(-2.5, 0.02, -1.7), "decal_fuel_stain", Vector3.UP)
-				box(n, Vector3(0.04, 2.2, 0.04), Vector3(-2.5, 1.12, -1.7), Color(0.35, 0.5, 0.85))  # drip
+				decal(level, Vector2(1.4, 1.4), Vector3(-1.4, 0.02, 0.6), "decal_fuel_stain", Vector3.UP)
+				box(level, Vector3(0.03, 1.65, 0.03), Vector3(-1.4, 0.84, 0.6), Color(0.35, 0.5, 0.85))  # drip
 		"windshield":
-			if not ok:  # fogged glass + crack over the model's windshield (slopes up and back)
-				var face := Vector3(0, 0.6, -0.8).normalized()
-				var glass := decal(n, Vector2(1.15, 0.85), Vector3(0, 2.12, -2.78), "", face)
+			if not ok:  # fogged glass + crack over the windshield (45 degrees, up and back)
+				var face := Vector3(0, 0.7, -0.7).normalized()
+				var glass := decal(n, Vector2(0.72, 0.82), Vector3(0, 1.68, -0.24), "", face)
 				glass.mesh.material.albedo_color = Color(0.45, 0.47, 0.48, 0.85)
-				decal(n, Vector2(1.0, 0.75), Vector3(0, 2.13, -2.79), "windshield_cracked", face)
+				decal(n, Vector2(0.65, 0.7), Vector3(0, 1.685, -0.245), "windshield_cracked", face)
 		"starter":
-			model(n, "starter_ok", Vector3(-0.78, 1.0, -3.6), 0.45, Vector3.ZERO,
+			model(n, "starter_ok", Vector3(-0.42, 1.0, -0.85), 0.3, Vector3.ZERO,
 				null if ok else tmat("metal_rust", Color.WHITE, 3.0))
 		"magneto":
-			model(n, "magneto_ok" if ok else "magneto_broken", Vector3(0.8, 1.35, -3.4), 0.4, Vector3(0, PI / 2, 0))
-		"control_cables":
-			var rudder := box(n, Vector3(0.08, 1.4, 0.45), Vector3(0, 2.6, 4.45), tmat("plane_body_worn", Color(0.85, 0.2, 0.15)))
-			if not ok:
-				rudder.rotation = Vector3(0.3, 0.6, 0.2)
-		"avionics":
-			var ant := box(n, Vector3(0.04, 0.6, 0.04), Vector3(0, 2.41, 0.3), Color(0.08, 0.08, 0.08))
-			if not ok:  # snapped and lying flat
-				ant.rotation.x = 1.4
-				ant.position.y = 2.15
+			model(n, "magneto_ok" if ok else "magneto_broken", Vector3(0.4, 1.3, -0.72), 0.25, Vector3(0, PI / 2, 0))
+		"control_cables":  # slack cables let the rudder flop hard over
+			_hinge("rudder", Vector3(4.47, 0, 0), Vector3.UP, 0.0 if ok else 0.6)
+		"avionics":  # antenna mast snapped over at its base
+			_hinge("antenna_elt", Vector3(0.44, 0.17, 0.38), Vector3.RIGHT, 0.0 if ok else 1.4)
 		"propeller":
 			if ok:
-				model(n, "propeller_ok", Vector3(0, 1.29, -4.6), 2.3, Vector3.ZERO, tmat("prop_wood", Color.WHITE, 1.0))
+				model(n, "propeller_ok", Vector3(0, 1.2, -1.42), 1.85, Vector3.ZERO, tmat("prop_wood", Color.WHITE, 1.0))
 			else:
-				model(n, "propeller_broken", Vector3(0, 1.29, -4.6), 2.3)
+				model(n, "propeller_broken", Vector3(0, 1.2, -1.42), 1.85)
 	return n
 
 
@@ -1048,7 +1277,12 @@ uniform float h = 1.0;
 uniform float split = 0.3;
 uniform vec3 tint = vec3(1.0);
 varying vec3 lp;
-void vertex() { lp = VERTEX; }
+void vertex() {
+	lp = VERTEX;
+	float s = smoothstep(split, 1.0, (VERTEX.y - y0) / h);  // canopy sways, trunk stays put
+	vec3 w = MODEL_MATRIX[3].xyz;
+	VERTEX.xz += vec2(sin(TIME * 1.1 + w.x * 0.3), cos(TIME * 0.9 + w.z * 0.3)) * 0.012 * h * s;
+}
 void fragment() {
 	float t = (lp.y - y0) / h;
 	vec3 b = texture(bark, vec2(lp.x + lp.z, lp.y) * 6.0).rgb;
@@ -1078,12 +1312,13 @@ func _cards(tex: String, count: int, height: float, area: Rect2, r: RandomNumber
 	st.append_from(q, 0, Transform3D.IDENTITY)
 	st.append_from(q, 0, Transform3D(Basis(Vector3.UP, PI / 2), Vector3.ZERO))
 	var mesh := st.commit()
-	var m := StandardMaterial3D.new()
-	m.albedo_texture = load("res://textures/%s.png" % tex)
-	m.albedo_color = tint
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	m.alpha_scissor_threshold = 0.4
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	if not _grass_shader:
+		_grass_shader = Shader.new()
+		_grass_shader.code = GRASS_SHADER
+	var m := ShaderMaterial.new()
+	m.shader = _grass_shader
+	m.set_shader_parameter("tex", load("res://textures/%s.png" % tex))
+	m.set_shader_parameter("tint", tint)
 	mesh.surface_set_material(0, m)
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -1092,8 +1327,9 @@ func _cards(tex: String, count: int, height: float, area: Rect2, r: RandomNumber
 	var i := 0
 	while i < count:
 		var p := Vector3(r.randf_range(area.position.x, area.end.x), 0, r.randf_range(area.position.y, area.end.y))
-		if _kept_clear(p):
+		if _kept_clear(p) or terrain.in_water(p.x, p.z) or terrain.slope(p.x, p.z) > 0.4:
 			continue
+		p.y = terrain.height(p.x, p.z) - 0.05
 		var b := Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.7, 1.3))
 		mm.set_instance_transform(i, Transform3D(b, p))
 		i += 1
@@ -1101,6 +1337,33 @@ func _cards(tex: String, count: int, height: float, area: Rect2, r: RandomNumber
 	mmi.multimesh = mm
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	world.add_child(mmi)
+
+
+var _grass_shader: Shader
+# Cards bend from the root with the wind; gusts roll across the field as a slow wave.
+# Normals point up so cards light like the ground they stand on instead of flat paper.
+const GRASS_SHADER := """
+shader_type spatial;
+render_mode cull_disabled;
+uniform sampler2D tex : source_color, filter_linear_mipmap;
+uniform vec4 tint : source_color = vec4(1.0);
+void vertex() {
+	vec3 w = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float bend = pow(1.0 - UV.y, 1.5);
+	float gust = sin(dot(w.xz, vec2(0.07, 0.04)) - TIME * 1.3) * 0.5 + 0.5;
+	float flutter = sin(TIME * 4.0 + w.x * 1.7 + w.z * 1.3) * 0.04;
+	vec3 wind = vec3(1.0, 0.0, 0.45) * ((0.05 + 0.22 * gust) * bend + flutter * bend);
+	VERTEX += inverse(mat3(MODEL_MATRIX)) * wind;
+	NORMAL = inverse(mat3(MODEL_MATRIX)) * vec3(0.0, 1.0, 0.0);
+}
+void fragment() {
+	vec4 c = texture(tex, UV);
+	ALBEDO = c.rgb * tint.rgb * mix(0.55, 1.0, 1.0 - UV.y);
+	ALPHA = c.a;
+	ALPHA_SCISSOR_THRESHOLD = 0.4;
+	ROUGHNESS = 0.9;
+}
+"""
 
 
 ## Runway, apron and building lot stay free of grass and props.
@@ -1189,6 +1452,15 @@ func _self_test(args: PackedStringArray) -> void:
 	job.deadline = day + 30  # don't let a long test trip expire the job
 	_travel(job, 0)
 	await _snap(shot, "broken", 1.5)
+	if shot != "":  # wheels close up, while any flat tire is still flat
+		for v in [["gear", Vector3(2.2, 0.1, 4.6), Vector3(0, 0, 7.1)], ["gear_l", Vector3(2.2, 0.1, 11.4), Vector3(0, 0, 8.9)],
+				["gear_front", Vector3(-7.5, 0.1, 8.6), Vector3(0, 0, 8)], ["tail", Vector3(8.5, 0.1, 5.0), Vector3(5, 0, 8)],
+				["side", Vector3(1.5, 0.1, 1.0), Vector3(1.5, 0, 8)]]:
+			player.position = v[1]
+			player.look_at(Vector3(v[2].x, player.position.y, v[2].z), Vector3.UP)
+			player.cam.rotation.x = -0.35
+			await _snap(shot, v[0])
+		_load_field(location, job)
 	_open_travel()
 	await _snap(shot, "radio")
 	var first_zone: String = FAULTS[job.faults[0]].zone
@@ -1219,16 +1491,26 @@ func _self_test(args: PackedStringArray) -> void:
 	if shot != "":  # extra viewpoints of the hangar and the parts shed
 		for v in [["hangar_out", Vector3(-10, 0.1, 4), Vector3(-16, 0, -14)], ["hangar", Vector3(-14, 0.1, -12), Vector3(-19, 0, -20)],
 				["drums", Vector3(-3.5, 0.1, -13), Vector3(-7.5, 0, -17)], ["shed", Vector3(18, 0.1, -1), Vector3(14, 0, -8)],
-				["truck", Vector3(-1, 0.1, 4), Vector3(-8, 0, -1)],
-				["trees", Vector3(-20, 0.1, -25), Vector3(-60, 0, -60)]]:
+				["truck", Vector3(-1, 0.1, 4), Vector3(-8, 0, -1)],				["trees", Vector3(-20, 0.1, -25), Vector3(-60, 0, -60)],
+			["vista_n", Vector3(0, 0.1, -28), Vector3(0, 0, -300)], ["vista_e", Vector3(100, 0.1, 25), Vector3(400, 0, 60)],
+			["vista_w", Vector3(-100, 0.1, 10), Vector3(-400, 0, -40)]]:
 			player.position = v[1]
 			player.look_at(Vector3(v[2].x, player.position.y, v[2].z), Vector3.UP)
-			player.cam.rotation.x = -0.35
+			player.cam.rotation.x = 0.02 if v[0].begins_with("vista") else -0.35
+			if v[0] == "vista_n":
+				await get_tree().create_timer(2.0).timeout
+				print("FPS at vista: ", Engine.get_frames_per_second())
 			await _snap(shot, v[0])
+		if terrain.pond != Vector3.INF:
+			var pd: Vector3 = terrain.pond
+			player.position = Vector3(pd.x + pd.z + 6, terrain.height(pd.x + pd.z + 6, pd.y) + 0.2, pd.y)
+			player.look_at(Vector3(pd.x, player.position.y, pd.y), Vector3.UP)
+			player.cam.rotation.x = -0.2
+			await _snap(shot, "pond")
 		var trees := world.get_children().filter(func(n): return n.has_meta("tree"))
 		for i in mini(3, trees.size()):  # close-ups to check the bark/leaf split
 			var spot: Vector3 = trees[i].position
-			player.position = Vector3(spot.x + 9, 0.1, spot.z + 9)
+			player.position = Vector3(spot.x + 9, terrain.height(spot.x + 9, spot.z + 9) + 0.2, spot.z + 9)
 			player.look_at(Vector3(spot.x, player.position.y, spot.z), Vector3.UP)
 			player.cam.rotation.x = 0.15
 			await _snap(shot, "tree%d" % i)

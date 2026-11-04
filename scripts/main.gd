@@ -531,8 +531,13 @@ func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	box(world, Vector3(14.6, 0.3, 12.6), at + Vector3(0, 6.1, 0), tmat("hangar_metal", Color(0.7, 0.7, 0.7), 0.3), true)
 	box(world, Vector3(13.4, 0.04, 11.6), at + Vector3(0, 0.03, 0), tmat("concrete_oily", Color.WHITE, 0.15))
 	box(world, Vector3(6, 2.4, 0.05), at + Vector3(-2, 2.2, -5.82), tmat("pegboard", Color.WHITE, 0.5))
-	box(world, Vector3(1.4, 1.1, 0.6), at + Vector3(-5.5, 0.55, -5.3), tmat("toolbox_red", Color.WHITE, 0.7), true)
-	decal(world, Vector2(1.0, 1.0), at + Vector3(-5.5, 0.6, -4.99), "sticker_sheet", Vector3.BACK)
+	prop("toolbox", at + Vector3(-5.5, 0, -5.2), 1.1, tmat("toolbox_red", Color.WHITE, 1.5))  # drawers face +Z
+	decal(world, Vector2(0.5, 0.5), at + Vector3(-5.03, 0.75, -5.2), "sticker_sheet", Vector3.RIGHT)
+	var drum_paint := [Color(0.45, 0.6, 0.85), Color(0.8, 0.35, 0.3), Color(0.5, 0.6, 0.45)]
+	for p in [Vector3(7.8, 0, -4), Vector3(8.5, 0, -3.2), Vector3(7.9, 0, -2.4), Vector3(-6.2, 0, 3)]:
+		prop("barrel_a", at + p, 0.9, tmat("galvanized_metal", drum_paint[r.randi() % 3], 2.0), r.randf() * TAU)
+	for p in [Vector3(-8.2, 0, 4), Vector3(-8.3, 0, 5.2)]:
+		prop("crate_a", at + p, 1.0, tmat("wood_planks", Color(0.9, 0.8, 0.65), 1.5), r.randf_range(-0.3, 0.3))
 	decal(world, Vector2(5, 5), at + Vector3(7.17, 3, 0), "ghost_signs", Vector3.RIGHT,
 		Vector2i(r.randi() % 2, r.randi() % 2))  # faded wall ad, one of four
 	box(world, Vector3(2, 1, 0.8), at + Vector3(3, 0.5, -5.3), tmat("workbench_top", Color.WHITE, 0.6), true)  # desk
@@ -552,6 +557,11 @@ func _build_shed(at: Vector3) -> void:
 	for i in 4:
 		box(world, Vector3(0.5, 0.4, 0.5), at + Vector3(-1.2 + i * 0.8, 1.2, -1.5), Color.from_hsv(i * 0.2, 0.5, 0.7))
 	interactable(world, at + Vector3(0, 1.2, -1.2), Vector3(3.2, 1.2, 1.4), "shop")
+	var crate := tmat("wood_planks", Color(0.9, 0.8, 0.65), 1.5)
+	prop("crate_a", at + Vector3(3.4, 0, -1.2), 1.0, crate, 0.2)  # delivery stack beside the shed
+	prop("crate_a", at + Vector3(3.5, 0.87, -1.2), 0.9, crate, -0.3)
+	prop("crate_a", at + Vector3(3.3, 0, 0.1), 1.0, crate, 0.5)
+	prop("barrel_a", at + Vector3(-3.2, 0, -1.6), 0.9, tmat("galvanized_metal", Color(0.8, 0.35, 0.3), 2.0))
 	_text3d("PARTS", at + Vector3(0, 3.9, 0), 72)
 
 
@@ -733,17 +743,37 @@ func decal(parent: Node, size: Vector2, pos: Vector3, tex: String, normal: Vecto
 	return mi
 
 
-## Instance res://models/<name>.glb. tools/optimize_models.py leaves every model centered
-## and 1.9 m across its longest side, so `size` is the wanted longest side in meters.
+## Instance res://models/<name>.glb, scaled so its longest side is `size` meters and its
+## bounding-box center sits at `pos` (measured, so any model's export scale works).
 func model(parent: Node, name: String, pos: Vector3, size: float, rot := Vector3.ZERO, override: Material = null) -> Node3D:
 	var m: Node3D = load("res://models/%s.glb" % name).instantiate()
-	m.position = pos
-	m.rotation = rot
-	m.scale = Vector3.ONE * size / 1.9
 	parent.add_child(m)
-	if override:
-		for mi in m.find_children("*", "MeshInstance3D", true, false):
+	var bounds := AABB()
+	var first := true
+	for mi: MeshInstance3D in m.find_children("*", "MeshInstance3D", true, false):
+		var b: AABB = (m.global_transform.affine_inverse() * mi.global_transform) * mi.get_aabb()
+		bounds = b if first else bounds.merge(b)
+		first = false
+		if override:
 			mi.material_override = override
+	m.rotation = rot
+	m.scale = Vector3.ONE * size / bounds.get_longest_axis_size()
+	m.position = pos - m.basis * bounds.get_center()
+	return m
+
+
+## A model resting on the floor at `at` (x/z), with an invisible box collider around it.
+func prop(name: String, at: Vector3, size: float, look: Material, yaw := 0.0) -> Node3D:
+	var m := model(world, name, at, size, Vector3(0, yaw, 0), look)
+	var bounds := AABB()
+	var first := true
+	for mi: MeshInstance3D in m.find_children("*", "MeshInstance3D", true, false):
+		var b: AABB = (world.global_transform.affine_inverse() * mi.global_transform) * mi.get_aabb()
+		bounds = b if first else bounds.merge(b)
+		first = false
+	m.position.y += at.y - bounds.position.y  # drop it onto the floor
+	var hit := box(world, bounds.size, Vector3(at.x, at.y + bounds.size.y / 2, at.z), Color.WHITE, true)
+	hit.visible = false
 	return m
 
 
@@ -875,6 +905,14 @@ func _self_test(args: PackedStringArray) -> void:
 	await _snap(shot, "airworthy")
 	_close_panel()
 	await _snap(shot, "fixed")
+	if shot != "":  # extra viewpoints of the hangar and the parts shed
+		for v in [["hangar", Vector3(-18, 0.1, -15.5), Vector3(-21.5, 0, -19.2)], ["drums", Vector3(-4.5, 0.1, -14), Vector3(-8, 0, -17)],
+				["shed", Vector3(21, 0.1, -5.5), Vector3(17.4, 0, -9.2)]]:
+			player.position = v[1]
+			player.look_at(Vector3(v[2].x, player.position.y, v[2].z), Vector3.UP)
+			player.cam.rotation.x = -0.35
+			await _snap(shot, v[0])
+		_load_field(location, job)  # put the player back by the plane
 	_open_travel()
 	await _snap(shot, "travel")
 	_close_panel()

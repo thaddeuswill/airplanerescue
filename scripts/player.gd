@@ -23,7 +23,7 @@ func _ready() -> void:
 	cam.fov = 75
 	add_child(cam)
 	ray = RayCast3D.new()
-	ray.target_position = Vector3(0, 0, -3)
+	ray.target_position = Vector3(0, 0, -3.5)
 	ray.collision_mask = 3  # walls (1) block, interactables (2) are hit
 	ray.add_exception(self)
 	cam.add_child(ray)

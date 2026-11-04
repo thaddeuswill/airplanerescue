@@ -18,6 +18,7 @@ TRIS = {"plane_trainer": 10000}  # face budget after remesh; triangulating rough
 DEFAULT_TRIS = 2500
 TEX = {"plane_trainer": 2048}    # everything else: DEFAULT_TEX
 DEFAULT_TEX = 1024
+LIGHT_TRIS = 25000  # at or under this, skip the remesh/bake (it would smear thin parts like needles)
 
 files = {}
 for f in glob.glob(os.path.join(src, "*.glb")):
@@ -58,6 +59,19 @@ for name, f in sorted(files.items()):
     before = len(high.data.polygons)
     lo, hi = bounds([high])
     radius = (hi - lo).length / 2
+
+    if before <= LIGHT_TRIS:  # already game-ready: keep the mesh as-is, only shrink textures
+        size = TEX.get(name, DEFAULT_TEX)
+        for img in bpy.data.images:
+            if img.size[0] > size:
+                img.scale(size, int(size * img.size[1] / img.size[0]))
+                img.pack()
+        out = os.path.join(dst, name + ".glb")
+        bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", export_image_format="JPEG",
+                                  export_jpeg_quality=85)
+        print(f"OPT {name}: {before:,} tris kept, textures <= {size}px, "
+              f"{os.path.getsize(f) / 1e6:.1f} MB -> {os.path.getsize(out) / 1e6:.1f} MB", flush=True)
+        continue
 
     low = high.copy(); low.data = high.data.copy(); low.name = name
     bpy.context.scene.collection.objects.link(low)

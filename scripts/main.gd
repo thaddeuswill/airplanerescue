@@ -5,6 +5,8 @@ extends Node3D
 ## buildings and nature are still primitives built in code. Art direction: ART_DIRECTION.md.
 
 const Player := preload("res://scripts/player.gd")
+const Ferry := preload("res://scripts/ferry.gd")
+const Sound := preload("res://scripts/sound.gd")
 const GOAL := 10
 const MAX_JOBS := 3
 const START_CITY := "Wichita"
@@ -29,27 +31,41 @@ const REGIONS := {
 	"plains": {"tex": "ground_grass", "ground": Color(0.45, 0.62, 0.3), "prop": "tree", "count": 30, "grass": 6000, "wheat": 3000},
 	"forest": {"tex": "ground_forest", "ground": Color(0.28, 0.45, 0.22), "prop": "pine", "count": 110, "grass": 4000, "wheat": 0},
 	"desert": {"tex": "dirt_red", "ground": Color(0.82, 0.68, 0.45), "prop": "cactus", "count": 40, "grass": 600, "wheat": 0},
-	"snow": {"tex": "ground_snow", "ground": Color(0.92, 0.94, 0.97), "prop": "snowpine", "count": 70, "grass": 0, "wheat": 0},
+	"snow": {"tex": "ground_snow", "ground": Color(0.92, 0.94, 0.97), "prop": "snowpine", "count": 55, "grass": 0, "wheat": 0},
 }
+# symptom: what the owner reports on the radio. zone: where on the plane you find it.
 const FAULTS := {
-	"tire": {"name": "Flat main tire", "part": "Tire & tube", "cost": 180},
-	"brakes": {"name": "Rusted brake disc", "part": "Brake disc", "cost": 260},
-	"battery": {"name": "Dead battery", "part": "Battery", "cost": 350},
-	"spark_plugs": {"name": "Fouled spark plugs", "part": "Spark plug set", "cost": 220},
-	"oil_leak": {"name": "Oil leak", "part": "Gasket kit", "cost": 150},
-	"bird_nest": {"name": "Bird nest on the cowling", "part": "", "cost": 0},
-	"fuel_line": {"name": "Leaking fuel line", "part": "Fuel line kit", "cost": 300},
-	"windshield": {"name": "Cracked windshield", "part": "Windshield", "cost": 900},
-	"starter": {"name": "Seized starter", "part": "Starter motor", "cost": 1100},
-	"control_cables": {"name": "Jammed rudder cables", "part": "Control cable set", "cost": 650},
-	"magneto": {"name": "Bad magneto", "part": "Magneto", "cost": 1400},
-	"avionics": {"name": "Broken radio antenna", "part": "Antenna & radio", "cost": 1800},
-	"propeller": {"name": "Bent propeller", "part": "Propeller", "cost": 2600},
+	"tire": {"name": "Flat main tire", "part": "Tire & tube", "cost": 180, "zone": "gear_l", "symptom": "sits low on the left side"},
+	"brakes": {"name": "Rusted brake disc", "part": "Brake disc", "cost": 260, "zone": "gear_r", "symptom": "grinds when it taxis"},
+	"battery": {"name": "Dead battery", "part": "Battery", "cost": 350, "zone": "battery", "symptom": "won't crank, everything's dead"},
+	"spark_plugs": {"name": "Fouled spark plugs", "part": "Spark plug set", "cost": 220, "zone": "engine", "symptom": "runs rough, puffs black smoke"},
+	"oil_leak": {"name": "Oil leak", "part": "Gasket kit", "cost": 150, "zone": "engine", "symptom": "oil spots under the nose"},
+	"bird_nest": {"name": "Bird nest on the cowling", "part": "", "cost": 0, "zone": "engine", "symptom": "birds flying out of the cowling"},
+	"fuel_line": {"name": "Leaking fuel line", "part": "Fuel line kit", "cost": 300, "zone": "wing_l", "symptom": "smells of avgas under the wing"},
+	"windshield": {"name": "Cracked windshield", "part": "Windshield", "cost": 900, "zone": "cabin", "symptom": "got caught in a hailstorm"},
+	"starter": {"name": "Seized starter", "part": "Starter motor", "cost": 1100, "zone": "engine", "symptom": "the starter just clicks"},
+	"control_cables": {"name": "Jammed rudder cables", "part": "Control cable set", "cost": 650, "zone": "tail", "symptom": "rudder pedals are stiff"},
+	"magneto": {"name": "Bad magneto", "part": "Magneto", "cost": 1400, "zone": "engine", "symptom": "dies on the mag check"},
+	"avionics": {"name": "Broken radio antenna", "part": "Antenna & radio", "cost": 1800, "zone": "cabin", "symptom": "radio's dead, can't raise anyone"},
+	"propeller": {"name": "Bent propeller", "part": "Propeller", "cost": 2600, "zone": "prop", "symptom": "hit a fence post taxiing"},
 }
+# Walk-around inspection spots, in plane-local coords (nose -Z), probed from the plane model.
+const ZONES := {
+	"prop": {"name": "propeller", "pos": Vector3(0, 1.3, -4.7), "size": Vector3(2.4, 2.4, 0.3)},
+	"engine": {"name": "engine", "pos": Vector3(0, 1.2, -3.8), "size": Vector3(1.7, 1.3, 1.4)},
+	"cabin": {"name": "cabin & windshield", "pos": Vector3(0, 2.2, -2.3), "size": Vector3(1.7, 1.0, 1.6)},
+	"gear_l": {"name": "left main gear", "pos": Vector3(-0.95, 0.45, -2.1), "size": Vector3(0.8, 0.9, 1.0)},
+	"gear_r": {"name": "right main gear", "pos": Vector3(0.95, 0.45, -2.1), "size": Vector3(0.8, 0.9, 1.0)},
+	"wing_l": {"name": "left wing", "pos": Vector3(-2.6, 2.3, -1.7), "size": Vector3(2.0, 0.7, 1.6)},
+	"battery": {"name": "battery bay", "pos": Vector3(0.75, 1.2, 1.0), "size": Vector3(0.4, 0.8, 1.0)},
+	"tail": {"name": "tail & rudder", "pos": Vector3(0, 2.4, 4.2), "size": Vector3(1.6, 2.0, 1.4)},
+}
+const DIFFICULTY := {1: "easy", 2: "fiddly", 3: "tricky"}  # by part cost, see _difficulty()
 const PLANE_TYPES := [["High-wing trainer", 1500], ["Rag-wing taildragger", 2000],
 	["Bush plane", 2500], ["Vintage tourer", 3000], ["Utility hauler", 3500]]
 
 var money := 3000
+var day := 1.0  # travel, inspections and repairs take time; calls have deadlines
 var rescued := 0
 var location := START_CITY
 var inventory := {}
@@ -68,6 +84,12 @@ var msg: Label
 var panel: Control
 var panel_closable := true
 var msg_time := 0.0
+var close_frame := -1  # frame a panel was closed with E, so the same press doesn't reopen it
+var mg = null  # active repair mini-game state (Dictionary) or null
+var ferry: Node = null  # active ferry flight
+var sound
+var env: Environment
+var sun: DirectionalLight3D
 
 
 func _ready() -> void:
@@ -78,6 +100,8 @@ func _ready() -> void:
 	_setup_ui()
 	player = Player.new()
 	add_child(player)
+	sound = Sound.new()
+	add_child(sound)
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
 	_load_field(START_CITY, null)
@@ -110,51 +134,164 @@ func _spawn_job() -> void:
 	for id in faults:
 		cost += FAULTS[id].cost
 	jobs.append({"city": options[rng.randi() % options.size()], "type": t[0], "faults": faults,
-		"fixed": {}, "reward": int(round((t[1] + cost * 1.6) / 50.0)) * 50,
-		"color": Color.from_hsv(rng.randf(), 0.55, 0.85)})
+		"fixed": {}, "found": {}, "checked": {}, "reward": int(round((t[1] + cost * 2.0) / 50.0)) * 50,
+		"deadline": day + 7 + rng.randi() % 9, "color": Color.from_hsv(rng.randf(), 0.55, 0.85)})
+
+
+## What the owner tells you on the radio: every fault's symptom, in random order.
+func _symptoms(job: Dictionary) -> String:
+	var s: PackedStringArray = []
+	for id in job.faults:
+		s.append(FAULTS[id].symptom)
+	var t := "; ".join(s)
+	return "\"" + t[0].to_upper() + t.substr(1) + ".\""
+
+
+func _advance(days: float) -> void:
+	day += days
+	for j in jobs.duplicate():
+		if day > j.deadline:
+			jobs.erase(j)
+			_say("The owner in %s gave up waiting and scrapped the %s." % [j.city, j.type])
+			if j == current_job:  # the plane you're standing next to is gone
+				current_job = null
+				if plane:
+					plane.queue_free()
+					plane = null
+	while jobs.size() < MAX_JOBS:
+		_spawn_job()
 
 
 func _travel(job: Dictionary, cost: int) -> void:
 	money -= cost
 	_close_panel()
+	_advance(miles(location, job.city) / 700.0)
+	if not jobs.has(job):  # ran out of time on the way
+		_load_field(job.city, null)
+		return
 	_load_field(job.city, job)
-	_say("Arrived in %s. Walk up to the %s and press E to inspect it." % [job.city, job.type])
+	_say("Arrived in %s. Walk around the %s and press E on each part to inspect it." % [job.city, job.type])
 
 
+## Walk-around inspection of one spot: reveals any faults there.
+func _inspect_zone(zone: String) -> void:
+	if not current_job.checked.has(zone):
+		current_job.checked[zone] = true
+		_advance(0.05)
+		var found: PackedStringArray = []
+		for id in current_job.faults:
+			if FAULTS[id].zone == zone:
+				current_job.found[id] = true
+				found.append(FAULTS[id].name)
+		_say(("%s: found %s" % [ZONES[zone].name.capitalize(), ", ".join(found)]) if found.size() > 0
+			else "%s: looks good." % ZONES[zone].name.capitalize())
+	if current_job:
+		_open_inspection()
+
+
+func _difficulty(id: String) -> int:
+	var c: int = FAULTS[id].cost
+	return 1 if c < 400 else (2 if c < 1200 else 3)
+
+
+## Starts the wrench-timing mini-game; _finish_repair applies the result.
 func _repair(id: String) -> void:
+	var d := _difficulty(id)
+	var vb := _open_panel("Repair: " + FAULTS[id].name, [["Stop the needle in the green. %s job%s." % [DIFFICULTY[d].capitalize(),
+		", a slip can ruin the part" if d > 1 else ""]]], true, "paper_catalog")
+	var bar := ColorRect.new()
+	bar.color = Color(0.85, 0.8, 0.7)
+	bar.custom_minimum_size = Vector2(440, 34)
+	vb.add_child(bar)
+	vb.move_child(bar, vb.get_child_count() - 2)  # above the Close button
+	var width := 0.34 - d * 0.08
+	var zone := ColorRect.new()
+	zone.color = Color(0.3, 0.6, 0.3)
+	var zl := rng.randf_range(0.05, 0.95 - width)
+	zone.position = Vector2(zl * 440, 0)
+	zone.size = Vector2(width * 440, 34)
+	bar.add_child(zone)
+	var needle := ColorRect.new()
+	needle.color = Color(0.7, 0.13, 0.1)
+	needle.size = Vector2(5, 42)
+	needle.position.y = -4
+	bar.add_child(needle)
+	var b := Button.new()
+	b.text = "Tighten! (Space)"
+	b.pressed.connect(func(): _finish_repair(id, absf(mg.pos - (zl + width / 2)) <= width / 2))
+	vb.add_child(b)
+	vb.move_child(b, vb.get_child_count() - 2)  # above Close
+	b.grab_focus()
+	mg = {"id": id, "pos": 0.0, "dir": 1.0, "speed": 0.55 + d * 0.4, "needle": needle}
+
+
+func _finish_repair(id: String, hit: bool) -> void:
+	mg = null
 	var f: Dictionary = FAULTS[id]
-	if f.part != "":
+	_advance(0.25)
+	if not current_job:
+		_close_panel()
+		return
+	if hit:
+		if f.part != "":
+			inventory[f.part] -= 1
+		current_job.fixed[id] = true
+		visuals[id].queue_free()
+		visuals[id] = _part_visual(id, true)
+		sound.clink()
+		_say("Fixed: " + f.name)
+	elif f.part != "" and rng.randf() < (_difficulty(id) - 1) * 0.15:
 		inventory[f.part] -= 1
-	current_job.fixed[id] = true
-	visuals[id].queue_free()
-	visuals[id] = _part_visual(id, true)
-	_say("Fixed: " + f.name)
+		_say("The wrench slipped and ruined the %s. You'll need another." % f.part)
+	else:
+		_say("The wrench slipped. Try again.")
 	_open_inspection()
 
 
-func _buy(part: String, cost: int) -> void:
+func _buy(part: String, cost: int, mail := false) -> void:
 	money -= cost
 	inventory[part] = inventory.get(part, 0) + 1
+	if mail:
+		_advance(1.0)
+		_say("The %s came on the morning mail truck." % part)
 	_open_shop()
 
 
+## Climb in: the camera moves to the pilot's seat and ferry.gd runs the takeoff.
+func _start_ferry() -> void:
+	_close_panel()
+	player.frozen = true
+	for c in plane.get_children():
+		if c.has_meta("kind"):
+			c.queue_free()  # inspection spots
+	decal(plane, Vector2(1.25, 0.55), Vector3(0, 1.72, -2.25), "cockpit_panel", Vector3.BACK)
+	ferry = Ferry.new()
+	add_child(ferry)
+	ferry.finished.connect(_ferry_done)
+	ferry.start(self, plane, visuals["propeller"].get_child(0))
+	_say("Hold W to open the throttle. At 55 knots, hold S to lift off.")
+
+
+func _ferry_done() -> void:
+	ferry.queue_free()
+	ferry = null
+	prompt.text = ""
+	player.cam.make_current()
+	player.frozen = false
+	_sign_off()
+	plane.queue_free()  # flown off to its owner
+	plane = null
+	_after_flight()
+
+
+## Called when the ferry flight gets the plane airborne.
 func _sign_off() -> void:
 	var job: Dictionary = current_job
 	money += job.reward
 	rescued += 1
 	jobs.erase(job)
 	current_job = null
-	_close_panel()
-	_say("The %s is airworthy! Owner paid $%d." % [job.type, job.reward])
-	for c in plane.get_children():
-		if c.has_meta("kind"):
-			c.queue_free()
-	var start := plane.position
-	var fwd := plane.basis * Vector3.FORWARD
-	var tw := create_tween()
-	tw.tween_property(plane, "position", start + fwd * 60, 3.0).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
-	tw.tween_property(plane, "position", start + fwd * 220 + Vector3.UP * 50, 4.0)
-	tw.tween_callback(_after_flight)
+	_say("The %s is back in the air! Owner paid $%d." % [job.type, job.reward])
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
 
@@ -205,26 +342,42 @@ func _process(delta: float) -> void:
 		msg_time -= delta
 		if msg_time <= 0.0:
 			msg.text = ""
+	if mg:  # repair mini-game needle sweeps back and forth
+		mg.pos += mg.dir * mg.speed * delta
+		if mg.pos > 1.0 or mg.pos < 0.0:
+			mg.dir = -mg.dir
+			mg.pos = clampf(mg.pos, 0.0, 1.0)
+		mg.needle.position.x = mg.pos * 440 - 2
+	if ferry:
+		return  # the ferry flight drives its own prompt
 	prompt.text = ""
 	if panel:
 		return
 	var t: Object = player.target()
 	var kind: String = t.get_meta("kind") if t and t.has_meta("kind") else ""
-	if kind == "plane" and current_job == null:
+	if kind == "zone" and current_job == null:
 		kind = ""
 	match kind:
-		"plane": prompt.text = "E: Inspect the " + current_job.type
+		"zone":
+			var z: String = t.get_meta("zone")
+			prompt.text = ("E: Work order  (%s checked)" if current_job.checked.has(z) else "E: Inspect %s") % ZONES[z].name
 		"shop": prompt.text = "E: Parts shed"
 		"radio": prompt.text = "E: Radio - rescue calls"
-	if kind != "" and Input.is_action_just_pressed("interact"):
+	if kind != "" and Input.is_action_just_pressed("interact") and close_frame != Engine.get_process_frames():
 		match kind:
-			"plane": _open_inspection()
+			"zone": _inspect_zone(t.get_meta("zone"))
 			"shop": _open_shop()
 			"radio": _open_travel()
 
 
 func _unhandled_input(e: InputEvent) -> void:
+	if e.is_action_pressed("interact") and panel and panel_closable:  # E toggles panels shut too
+		mg = null
+		_close_panel()
+		close_frame = Engine.get_process_frames()
+		return
 	if e.is_action_pressed("ui_cancel"):
+		mg = null
 		if panel:
 			if panel_closable:
 				_close_panel()
@@ -269,7 +422,10 @@ func _update_hud() -> void:
 	for k in inventory:
 		if inventory[k] > 0:
 			inv.append("%s x%d" % [k, inventory[k]])
-	hud.text = "$%d    Rescued %d/%d    %s\nToolbox: %s" % [money, rescued, GOAL, location,
+	var due := ""
+	if current_job:
+		due = "    Owner waits %d more day(s)" % maxi(0, ceili(current_job.deadline - day))
+	hud.text = "$%d    Day %d    Rescued %d/%d    %s%s\nToolbox: %s" % [money, floori(day), rescued, GOAL, location, due,
 		", ".join(inv) if inv.size() > 0 else "empty"]
 
 
@@ -313,9 +469,15 @@ func _open_panel(title: String, rows: Array, closable := true, paper := "paper_c
 	sb.set_content_margin_all(28)
 	box_.add_theme_stylebox_override("panel", sb)
 	panel.add_child(box_)
+	var scroll := ScrollContainer.new()  # long lists scroll instead of running off screen
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	box_.add_child(scroll)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", 8)
-	box_.add_child(vb)
+	scroll.add_child(vb)
+	vb.minimum_size_changed.connect(func():
+		var want := vb.get_combined_minimum_size()
+		scroll.custom_minimum_size = Vector2(want.x, minf(want.y, 590)))
 	var head := Label.new()
 	head.text = title
 	head.add_theme_font_size_override("font_size", 26)
@@ -333,7 +495,8 @@ func _open_panel(title: String, rows: Array, closable := true, paper := "paper_c
 			hb.add_child(icon)
 		var l := Label.new()
 		l.text = r[0]
-		l.custom_minimum_size.x = 380
+		l.custom_minimum_size.x = 420
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		hb.add_child(l)
 		if r.size() > 1 and r[1] != "":
@@ -370,12 +533,17 @@ func _close_panel() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
+## The work order: what the owner reported, which spots you've checked, and what you found.
 func _open_inspection() -> void:
-	var rows := []
-	for id in current_job.faults:
+	var job: Dictionary = current_job
+	var rows := [["Owner reports: " + _symptoms(job)],
+		["Walk-around: %d of %d spots checked" % [job.checked.size(), ZONES.size()]]]
+	for id in job.faults:
+		if not job.found.has(id):
+			continue
 		var f: Dictionary = FAULTS[id]
 		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
-		if current_job.fixed.has(id):
+		if job.fixed.has(id):
 			rows.append(["OK  -  " + f.name, "", null, false, icon])
 		elif f.part == "":
 			rows.append(["%s\nNo part needed" % f.name, "Repair", func(): _repair(id), true, icon])
@@ -383,17 +551,27 @@ func _open_inspection() -> void:
 			var have: int = inventory.get(f.part, 0)
 			rows.append(["%s\nNeeds %s (have %d)" % [f.name, f.part, have],
 				"Repair", func(): _repair(id), have > 0, icon])
-	var done: bool = current_job.fixed.size() == current_job.faults.size()
+	var all_checked: bool = job.checked.size() == ZONES.size()
+	var done: bool = all_checked and job.fixed.size() == job.faults.size()
 	if done:
-		rows.append(["Airworthy!", "Test flight & sign off (+$%d)" % current_job.reward, _sign_off, true])
-	_open_panel("Inspection: " + current_job.type, rows, true, "paper_catalog",
-		"stamp_airworthy" if done else "stamp_inspected")
+		rows.append(["Airworthy! Fly it out to the owner.", "Climb in & take off (+$%d)" % job.reward, _start_ferry, true])
+	elif not all_checked:
+		rows.append(["Check every spot before you sign it off."])
+	_open_panel("Work order: " + job.type, rows, true, "paper_catalog",
+		"stamp_airworthy" if done else ("stamp_inspected" if all_checked else ""))
+
+
+## Each town's shed stocks only some parts (fixed per town); the rest come by mail, slower and dearer.
+func _stocked(part_id: String) -> bool:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash(location + part_id)
+	return r.randf() < 0.6
 
 
 func _open_shop() -> void:
 	var needed := {}
 	if current_job:
-		for id in current_job.faults:
+		for id in current_job.found:
 			if not current_job.fixed.has(id):
 				needed[FAULTS[id].part] = true
 	var rows := []
@@ -403,9 +581,14 @@ func _open_shop() -> void:
 			continue
 		var tag := "   << NEEDED" if needed.has(f.part) else ""
 		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
-		rows.append(["%s (have %d)%s" % [f.part, inventory.get(f.part, 0), tag],
-			"$%d" % f.cost, func(): _buy(f.part, f.cost), money >= f.cost, icon])
-	_open_panel("Parts & Supply", rows)
+		if _stocked(id):
+			rows.append(["%s (have %d)%s" % [f.part, inventory.get(f.part, 0), tag],
+				"$%d" % f.cost, func(): _buy(f.part, f.cost), money >= f.cost, icon])
+		else:
+			var mail := int(f.cost * 1.25)
+			rows.append(["%s (have %d)%s\nNot in stock: mail order, 1 day" % [f.part, inventory.get(f.part, 0), tag],
+				"Order $%d" % mail, func(): _buy(f.part, mail, true), money >= mail, icon])
+	_open_panel("Parts & Supply  -  " + location, rows)
 
 
 func _open_travel() -> void:
@@ -416,7 +599,9 @@ func _open_travel() -> void:
 			continue
 		var cost := int(miles(location, job.city) * FUEL_PER_MILE)
 		can_fly = can_fly or money >= cost
-		rows.append(["%s: %s, pays $%d (%d mi)" % [job.city, job.type, job.reward, int(miles(location, job.city))],
+		var trip := miles(location, job.city) / 700.0
+		rows.append(["%s: %s, pays $%d. %d mi, %.1f days, owner waits %d\n%s" % [job.city, job.type, job.reward,
+			int(miles(location, job.city)), trip, maxi(0, ceili(job.deadline - day)), _symptoms(job)],
 			"Fly ($%d)" % cost, func(): _travel(job, cost), money >= cost])
 	if not can_fly and not _can_finish_here():
 		_open_panel("Out of money and grounded. Game over.",
@@ -427,6 +612,7 @@ func _open_travel() -> void:
 	var map := TextureRect.new()
 	map.texture = load("res://textures/us_map.png")
 	map.custom_minimum_size = Vector2(576, 360)
+	map.mouse_filter = Control.MOUSE_FILTER_PASS  # let the wheel scroll the panel
 	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	map.stretch_mode = TextureRect.STRETCH_SCALE
 	vb.add_child(map)
@@ -455,7 +641,7 @@ func _open_travel() -> void:
 # ---------- 3D world ----------
 
 func _setup_environment() -> void:
-	var env := Environment.new()
+	env = Environment.new()
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var pano := PanoramaSkyMaterial.new()
@@ -471,11 +657,26 @@ func _setup_environment() -> void:
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-20, 30, 0)  # low golden-hour sun
-	sun.light_color = Color(1.0, 0.85, 0.65)
+	sun = DirectionalLight3D.new()
 	sun.shadow_enabled = true
 	add_child(sun)
+
+
+## Each region gets its own light: golden plains, hot hazy desert, green-tinged forest, cold snow.
+const REGION_LIGHT := {
+	"plains": {"sun": Color(1.0, 0.85, 0.65), "fog": Color(0.92, 0.8, 0.62), "elev": -20.0, "haze": 0.003},
+	"desert": {"sun": Color(1.0, 0.8, 0.55), "fog": Color(0.96, 0.76, 0.55), "elev": -30.0, "haze": 0.0045},
+	"forest": {"sun": Color(1.0, 0.9, 0.75), "fog": Color(0.72, 0.8, 0.7), "elev": -18.0, "haze": 0.004},
+	"snow": {"sun": Color(0.95, 0.93, 0.92), "fog": Color(0.86, 0.88, 0.93), "elev": -14.0, "haze": 0.0035},
+}
+
+
+func _apply_light(region_name: String) -> void:
+	var l: Dictionary = REGION_LIGHT[region_name]
+	sun.light_color = l.sun
+	sun.rotation_degrees = Vector3(l.elev, 30, 0)
+	env.fog_light_color = l.fog
+	env.fog_density = l.haze
 
 
 func _load_field(city: String, job) -> void:
@@ -488,6 +689,7 @@ func _load_field(city: String, job) -> void:
 	plane = null
 	visuals.clear()
 	var region: Dictionary = REGIONS[CITIES[city][2]]
+	_apply_light(CITIES[city][2])
 	var r := RandomNumberGenerator.new()
 	r.seed = hash(city)
 	var ground := MeshInstance3D.new()
@@ -508,6 +710,7 @@ func _load_field(city: String, job) -> void:
 	_build_hangar(Vector3(-16, 0, -14), r)
 	_build_shed(Vector3(14, 0, -8))
 	_build_sign(Vector3(9, 0, 4), city)
+	prop("fuel_truck", Vector3(-8, 0, -1), 7.0, null, PI / 2)  # parked by the hangar, cab toward the runway
 	_scatter(region, r)
 	var field := Rect2(-120, -120, 240, 240)
 	if region.grass > 0:
@@ -551,7 +754,6 @@ func _build_shed(at: Vector3) -> void:
 	prop("crate_a", at + Vector3(3.5, 0.87, -1.2), 0.9, crate, -0.3)
 	prop("crate_a", at + Vector3(3.3, 0, 0.1), 1.0, crate, 0.5)
 	prop("barrel_a", at + Vector3(-3.2, 0, -1.6), 0.9, tmat("galvanized_metal", Color(0.8, 0.35, 0.3), 2.0))
-	_text3d("PARTS", at + Vector3(0, 3.9, 0), 72)
 
 
 ## "MUNICIPAL AIRPORT" board on two posts, the town name lettered into its blank panel.
@@ -588,23 +790,75 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 				var tree := prop(kind, pos, r.randf_range(5.5, 9.0), null, r.randf() * TAU, "trunk")
 				tree.set_meta("tree", true)
 				_paint_tree(tree, TREE_SPLIT[kind], Color.WHITE.darkened(r.randf() * 0.25))
-			"pine", "snowpine":
+			"pine":  # shortcut: code-built cones until a plain (snowless) pine model exists
 				cyl(world, 0.2, 0.3, 1.2, pos + Vector3(0, 0.6, 0), tmat("bark"), 5, true)
 				cyl(world, 0, h * 0.3, h * 1.5, pos + Vector3(0, 1.0 + h * 0.75, 0), tmat("foliage", Color(0.55, 0.7, 0.6)), 6)
-				if region.prop == "snowpine":
-					cyl(world, 0, h * 0.12, h * 0.6, pos + Vector3(0, 1.0 + h * 1.2, 0), tmat("ground_snow"), 6)
+			"snowpine":
+				var pine := prop("tree_pine_snow_a", pos, r.randf_range(6.0, 11.0), null, r.randf() * TAU, "trunk")
+				pine.set_meta("tree", true)
 			"cactus":
-				var g := tmat("foliage", Color(0.7, 0.85, 0.7))
-				cyl(world, 0.25, 0.3, h * 0.6, pos + Vector3(0, h * 0.3, 0), g, 6, true)
-				box(world, Vector3(0.9, 0.3, 0.3), pos + Vector3(0.45, h * 0.3, 0), g)
-				box(world, Vector3(0.3, 0.9, 0.3), pos + Vector3(0.8, h * 0.3 + 0.45, 0), g)
+				var roll := r.randf()
+				if roll < 0.7:  # tall saguaros, one or two arms
+					var kind := "cactus_a" if roll < 0.4 else "cactus_b"
+					prop(kind, pos, r.randf_range(3.0, 6.0), null, r.randf() * TAU, "trunk").set_meta("tree", true)
+				else:  # low barrel-cactus clump
+					prop("cactus_c", pos, r.randf_range(1.0, 1.8), null, r.randf() * TAU)
 				if r.randf() < 0.5:
-					ball(world, r.randf_range(0.5, 1.5), pos + Vector3(3, 0.2, 2), tmat("rock", Color(1, 0.85, 0.75)))
-	for i in 8:  # distant mountains
+					var s := r.randf_range(0.6, 1.4)
+					_crag(pos + Vector3(3, 0, 2), s, s * 1.1, Color(0.95, 0.75, 0.6), r)
+	var snowy: bool = region.prop == "snowpine"
+	for i in 12:  # distant mountain ring
 		var a := r.randf() * TAU
-		var height := r.randf_range(25.0, 60.0)
-		cyl(world, 0, r.randf_range(25, 45), height, Vector3(cos(a) * 180, height / 2, sin(a) * 180),
-			tmat("rock", region.ground.lightened(0.3), 0.08), 5)
+		var height := r.randf_range(25.0, 70.0)
+		_crag(Vector3(cos(a), 0, sin(a)) * r.randf_range(165, 200), r.randf_range(25, 50), height,
+			region.ground.lightened(0.15).lerp(Color(0.55, 0.5, 0.48), 0.6), r, 0.45 if snowy else (0.75 if height > 50 else 2.0))
+
+
+## Faceted, jagged rock: 3 jittered rings tapering to an off-center peak, flat-shaded,
+## with vertex-colored snow above `snow` (fraction of height; >1 = no snow).
+func _crag(pos: Vector3, radius: float, height: float, base: Color, r: RandomNumberGenerator, snow := 2.0) -> void:
+	const N := 9
+	var rings := [[0.0, 1.0], [0.4, 0.62], [0.75, 0.3]]  # [height fraction, radius fraction]
+	var pts := []
+	var a0 := r.randf() * TAU
+	for ring in rings:
+		var row := []
+		for i in N:
+			var a: float = a0 + TAU * i / N + r.randf_range(-0.2, 0.2)
+			var rad: float = radius * ring[1] * r.randf_range(0.7, 1.2)
+			row.append(Vector3(cos(a) * rad, height * ring[0] * (r.randf_range(0.85, 1.15) if ring[0] > 0 else 1.0), sin(a) * rad))
+		pts.append(row)
+	var peak := Vector3(r.randf_range(-0.15, 0.15) * radius, height, r.randf_range(-0.15, 0.15) * radius)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tri := func(a: Vector3, b: Vector3, c: Vector3):
+		var out := (a + b + c) / 3.0 * Vector3(1, 0, 1) + Vector3.UP * radius * 0.3
+		var n := (b - a).cross(c - a)
+		if n.dot(out) > 0:  # Godot front faces wind clockwise seen from outside
+			var t := b
+			b = c
+			c = t
+			n = -n
+		n = -n.normalized()
+		for v in [a, b, c]:
+			st.set_normal(n)
+			st.set_color(Color(0.97, 0.98, 1.0) if v.y > height * snow else base)
+			st.add_vertex(v)
+	for k in pts.size() - 1:
+		for i in N:
+			var j := (i + 1) % N
+			tri.call(pts[k][i], pts[k + 1][i], pts[k][j])
+			tri.call(pts[k][j], pts[k + 1][i], pts[k + 1][j])
+	for i in N:
+		tri.call(pts[-1][i], peak, pts[-1][(i + 1) % N])
+	var m := tmat("rock", Color.WHITE, 2.0 / radius)
+	m.vertex_color_use_as_albedo = true
+	var mesh := st.commit()
+	mesh.surface_set_material(0, m)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.position = pos
+	world.add_child(mi)
 
 
 func _build_plane(job: Dictionary) -> void:
@@ -616,7 +870,7 @@ func _build_plane(job: Dictionary) -> void:
 	# Positions below come from probing the mesh: nose z=-4.5, mains at x=±0.9 z=-2.1,
 	# high wing y≈2.4 z -2.4..-1.0, fin z 3.1..4.3, cabin roof y≈2.5.
 	var body := model(plane, "plane_trainer", Vector3(0, 0.33 * 10.0 / 1.9, 0), 10.0, Vector3(0, -PI / 2, 0))
-	var tint: Color = job.color.lightened(0.25)
+	var tint: Color = Color.WHITE.lerp(job.color, 0.5)  # gentle: the tint also lands on tires and glass
 	for mi in body.find_children("*", "MeshInstance3D", true, false):
 		for s in mi.mesh.get_surface_count():
 			var m: StandardMaterial3D = mi.get_active_material(s).duplicate()
@@ -631,8 +885,8 @@ func _build_plane(job: Dictionary) -> void:
 	plane.add_child(hull)
 	for id in FAULTS:
 		visuals[id] = _part_visual(id, job.fixed.has(id) or not job.faults.has(id))
-	interactable(plane, Vector3(0, 1.25, 0), Vector3(1.6, 2.4, 9.2), "plane")
-	interactable(plane, Vector3(0, 2.42, -1.7), Vector3(10.2, 0.6, 1.6), "plane")
+	for z in ZONES:
+		interactable(plane, ZONES[z].pos, ZONES[z].size, "zone").set_meta("zone", z)
 
 
 ## The piece of the plane each fault lives on, drawn broken or fixed.
@@ -932,23 +1186,40 @@ func _self_test(args: PackedStringArray) -> void:
 		if a.begins_with("--city="):  # pick the field, e.g. a plains town to see trees
 			job.city = a.trim_prefix("--city=")
 	var start := money
+	job.deadline = day + 30  # don't let a long test trip expire the job
 	_travel(job, 0)
 	await _snap(shot, "broken", 1.5)
-	_open_inspection()
+	_open_travel()
+	await _snap(shot, "radio")
+	var first_zone: String = FAULTS[job.faults[0]].zone
+	_inspect_zone(first_zone)  # one spot: the work order shows only what that spot revealed
 	await _snap(shot, "inspect")
+	var ok: bool = job.found.size() < job.faults.size() or job.faults.all(func(id): return FAULTS[id].zone == first_zone)
+	for z in ZONES:
+		_inspect_zone(z)
+	ok = ok and job.found.size() == job.faults.size() and job.checked.size() == ZONES.size()
 	_open_shop()
 	await _snap(shot, "shop")
+	var id0: String = job.faults[0]
+	if FAULTS[id0].part != "":
+		inventory[FAULTS[id0].part] = 1
+	_repair(id0)  # opens the timing mini-game
+	ok = ok and mg != null
+	await _snap(shot, "minigame")
+	_finish_repair(id0, false)  # a miss never fixes it
+	ok = ok and not job.fixed.has(id0)
 	for id in job.faults:
 		var part: String = FAULTS[id].part
 		if part != "":
 			inventory[part] = 1
-		_repair(id)
+		_finish_repair(id, true)
 	await _snap(shot, "airworthy")
 	_close_panel()
 	await _snap(shot, "fixed")
 	if shot != "":  # extra viewpoints of the hangar and the parts shed
 		for v in [["hangar_out", Vector3(-10, 0.1, 4), Vector3(-16, 0, -14)], ["hangar", Vector3(-14, 0.1, -12), Vector3(-19, 0, -20)],
 				["drums", Vector3(-3.5, 0.1, -13), Vector3(-7.5, 0, -17)], ["shed", Vector3(18, 0.1, -1), Vector3(14, 0, -8)],
+				["truck", Vector3(-1, 0.1, 4), Vector3(-8, 0, -1)],
 				["trees", Vector3(-20, 0.1, -25), Vector3(-60, 0, -60)]]:
 			player.position = v[1]
 			player.look_at(Vector3(v[2].x, player.position.y, v[2].z), Vector3.UP)
@@ -962,13 +1233,22 @@ func _self_test(args: PackedStringArray) -> void:
 			player.cam.rotation.x = 0.15
 			await _snap(shot, "tree%d" % i)
 		_load_field(location, job)  # put the player back by the plane
-	_open_travel()
-	await _snap(shot, "travel")
-	_close_panel()
-	var ok: bool = job.fixed.size() == job.faults.size()
-	_sign_off()
-	ok = ok and rescued == 1 and money == start + job.reward and jobs.size() == MAX_JOBS
-	print("SELF-TEST ", "PASS" if ok else "FAIL", " faults=", job.faults)
+	ok = ok and job.fixed.size() == job.faults.size()
+	# Fly it out for real: hold throttle, pull back once past rotate speed.
+	_start_ferry()
+	Input.action_press("move_forward")
+	await _snap(shot, "cockpit", 1.0)
+	var t0 := Time.get_ticks_msec()
+	while ferry and Time.get_ticks_msec() - t0 < 30000:
+		if ferry.speed >= Ferry.ROTATE:
+			Input.action_press("move_back")
+		if shot != "" and ferry.alt > 8 and not FileAccess.file_exists(shot + "_climb.png"):
+			await _snap(shot, "climb", 0.0)
+		await get_tree().process_frame
+	Input.action_release("move_forward")
+	Input.action_release("move_back")
+	ok = ok and ferry == null and rescued == 1 and money == start + job.reward and jobs.size() == MAX_JOBS
+	print("SELF-TEST ", "PASS" if ok else "FAIL", " faults=", job.faults, " day=%.1f" % day)
 	get_tree().quit(0 if ok else 1)
 
 

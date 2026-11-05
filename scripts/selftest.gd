@@ -166,6 +166,33 @@ func run(main, args: PackedStringArray) -> void:
 			print("WORK STUCK on ", id)
 	g._run_up()  # everything fixed: it should fire up and run clean now
 	ok = ok and job.runup == "ran"
+	# Hangar: push it in (it moves inside, nose to the door), the truck refuses to fuel it
+	# indoors, then roll it back out.
+	g._move_plane("hangar")
+	ok = ok and g.plane.position.distance_to(g.HANGAR_SPOT) < 0.5 and g._fuel_plane() == 0
+	if shot != "":
+		g.player.position = g.HANGAR_SPOT + Vector3(6, 0.1, 9)
+		g.player.look_at(g.HANGAR_SPOT + Vector3(0, 0.1, 0), Vector3.UP)
+		g.player.cam.rotation.x = -0.1
+		g._close_panel()
+		await _snap(shot, "in_hangar")
+	g._move_plane("apron")
+	ok = ok and g.plane.position.distance_to(Vector3(0, 0, 8)) < 0.5
+	# Fuel truck: low tanks block the take-off until it's fueled.
+	job.fuel = 0.1
+	var fuel_cost: int = g._fuel_plane()
+	ok = ok and fuel_cost > 0 and job.fuel == 1.0
+	start -= fuel_cost
+	if shot != "":
+		g._open_truck()
+		await _snap(shot, "fuel_truck_panel")
+		g.inventory["Brake disc"] = 1
+		g._refresh_parts_table()
+		g._close_panel()
+		g.player.position = Vector3(-6.5, 0.1, 7.5)
+		g.player.look_at(Vector3(-6.5, 0.1, 4.0), Vector3.UP)
+		g.player.cam.rotation.x = -0.45
+		await _snap(shot, "parts_table")
 	await _snap(shot, "airworthy")
 	g._close_panel()
 	await _snap(shot, "fixed")
@@ -260,6 +287,26 @@ func _edge_tests() -> bool:
 		g._open_travel()
 		ok = ok and g.panel != null and not g.panel_closable  # the game-over panel can't be closed
 		g._close_panel()
+	# 1b. Part in hand but no ratchet and no money: the tool blocks the repair, so it's game
+	#     over, not a dead end. With every tool and enough wire it's finishable.
+	var saved_tools = g.tools
+	var saved_inv = g.inventory
+	g.jobs = []
+	g.current_job = fake.call("propeller", g.day + 30)
+	g.inventory = {"Propeller": 1}
+	g.tools = g.STARTER_TOOLS.duplicate()
+	g.money = 0
+	ok = ok and not g._can_finish_here()
+	g.tools = {"screwdriver": true, "rag": true, "ratchet": true, "torque": true, "pliers": true}
+	g.inventory = {"Propeller": 1, "Safety wire": 10}
+	ok = ok and g._can_finish_here()
+	g.tools = saved_tools
+	g.inventory = saved_inv
+	# 1c. A fresh set of calls always has one within a short hop.
+	g.jobs = []
+	while g.jobs.size() < g.MAX_JOBS:
+		g._spawn_job()
+	ok = ok and g.jobs.any(func(j): return g.miles(g.location, j.city) < g.NEAR_MILES)
 	# 2. The owner's deadline passes during an inspection: the job is dropped cleanly.
 	g.jobs = [fake.call("tire", g.day + 0.01)]
 	g.current_job = g.jobs[0]

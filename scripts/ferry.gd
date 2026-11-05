@@ -43,11 +43,17 @@ func _line_up() -> void:
 	plane.rotation = Vector3(pitch, PI / 2, 0)
 
 
+var _toned := false  # rotation tone played
+
+
 func _process(delta: float) -> void:
 	if done:
 		return
 	var throttle := Input.is_action_pressed("move_forward")
 	speed = move_toward(speed, TOP_SPEED if throttle else 0.0, (7.0 if throttle else 3.0) * delta)
+	if speed >= ROTATE and not _toned:
+		_toned = true
+		main.sound.rotation_tone()
 	if speed >= ROTATE and Input.is_action_pressed("move_back"):
 		pitch = move_toward(pitch, 0.22, 0.3 * delta)
 	elif alt < 0.05:  # the tail lifts off its wheel as speed builds

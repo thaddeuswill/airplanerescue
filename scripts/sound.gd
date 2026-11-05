@@ -32,6 +32,27 @@ func tick() -> void:  # one ratchet pawl click
 	_tick = 1.0
 
 
+## Cues from the design doc: a soft two-note chime when a new call comes in, a pen
+## scratching a signature, and a steady tone at rotation speed.
+var _notes := []  # [delay s, freq Hz, length s, amplitude, elapsed s]
+var _pen := 0.0  # seconds of pen stroke left
+var _pen_t := 0.0
+
+
+func chime() -> void:
+	_notes.append([0.0, 1318.5, 0.9, 0.12, 0.0])
+	_notes.append([0.2, 987.8, 1.2, 0.12, 0.0])
+
+
+func rotation_tone() -> void:
+	_notes.append([0.0, 880.0, 0.45, 0.08, 0.0])
+
+
+func pen() -> void:
+	_pen = 0.8
+	_pen_t = 0.0
+
+
 var birds := true  # set false to silence the calls (they also stop while the engine runs)
 var _call_wait := 6.0
 var _call_t := -1.0  # seconds into the current two-note call, -1 = silent
@@ -70,4 +91,14 @@ func _process(delta: float) -> void:
 				s += sin(_call_phase * TAU) * sin(PI * nt / 0.22) * 0.07
 			if _call_t > 0.55:
 				_call_t = -1.0
+		for n in _notes:
+			n[4] += 1.0 / RATE
+			var nt: float = n[4] - n[0]
+			if nt >= 0.0:
+				s += sin(nt * TAU * n[1]) * n[3] * exp(-nt * 4.0 / n[2])  # bell-like decay
+		if _pen > 0.0:  # scratchy noise in three quick strokes
+			_pen -= 1.0 / RATE
+			_pen_t += 1.0 / RATE
+			s += (randf() * 2.0 - 1.0) * 0.09 * maxf(0.0, sin(_pen_t * TAU * 3.7))
 		_pb.push_frame(Vector2(s, s))
+	_notes = _notes.filter(func(n): return n[4] - n[0] < n[2])

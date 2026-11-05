@@ -39,6 +39,8 @@ var tool := "hand"
 var hover := ""
 var hold := 0.0
 var pressing := false  # left button held down over the scene
+var holding := false  # the new part is in your hand (picked up from the bench)
+const PART_TILE := Rect2(836, 442, 144, 96)  # where the new part sits on the bench
 var held_done := false  # an action finished under the held mouse: wait for release before the next
 var tick_t := 0.0
 var note := ""
@@ -202,6 +204,9 @@ func action(e: Dictionary) -> Dictionary:
 				if not st._paid and main.inventory.get(part_name, 0) <= 0:
 					a.why = "You need a new %s. Get one from the parts shed." % part_name
 					return a
+				if not holding:
+					a.why = "Pick up the new %s from the bench first (click it)." % part_name
+					return a
 				a.merge({"verb": "install", "tool": t, "hold": hold_s}, true)
 		"task":
 			if s == "todo":
@@ -267,6 +272,8 @@ func perform(e: Dictionary, v: String) -> bool:
 				main.inventory[part_name] -= 1
 				st._paid = true
 			st[e.id] = "new"
+			if not els.any(func(x): return x.type == "part" and st[x.id] != "new"):
+				holding = false  # nothing left to fit (a set like 4 plugs stays in hand until all are in)
 		"do": st[e.id] = "done"
 	if v in ["on", "do"] and e.get("uses", "") != "":
 		main.inventory[e.uses] -= 1  # a fresh length of safety wire, a new cotter pin, a squirt of penetrant
@@ -283,6 +290,7 @@ func perform(e: Dictionary, v: String) -> bool:
 
 ## Self-test helper: does the whole job with the tools you carry, no mouse. True if finished.
 func solve() -> bool:
+	holding = true  # the test fits parts straight from the bench
 	for _i in 2000:
 		if done():
 			return true
@@ -316,6 +324,17 @@ func _gui_input(ev: InputEvent) -> void:
 			note = ""
 		queue_redraw()
 	elif ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		var bp: Vector2 = ev.position - _origin()
+		if ev.pressed and part_name != "" and PART_TILE.has_point(bp):  # the new part on the bench
+			var have_part: bool = st._paid or main.inventory.get(part_name, 0) > 0
+			var waiting: bool = els.any(func(x): return x.type == "part" and st[x.id] != "new")
+			if have_part and waiting:
+				holding = not holding
+				note = ("Holding the new %s. Click where it goes." % part_name) if holding else "Put it back on the bench."
+			elif not have_part:
+				note = "No new %s on the bench. Buy one at the parts shed (or mail-order it)." % part_name
+			queue_redraw()
+			return
 		if ev.pressed and hover != "":
 			var e: Dictionary = by_id[hover]
 			var a := action(e)
@@ -453,6 +472,8 @@ func _draw() -> void:
 	draw_string(font, Vector2(o.x, 30), "%s  -  %s" % [main.FAULTS[fault].name, def.title], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.98, 0.94, 0.85))
 	draw_string(font, Vector2(o.x, 54), "Hover a piece to see what it needs. Hold the mouse to turn. Wheel: switch tools. Esc: step away (work is kept).",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.85, 0.82, 0.75))
+	if holding and _tex("icon_" + fault):  # the part rides along with the cursor until it's fitted
+		draw_texture_rect(_tex("icon_" + fault), Rect2(get_local_mouse_position() + Vector2(30, -10), Vector2(64, 64)), false)
 	# What's in your hand, riding just under the cursor.
 	var mp := get_local_mouse_position() + Vector2(34, 78)
 	var tname: String = TOOLS[tool]
@@ -565,13 +586,19 @@ func _draw_bench() -> void:
 		draw_rect(r, Color(0.45, 0.35, 0.24) if e.type == "cover" else Color(0.3, 0.22, 0.15))
 		var t: String = ("Old " + e.name + " (scrap)") if e.type == "part" else e.name
 		draw_string(font, r.position + Vector2(6, 16), t, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 10, 13, Color(0.95, 0.9, 0.8))
-	y = BENCH.end.y - 40
 	var have: int = main.inventory.get(part_name, 0) if part_name != "" else 0
-	if part_name != "":
+	if part_name != "":  # the new part, sitting on the bench: click to pick it up
+		var r := PART_TILE
+		draw_rect(r, Color(0.95, 0.85, 0.4, 0.35) if holding else Color(0.2, 0.14, 0.08, 0.75))
+		draw_rect(r, Color(0.95, 0.8, 0.4) if holding else Color(0.55, 0.42, 0.25), false, 2.0)
+		var icon := _tex("icon_" + fault)
+		if icon and (have > 0 or st._paid) and not holding:
+			draw_texture_rect(icon, Rect2(r.position + Vector2(r.size.x / 2 - 26, 4), Vector2(52, 52)), false)
 		# Name and status on separate lines: long names ("Door pin & cotter") were clipped mid-word.
-		draw_string(font, Vector2(BENCH.position.x + 10, y - 16), "New " + part_name, HORIZONTAL_ALIGNMENT_LEFT, BENCH.size.x - 16, 12, Color(0.9, 0.85, 0.75))
-		draw_string(font, Vector2(BENCH.position.x + 10, y), "fitted" if st._paid else ("in hand" if have > 0 else "none: parts shed"),
-			HORIZONTAL_ALIGNMENT_LEFT, BENCH.size.x - 16, 12, Color(0.95, 0.8, 0.45) if have == 0 and not st._paid else Color(0.9, 0.85, 0.75))
+		draw_string(font, r.position + Vector2(6, 72), "New " + part_name, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12, 12, Color(0.95, 0.9, 0.8))
+		var status := "none: buy one" if have == 0 and not st._paid else ("in your hand" if holding else ("fitted" if st._paid else "click to pick up"))
+		draw_string(font, r.position + Vector2(6, 88), status, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 12, 12,
+			Color(0.95, 0.8, 0.45) if have == 0 and not st._paid else Color(0.9, 0.85, 0.75))
 
 
 func _draw_hover(e: Dictionary) -> void:
@@ -653,6 +680,21 @@ static func _cowl(needs := []) -> Array:  # the side cowling, same on every engi
 
 
 static var _scenes := {}
+
+
+## Tools and materials a repair can't be finished without: {tool ids} and {material: uses}.
+## Torqued fasteners need the torque wrench as well as their own tool.
+static func needs_for(fault_id: String) -> Array:
+	var tools := {}
+	var mats := {}
+	for e in scenes()[fault_id].els:
+		tools[e.get("tool", "hand")] = true
+		if e.get("torque", false):
+			tools["torque"] = true
+		if e.has("uses"):
+			mats[e.uses] = mats.get(e.uses, 0) + 1
+	tools.erase("hand")
+	return [tools, mats]
 
 
 static func scenes() -> Dictionary:

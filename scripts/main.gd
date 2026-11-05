@@ -11,6 +11,8 @@ const Terrain := preload("res://scripts/terrain.gd")
 const Work := preload("res://scripts/work.gd")
 const Gauge := preload("res://scripts/gauge.gd")
 const Updater := preload("res://scripts/updater.gd")
+const Chart := preload("res://scripts/chart.gd")
+var chart := Chart.new(self)
 const GOAL := 10
 const MAX_JOBS := 3
 const START_CITY := "Wichita"
@@ -101,6 +103,7 @@ var inventory := {}
 var jobs: Array = []
 var current_job = null  # Dictionary of the plane at this field, or null
 var logbook: Array = []  # one entry per rescue: {day, city, type, pay, faults}
+var graphics := "high"  # "low" drops haze, bounce light, ambient occlusion and dust (weaker PCs)
 var rng := RandomNumberGenerator.new()
 
 var world: Node3D
@@ -137,17 +140,28 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	if "--self-test" in args:
 		save_path = "user://selftest.save"  # never touch the player's game
-		DirAccess.remove_absolute(save_path)
+		_delete_save()
 	if _load_game():
 		_load_field(location, current_job)
 		_say("Welcome back. Day %d in %s." % [floori(day), location])
-	else:
+	elif save_locked:
 		while jobs.size() < MAX_JOBS:
 			_spawn_job()
 		_load_field(START_CITY, null)
-		_say("Home base. Walk into the hangar and use the RADIO to take a rescue call.")
+		_say("Couldn't read your saved game, so it was left untouched. This session won't be saved over it.")
+	else:
+		tools = STARTER_TOOLS.duplicate()  # a new career starts with a screwdriver and a rag
+		while jobs.size() < MAX_JOBS:
+			_spawn_job()
+		_load_field(START_CITY, null)
+		_say("Home base. You own a screwdriver and a rag; buy the rest. Use the hangar RADIO to take a rescue call.")
+	if not "--self-test" in args and not skip_menu:
+		_open_menu()
+	skip_menu = false
 	if "--self-test" in args:
-		_self_test(args)
+		var test = load("res://scripts/selftest.gd").new()
+		add_child(test)
+		test.run(self, args)
 	else:
 		updater = Updater.new()
 		add_child(updater)
@@ -161,6 +175,9 @@ var updater
 
 
 func _offer_update(version: String, notes: String) -> void:
+	if panel_kind == "menu":
+		_pending_update = [version, notes]  # show it once they leave the title screen
+		return
 	if panel and not panel_closable:
 		return  # mid game-over or win screen: offer next launch
 	var rows := [["Version %s is out (you have %s)." % [version, ProjectSettings.get_setting("application/config/version")]]]
@@ -179,34 +196,75 @@ func _install_update() -> void:
 # ---------- save / load ----------
 
 var save_path := "user://airplane_rescue.save"
-const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook"]
+const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics"]
+const SAVE_VERSION := 1  # bump when the layout changes, and teach _migrate the step
+var save_locked := false  # a save we couldn't read is never overwritten (it might be newer, or fixable)
 
 
 ## Autosaves after anything that changes the game (time passing, buying, travel, tools).
+## Writes a temp file and swaps it in, keeping the previous save as .bak: a crash or power
+## cut mid-write can never leave the only copy half-written.
 func _save_game() -> void:
-	var data := {"version": 1, "current": jobs.find(current_job)}
+	if save_locked:
+		return
+	var data := {"version": SAVE_VERSION, "current": jobs.find(current_job)}
 	for k in SAVE_KEYS:
 		data[k] = get(k)
-	var f := FileAccess.open(save_path, FileAccess.WRITE)
-	if f:
-		f.store_var(data)
+	var tmp := save_path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if not f:
+		return
+	f.store_var(data)
+	f.close()
+	if FileAccess.file_exists(save_path):
+		DirAccess.remove_absolute(save_path + ".bak")
+		DirAccess.rename_absolute(save_path, save_path + ".bak")
+	DirAccess.rename_absolute(tmp, save_path)
 
 
+## Loads the save, falling back to the .bak copy. Older layouts are migrated; anything
+## unreadable or from a newer build is left untouched on disk and the game won't autosave
+## over it (it starts a fresh session in memory and says so).
 func _load_game() -> bool:
-	if not FileAccess.file_exists(save_path):
+	if not FileAccess.file_exists(save_path) and not FileAccess.file_exists(save_path + ".bak"):
 		return false
-	var f := FileAccess.open(save_path, FileAccess.READ)
-	var data = f.get_var() if f else null
-	if not data is Dictionary or data.get("version") != 1:
-		return false  # unreadable or from an older build: start fresh rather than crash
-	for k in SAVE_KEYS:
-		set(k, data[k])
-	current_job = jobs[data.current] if data.current >= 0 else null
-	return true
+	for path in [save_path, save_path + ".bak"]:
+		var data = _read_save(path)
+		if data is Dictionary and int(data.get("version", 0)) <= SAVE_VERSION:
+			_migrate(data)
+			for k in SAVE_KEYS:
+				if data.has(k):
+					set(k, data[k])  # missing keys keep their fresh-game defaults
+			var idx: int = data.get("current", -1)
+			current_job = jobs[idx] if idx >= 0 and idx < jobs.size() else null
+			return true
+		if data is Dictionary:  # from a newer version of the game: never overwrite it
+			save_locked = true
+			return false
+	save_locked = true  # both copies unreadable: keep them for recovery
+	return false
+
+
+func _read_save(path: String):
+	if not FileAccess.file_exists(path):
+		return null
+	var f := FileAccess.open(path, FileAccess.READ)
+	return f.get_var() if f else null
+
+
+## Upgrades an older save in place, one version step at a time.
+func _migrate(data: Dictionary) -> void:
+	for j in data.get("jobs", []):  # fields added after the first saves shipped
+		for key in ["years", "washed", "spent", "work"]:
+			if not j.has(key):
+				j[key] = {"years": 0, "washed": true, "spent": {"fuel": 0, "parts": 0, "mail": 0}, "work": {}}[key]
+	data.version = SAVE_VERSION
 
 
 func _delete_save() -> void:
-	DirAccess.remove_absolute(save_path)
+	for ext in ["", ".bak", ".tmp"]:
+		DirAccess.remove_absolute(save_path + ext)
+	save_locked = false
 
 
 # ---------- game state ----------
@@ -285,17 +343,71 @@ func _travel(job: Dictionary, cost: int) -> void:
 	money -= cost
 	_spend(job, "fuel", cost)
 	_close_panel()
-	_advance(miles(location, job.city) / 700.0)
+	var nm := roundi(miles(location, job.city) * 0.869)
+	var days := miles(location, job.city) / 700.0
+	_show_loading("Flying to %s" % job.city, "%d NM, about %.1f days on the road and in the air.\nThe owner: %s" % [nm, days, _symptoms(job)])
+	await get_tree().process_frame  # let the loading screen draw before the field builds
+	await get_tree().process_frame
+	_advance(days)
 	job.arrived = day
 	if not jobs.has(job):  # ran out of time on the way
 		_load_field(job.city, null)
+		_hide_loading()
 		return
 	_load_field(job.city, job)
-	_say("Arrived in %s. Walk around the %s and press E on each part to inspect it." % [job.city, job.type])
+	await get_tree().create_timer(0.5).timeout  # a beat on arrival so it doesn't just flash
+	_hide_loading()
+	_say("Arrived in %s. Walk around the %s: the floating markers show each spot to inspect (E)." % [job.city, job.type])
+
+
+var _loader: CanvasLayer
+
+
+## Full-screen travel card over the chart while the next field builds.
+func _show_loading(title: String, detail: String) -> void:
+	_hide_loading()
+	_loader = CanvasLayer.new()
+	_loader.layer = 20
+	var bg := ColorRect.new()
+	bg.color = Color(0.07, 0.06, 0.05)
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_loader.add_child(bg)
+	var map := TextureRect.new()
+	map.texture = load("res://textures/us_map.png")
+	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	map.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	map.modulate = Color(0.55, 0.55, 0.5, 0.5)
+	_loader.add_child(map)
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	for t in [[title, 44, Color(1.0, 0.93, 0.78)], [detail, 18, Color(0.9, 0.85, 0.75)], ["Loading the field...", 15, Color(0.75, 0.7, 0.62)]]:
+		var l := Label.new()
+		l.text = t[0]
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.add_theme_font_size_override("font_size", t[1])
+		l.add_theme_color_override("font_color", t[2])
+		l.add_theme_constant_override("outline_size", 6)
+		l.add_theme_color_override("font_outline_color", Color.BLACK)
+		box.add_child(l)
+	_loader.add_child(box)
+	add_child(_loader)
+	player.frozen = true  # no wandering off while the next field loads
+
+
+func _hide_loading() -> void:
+	if is_instance_valid(_loader):
+		_loader.queue_free()
+		player.frozen = panel != null
+	_loader = null
 
 
 ## Walk-around inspection of one spot: reveals any faults there.
 func _inspect_zone(zone: String) -> void:
+	standing_at = zone
 	if not current_job.get("washed", true):  # years of dirt and lichen hide everything
 		_say("It's caked in grime and lichen. You can't tell what's damage and what's dirt: wash it down first.")
 		_open_inspection()
@@ -326,13 +438,14 @@ func _wash() -> void:
 	_say("Washed it down. Under all that it's... %s." % ["better than it looked", "about what you feared", "a real airplane again"][rng.randi() % 3])
 	_save_game()
 	_open_inspection()
+	_refresh_markers()
 
 
 ## Dirt and lichen over the whole plane until it's washed.
 func _grime(on: bool) -> void:
 	var m: Material = null
 	if on:
-		var dirt := tmat("rock", Color(0.25, 0.29, 0.15, 0.82), 2.5)  # years of grime and lichen: heavy, matte, greenish
+		var dirt := tmat("grime_lichen", Color(1, 1, 1, 0.95), 0.6)  # years of grime and lichen; texture alpha = coverage
 		dirt.roughness = 1.0
 		dirt.metallic = 0.0
 		dirt.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -377,7 +490,7 @@ func _run_up() -> void:
 			job.runup = "ran"
 	_say(". ".join(heard) + ("." if job.runup == "ran" else ". Can't run it up until that's fixed."))
 	_save_game()
-	_open_inspection()
+	_open_inspection("cabin")
 
 
 ## Opens the 2D work scene for this fault: real tools, every screw and bolt (scripts/work.gd).
@@ -407,7 +520,7 @@ func _work_done(id: String) -> void:
 	visuals[id].queue_free()
 	visuals[id] = _part_visual(id, true)
 	_say("Fixed: " + FAULTS[id].name)
-	_open_inspection()
+	_open_inspection(FAULTS[id].zone)
 
 
 func _buy(part: String, cost: int, mail := false) -> void:
@@ -514,7 +627,78 @@ func _can_finish_here() -> bool:
 
 func _restart() -> void:
 	_delete_save()  # "Play again" means a fresh career
+	skip_menu = true  # straight into the new career, not back to the title screen
 	get_tree().reload_current_scene()
+
+
+static var skip_menu := false
+var _pending_update := []  # an update offer that arrived while the title screen was up
+
+
+## Title screen: continue the saved career, start a new one, graphics, quit. The 3D field
+## loads behind it, so it doubles as the startup loading moment.
+func _open_menu() -> void:
+	_close_panel()
+	var m := Control.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var shade := ColorRect.new()
+	shade.color = Color(0.05, 0.04, 0.03, 0.72)
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	m.add_child(shade)
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	box.add_theme_constant_override("separation", 12)
+	box.theme = _catalog_theme()
+	m.add_child(box)
+	var title := Label.new()
+	title.text = "AIRPLANE RESCUE"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 64)
+	title.add_theme_color_override("font_color", Color(1.0, 0.85, 0.35))
+	title.add_theme_constant_override("outline_size", 10)
+	title.add_theme_color_override("font_outline_color", Color(0.2, 0.1, 0.05))
+	box.add_child(title)
+	var sub := Label.new()
+	sub.text = "A traveling mechanic, a tool roll, and planes nobody else will save.   v%s" % ProjectSettings.get_setting("application/config/version")
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_color_override("font_color", Color(0.9, 0.85, 0.75))
+	box.add_child(sub)
+	var has_save := FileAccess.file_exists(save_path) and not save_locked
+	var buttons := []
+	if has_save:
+		buttons.append(["Continue  -  Day %d, %s, $%d" % [floori(day), location, money], _close_menu])
+		buttons.append(["New career", _confirm_restart])
+	else:
+		buttons.append(["Start", _close_menu])
+	buttons.append(["Graphics: %s" % graphics.capitalize(), _menu_graphics])
+	buttons.append(["Quit", func(): get_tree().quit()])
+	for b in buttons:
+		var bt := Button.new()
+		bt.text = b[0]
+		bt.custom_minimum_size = Vector2(380, 46)
+		bt.add_theme_font_size_override("font_size", 20)
+		bt.pressed.connect(b[1])
+		box.add_child(bt)
+	ui.add_child(m)
+	panel = m
+	panel_closable = false
+	panel_kind = "menu"
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
+
+
+func _close_menu() -> void:
+	_close_panel()
+	if not _pending_update.is_empty():
+		_offer_update(_pending_update[0], _pending_update[1])
+		_pending_update = []
+
+
+func _menu_graphics() -> void:
+	_set_graphics("low" if graphics == "high" else "high")
+	_open_menu()
 
 
 # ---------- per-frame + input ----------
@@ -666,7 +850,7 @@ func _pocket(kind: String) -> void:
 		"wallet": _open_wallet()
 		"clipboard":
 			if current_job:
-				_open_inspection()
+				_open_inspection("")  # read-only: work happens at the plane
 			else:
 				_open_panel("Clipboard", [["No plane at this field. Take a call on the hangar RADIO."]])
 		"logbook": _open_logbook()
@@ -677,15 +861,42 @@ func _open_wallet() -> void:
 	var rows := [["Cash: $%d" % money], ["Day %d, at %s" % [floori(day), location]]]
 	var inv: PackedStringArray = []
 	for k in inventory:
-		if inventory[k] > 0:
+		if inventory[k] > 0 and not SUPPLIES.has(k):  # materials are listed on their own line
 			inv.append("%s x%d" % [k, inventory[k]])
 	rows.append(["Parts in the truck: " + (", ".join(inv) if inv.size() > 0 else "none")])
 	var have: PackedStringArray = []
 	for t in tools:
 		have.append(Work.TOOLS[t])
-	rows.append(["Tool roll: " + (", ".join(have) if have.size() > 0 else "empty. Fill it at the hangar TOOLS box.")])
+	rows.append(["Tool roll: " + (", ".join(have) if have.size() > 0 else "empty")])
+	rows.append(["Materials: " + ", ".join(["Safety wire", "Cotter pin", "Penetrant"].map(func(k): return "%s %d" % [k, inventory.get(k, 0)]))])
+	rows.append(["Graphics: %s" % graphics.capitalize(), "Switch to " + ("Low" if graphics == "high" else "High"),
+		_toggle_graphics, true])
 	rows.append(["", "Start a new career", _confirm_restart, true])
 	_open_panel("Wallet", rows, true, "paper_catalog")
+
+
+func _toggle_graphics() -> void:
+	_set_graphics("low" if graphics == "high" else "high")
+	_open_wallet()
+	panel_kind = "wallet"
+
+
+func _set_graphics(level: String) -> void:
+	graphics = level
+	_apply_graphics()
+	_save_game()
+
+
+## High: everything. Low: no volumetric haze, bounce light, ambient occlusion or dust motes,
+## the effects that cost frames on built-in laptop graphics.
+func _apply_graphics() -> void:
+	var high := graphics == "high" and not "--low" in OS.get_cmdline_user_args()
+	env.volumetric_fog_enabled = high
+	env.sdfgi_enabled = high
+	env.ssao_enabled = high
+	if motes:
+		motes.emitting = high
+		motes.visible = high
 
 
 func _confirm_restart() -> void:
@@ -811,8 +1022,46 @@ func _close_panel() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
+var standing_at := ""  # the inspection spot you last pressed E at ("" = reading the clipboard)
+
+
+## Floating markers over the plane's inspection spots, visible through it so you can find them:
+## yellow "?" not checked yet, orange "!" something found there still needs work, green "OK" done.
+func _refresh_markers() -> void:
+	if not plane or not current_job:
+		return
+	var job: Dictionary = current_job
+	for z in ZONES:
+		var m: Label3D = plane.get_node_or_null("marker_" + z)
+		if not m:
+			m = Label3D.new()
+			m.name = "marker_" + z
+			m.set_meta("kind", "marker")  # cleared with the other inspection helpers at take-off
+			m.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			m.no_depth_test = true
+			m.font_size = 72
+			m.pixel_size = 0.007  # readable from across the apron
+			m.outline_size = 18
+			m.position = ZONES[z].pos + Vector3(0, ZONES[z].size.y * 0.5 + 0.25, 0)
+			plane.add_child(m)
+		var open: bool = job.faults.any(func(id): return FAULTS[id].zone == z and job.found.has(id) and not job.fixed.has(id))
+		if z == "cabin" and job.get("runup", "") != "ran" and job.checked.has(z):
+			open = true  # the run-up still waits here
+		if not job.checked.has(z):
+			m.text = "?"
+			m.modulate = Color(1.0, 0.9, 0.3)
+		elif open:
+			m.text = "!"
+			m.modulate = Color(1.0, 0.55, 0.15)
+		else:
+			m.text = "OK"
+			m.modulate = Color(0.45, 0.9, 0.45, 0.8)
+
+
 ## The work order: what the owner reported, which spots you've checked, and what you found.
-func _open_inspection() -> void:
+## `at` is the spot you're standing at: you can only start work there (repairs at their own
+## spot, the run-up and take-off from the cabin). From the clipboard ("") it's read-only.
+func _open_inspection(at := standing_at) -> void:
 	var job: Dictionary = current_job
 	var rows := [["Owner reports: " + _symptoms(job)],
 		["Owner waits %d more day(s)" % maxi(0, ceili(job.deadline - day))],
@@ -824,25 +1073,31 @@ func _open_inspection() -> void:
 		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
 		if job.fixed.has(id):
 			rows.append(["OK  -  " + f.name, "", null, false, icon])
-		elif f.part == "":
-			rows.append(["%s\nNo part needed" % f.name, "Work on it", func(): _repair(id), true, icon])
+			continue
+		var need := "No part needed" if f.part == "" else "Needs %s (have %d)" % [f.part, inventory.get(f.part, 0)]
+		if at == f.zone:
+			rows.append(["%s\n%s" % [f.name, need], "Work on it", func(): _repair(id), true, icon])
 		else:
-			var have: int = inventory.get(f.part, 0)
-			rows.append(["%s\nNeeds %s (have %d)" % [f.name, f.part, have],
-				"Work on it", func(): _repair(id), true, icon])
+			rows.append(["%s\n%s. Work on it at the %s." % [f.name, need, ZONES[f.zone].name], "", null, false, icon])
 	if not job.get("washed", true):
-		rows.append(["Sat %d years: filthy, lichen on the wings." % job.years, "Wash it down", _wash, true])
+		rows.append(["Sat %d years: filthy, lichen on the wings." % job.years, "Wash it down" if at != "" else "", _wash, at != ""])
 	var ran: bool = job.get("runup", "") == "ran"
-	rows.append(["Run-up: " + {"": "not done yet", "dead": "wouldn't start", "ran": "engine runs"}[job.get("runup", "")],
-		"Sit in & run it up", _run_up, true])
+	var runup_text: String = "Run-up: " + {"": "not done yet", "dead": "wouldn't start", "ran": "engine runs"}[job.get("runup", "")]
+	if at == "cabin":
+		rows.append([runup_text, "Sit in & run it up", _run_up, true])
+	else:
+		rows.append([runup_text + ". Done from the cabin."])
 	var all_checked: bool = job.checked.size() == ZONES.size() and ran
 	var done: bool = all_checked and job.fixed.size() == job.faults.size()
-	if done:
+	if done and at == "cabin":
 		rows.append(["Airworthy! Fly it out to the owner.", "Climb in & take off (+$%d)" % job.reward, _start_ferry, true])
+	elif done:
+		rows.append(["Airworthy! Climb in at the cabin to fly it out."])
 	elif not all_checked:
 		rows.append(["Check every spot and do a run-up before you sign it off."])
-	_open_panel("Work order: " + job.type, rows, true, "paper_catalog",
+	_open_panel(("Work order: " if at != "" else "Clipboard: ") + job.type + (("  (at the %s)" % ZONES[at].name) if at != "" else ""), rows, true, "paper_catalog",
 		"stamp_airworthy" if done else ("stamp_inspected" if all_checked else ""))
+	_refresh_markers()
 
 
 ## Each town's shed stocks only some parts (fixed per town); the rest come by mail, slower and dearer.
@@ -858,29 +1113,63 @@ func _price(id: String) -> int:
 
 
 ## The hangar toolbox: take tools into your roll (they travel with you) or put them back.
-func _open_toolbox() -> void:
-	var rows := []
-	for t in Work.TOOLS:
-		if t == "hand":
-			continue
-		var have := tools.has(t)
-		rows.append(["%s%s" % [Work.TOOLS[t], "   (in your roll)" if have else ""], "Put back" if have else "Take",
-			func(): _take_tool(t, not have), true, "work/tool_" + t if ResourceLoader.exists("res://textures/work/tool_%s.png" % t) else ""])
-	rows.append(["", "Take everything", func(): _take_tool("", true), tools.size() < Work.TOOLS.size() - 1])
-	_open_panel("Toolbox", rows)
+## Tools and the materials repairs use up. Nothing is free: buy at a parts shed that stocks
+## it, or mail-order it from the hangar (1 day, +25%). You start with a screwdriver and a rag.
+const SUPPLIES := {
+	"ratchet": {"name": "Ratchet & sockets", "cost": 140, "tool": true},
+	"torque": {"name": "Torque wrench", "cost": 260, "tool": true},
+	"pliers": {"name": "Safety-wire pliers", "cost": 75, "tool": true},
+	"Safety wire": {"name": "Safety wire (spool, 10 uses)", "cost": 25, "qty": 10},
+	"Cotter pin": {"name": "Cotter pins (box of 10)", "cost": 15, "qty": 10},
+	"Penetrant": {"name": "Penetrant (can, 3 uses)", "cost": 12, "qty": 3},
+}
+const STARTER_TOOLS := {"screwdriver": true, "rag": true}
 
 
-## t "" = every tool.
-func _take_tool(t: String, take: bool) -> void:
-	for k in (Work.TOOLS.keys() if t == "" else [t]):
-		if k == "hand":
-			continue
-		if take:
-			tools[k] = true
-		else:
-			tools.erase(k)
+func _supply_have(key: String) -> String:
+	var s: Dictionary = SUPPLIES[key]
+	if s.get("tool", false):
+		return "owned" if tools.has(key) else "not owned"
+	return "%d left" % inventory.get(key, 0)
+
+
+func _supply_row(key: String, mail: bool) -> Array:
+	var s: Dictionary = SUPPLIES[key]
+	var owned: bool = s.get("tool", false) and tools.has(key)
+	var price := int(s.cost * 1.25) if mail else int(s.cost)
+	var icon: String = "work/tool_" + key if ResourceLoader.exists("res://textures/work/tool_%s.png" % key) else ""
+	if owned:
+		return ["%s  -  owned" % s.name, "", null, false, icon]
+	return ["%s  (%s)%s" % [s.name, _supply_have(key), "
+Mail order: arrives in 1 day" if mail else ""],
+		("Order $%d" if mail else "$%d") % price, func(): _buy_supply(key, price, mail), money >= price, icon]
+
+
+func _buy_supply(key: String, cost: int, mail: bool) -> void:
+	money -= cost
+	var s: Dictionary = SUPPLIES[key]
+	if s.get("tool", false):
+		tools[key] = true
+	else:
+		inventory[key] = inventory.get(key, 0) + int(s.qty)
+	if current_job:
+		_spend(current_job, "parts", cost)
+	if mail:
+		_advance(1.0)
+		_say("The %s came on the morning mail truck." % s.name)
 	_save_game()
-	_open_toolbox()
+	if mail:
+		_open_toolbox()
+	else:
+		_open_shop()
+
+
+## The hangar's TOOLS box: what you own, and a mail-order catalog for what you don't.
+func _open_toolbox() -> void:
+	var rows := [["In your roll: " + ", ".join(tools.keys().map(func(t): return Work.TOOLS[t]))]]
+	for key in SUPPLIES:
+		rows.append(_supply_row(key, true))
+	_open_panel("Toolbox & mail-order catalog", rows)
 
 
 func _open_shop() -> void:
@@ -903,6 +1192,12 @@ func _open_shop() -> void:
 		else:
 			rows.append(["%s (have %d)%s\nNot in stock: mail order, 1 day" % [f.part, inventory.get(f.part, 0), tag],
 				"Order $%d" % price, func(): _buy(f.part, price, true), money >= price, icon])
+	rows.append(["Tools & materials:"])
+	for key in SUPPLIES:  # this town's shelf only; the rest is mail order from the hangar
+		var r := RandomNumberGenerator.new()
+		r.seed = hash(location + key)
+		if r.randf() < 0.55:
+			rows.append(_supply_row(key, false))
 	_open_panel("Parts & Supply  -  " + location, rows)
 
 
@@ -935,114 +1230,20 @@ func _open_travel() -> void:
 	vb.add_child(map)
 	vb.move_child(map, 1)
 	var calls := jobs.filter(func(j): return j != current_job)
-	map.draw.connect(func(): _draw_chart(map, calls))
+	map.draw.connect(func(): chart.draw(map, calls))
 	for job in calls:
 		var cost := int(miles(location, job.city) * FUEL_PER_MILE)
 		var pin := Button.new()
 		pin.flat = true
 		pin.text = job.city.to_upper()
 		pin.add_theme_font_size_override("font_size", 11)
-		pin.add_theme_color_override("font_color", CHART_MAGENTA)
+		pin.add_theme_color_override("font_color", Chart.MAGENTA)
 		pin.add_theme_color_override("font_hover_color", Color(0.9, 0.1, 0.5))
-		pin.position = _chart_px(job.city) + Vector2(6, -24)
+		pin.position = chart.px(job.city) + Vector2(6, -24)
 		pin.disabled = money < cost
 		pin.tooltip_text = "Fly to %s ($%d fuel)" % [job.city, cost]
 		pin.pressed.connect(func(): _travel(job, cost))
 		map.add_child(pin)
-
-
-const CHART_MAGENTA := Color(0.62, 0.12, 0.45)
-const CHART_BLUE := Color(0.16, 0.3, 0.55)
-const CHART_K := 576.0 / 2048.0
-# Quadratic fit lon/lat -> us_map.png pixels (same fit the CITIES pixels came from), for gridlines.
-const MAP_X := [5046.137508, 44.595404, -25.016715, 0.038367, 0.056775, -0.215379]
-const MAP_Y := [917.976027, -28.316197, -46.63631, -0.143734, 0.114237, 0.012057]
-
-
-func _chart_px(city: String) -> Vector2:
-	var c: Array = CITIES[city]
-	return Vector2(c[3], c[4]) * CHART_K
-
-
-func _lonlat_px(lon: float, lat: float) -> Vector2:
-	var v := [1.0, lon, lat, lon * lon, lat * lat, lon * lat]
-	var p := Vector2.ZERO
-	for i in 6:
-		p += Vector2(MAP_X[i], MAP_Y[i]) * v[i]
-	return p * CHART_K
-
-
-## Initial great-circle true course from a to b, degrees 0..360.
-func course(a: String, b: String) -> float:
-	var r := PI / 180.0
-	var p: Array = CITIES[a]
-	var q: Array = CITIES[b]
-	var dl: float = (q[0] - p[0]) * r
-	var y := sin(dl) * cos(q[1] * r)
-	var x: float = cos(p[1] * r) * sin(q[1] * r) - sin(p[1] * r) * cos(q[1] * r) * cos(dl)
-	return fposmod(rad_to_deg(atan2(y, x)), 360.0)
-
-
-func _draw_chart(map: Control, calls: Array) -> void:
-	var font := ThemeDB.fallback_font
-	var grid := Color(CHART_BLUE, 0.35)
-	# The base map's own decorative compass (bottom right, 1715..1965 x 905..1185 px) would fight the
-	# real compass rose: paper over it with a chart legend box.
-	var legend := Rect2(Vector2(1712, 900) * CHART_K, Vector2(256, 288) * CHART_K)
-	map.draw_rect(legend, Color(0.83, 0.86, 0.8))
-	map.draw_rect(legend, CHART_BLUE, false, 1.0)
-	var ly := legend.position.y + 14
-	for line in [["LEGEND", CHART_BLUE], ["- - course", CHART_MAGENTA], ["o  airport", CHART_MAGENTA], ["NM / true", CHART_BLUE]]:
-		map.draw_string(font, Vector2(legend.position.x + 6, ly), line[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 9, line[1])
-		ly += 16
-	for lon in range(-125, -64, 5):  # meridians
-		var pts := PackedVector2Array()
-		for lat in range(24, 51):
-			pts.append(_lonlat_px(lon, lat))
-		map.draw_polyline(pts, grid, 1.0)
-		map.draw_string(font, _lonlat_px(lon, 24.5) + Vector2(2, -2), "%d°W" % -lon, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, grid)
-	for lat in range(25, 51, 5):  # parallels
-		var pts := PackedVector2Array()
-		for lon in range(-126, -65):
-			pts.append(_lonlat_px(lon, lat))
-		map.draw_polyline(pts, grid, 1.0)
-		map.draw_string(font, _lonlat_px(-125.5, lat) + Vector2(2, -2), "%d°N" % lat, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, grid)
-	# every known field as a small non-towered airport symbol
-	for city in CITIES:
-		var p := _chart_px(city)
-		map.draw_arc(p, 3.5, 0, TAU, 12, Color(CHART_MAGENTA, 0.55), 1.2)
-	var home := _chart_px(location)
-	# compass rose around your field, 10° ticks, longer every 30°, N up (true)
-	var rose := 34.0
-	map.draw_arc(home, rose, 0, TAU, 48, CHART_BLUE, 1.2)
-	for d in range(0, 360, 10):
-		var a := deg_to_rad(d - 90.0)
-		var tick := 7.0 if d % 30 == 0 else 3.5
-		map.draw_line(home + Vector2(cos(a), sin(a)) * (rose - tick), home + Vector2(cos(a), sin(a)) * rose, CHART_BLUE, 1.0)
-	map.draw_string(font, home + Vector2(-4, -rose - 3), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, CHART_BLUE)
-	# course lines with true course / distance boxed at the midpoint
-	for job in calls:
-		var to := _chart_px(job.city)
-		map.draw_dashed_line(home, to, CHART_MAGENTA, 2.0, 8.0)
-		var tag := "%03d°  %d NM" % [roundi(course(location, job.city)), roundi(miles(location, job.city) * 0.869)]
-		var mid := home.lerp(to, clampf((rose + 45.0) / maxf(home.distance_to(to), 1.0), 0.5, 0.8))  # clear of the rose
-		var sz := font.get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 10)
-		map.draw_rect(Rect2(mid - Vector2(sz.x / 2 + 3, 10), sz + Vector2(6, 4)), Color(1, 1, 0.94, 0.9))
-		map.draw_rect(Rect2(mid - Vector2(sz.x / 2 + 3, 10), sz + Vector2(6, 4)), CHART_MAGENTA, false, 1.0)
-		map.draw_string(font, mid - Vector2(sz.x / 2, -1), tag, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, CHART_MAGENTA)
-		_draw_airport(map, to, CHART_MAGENTA)
-	_draw_airport(map, home, Color(0.1, 0.45, 0.2))
-	var hw := font.get_string_size(location.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-	map.draw_string(font, home + Vector2(-hw / 2, rose + 13), location.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.1, 0.45, 0.2))
-
-
-## Sectional airport symbol: ring with four ticks and a runway bar.
-func _draw_airport(map: Control, p: Vector2, c: Color) -> void:
-	map.draw_circle(p, 5.5, Color(1, 1, 0.94))
-	map.draw_arc(p, 5.5, 0, TAU, 16, c, 2.0)
-	for a in [0.0, PI / 2, PI, PI * 1.5]:
-		map.draw_line(p + Vector2(cos(a), sin(a)) * 5.5, p + Vector2(cos(a), sin(a)) * 8.5, c, 2.0)
-	map.draw_line(p + Vector2(-3, 2), p + Vector2(3, -2), c, 2.0)
 
 
 # ---------- 3D world ----------
@@ -1062,16 +1263,13 @@ func _setup_environment() -> void:
 	env.fog_density = 1.0
 	env.fog_depth_curve = 1.6
 	env.fog_aerial_perspective = 0.45  # far haze takes on the sky color: distant hills go blue-gray
-	if not "--no-vfog" in OS.get_cmdline_user_args():
-		# Thin volumetric haze, scattering forward: sun shafts through trees, the hangar door, windows.
-		env.volumetric_fog_enabled = true
-		env.volumetric_fog_density = 0.007  # 0.012 washed out trees at 50 m; strong forward scatter keeps the shafts
-		env.volumetric_fog_albedo = Color(1.0, 0.92, 0.8)
-		env.volumetric_fog_anisotropy = 0.85
-		env.volumetric_fog_length = 90.0
-	if not "--no-gi" in OS.get_cmdline_user_args():
-		env.sdfgi_enabled = true  # soft bounce light: the red truck tints the gravel, the hangar glows inside
-		env.sdfgi_use_occlusion = true
+	# Thin volumetric haze, scattering forward: sun shafts through trees, the hangar door, windows.
+	# (On/off with the rest of the expensive effects in _apply_graphics.)
+	env.volumetric_fog_density = 0.007  # 0.012 washed out trees at 50 m; strong forward scatter keeps the shafts
+	env.volumetric_fog_albedo = Color(1.0, 0.92, 0.8)
+	env.volumetric_fog_anisotropy = 0.85
+	env.volumetric_fog_length = 90.0
+	env.sdfgi_use_occlusion = true  # soft bounce light: the red truck tints the gravel, the hangar glows inside
 	env.fog_light_color = Color(0.92, 0.8, 0.62)  # warm haze
 	env.fog_sky_affect = 0.15  # keep the golden panorama visible
 	# Warm sun vs cool shadows: the ambient fill that lights shadowed sides is pulled toward blue.
@@ -1242,8 +1440,9 @@ func _load_field(city: String, job) -> void:
 	box(world, Vector3(160, 0.04, 12), Vector3(0, 0.02, 20), _flat_ground("runway_asphalt", 0.15))
 	for x in range(-76, 80, 10):
 		box(world, Vector3(5, 0.05, 0.4), Vector3(x, 0.03, 20), Color(0.95, 0.95, 0.9))
-	box(world, Vector3(18, 0.03, 13), Vector3(0, 0.015, 7.5), _flat_ground("gravel", 0.4))  # apron
+	box(world, Vector3(18, 0.03, 13), Vector3(0, 0.015, 7.5), _flat_ground("gravel", 0.4, "gravel_b"))  # apron
 	_build_windsock(Vector3(32, 0, 30))  # beside the strip, clear of the wingtips
+	_scatter_litter(r)
 	var probe := ReflectionProbe.new()  # glass and paint pick up the sky and the field around them
 	probe.size = Vector3(60, 24, 60)
 	probe.position = Vector3(0, 4, 8)
@@ -1255,8 +1454,8 @@ func _load_field(city: String, job) -> void:
 		stain.rotate_y(r.randf() * TAU)
 	for end_x in [-55.0, 55.0]:
 		for i in 6:
-			var skid := decal(world, Vector2(r.randf_range(4, 9), 0.22), Vector3(end_x + r.randf_range(-12, 12), 0.045, 20 + r.randf_range(-2.5, 2.5)), "", Vector3.UP)
-			skid.mesh.material.albedo_color = Color(0.05, 0.05, 0.05, r.randf_range(0.2, 0.45))
+			var skid := decal(world, Vector2(r.randf_range(5, 9), 0.6), Vector3(end_x + r.randf_range(-12, 12), 0.045, 20 + r.randf_range(-2.5, 2.5)), "decal_tire_marks", Vector3.UP)
+			skid.mesh.material.albedo_color = Color(1, 1, 1, r.randf_range(0.5, 0.85))
 	_build_hangar(Vector3(-16, 0, -14), r)
 	_build_shed(Vector3(14, 0, -8))
 	_build_sign(Vector3(9, 0, 4), city)
@@ -1273,6 +1472,7 @@ func _load_field(city: String, job) -> void:
 	if motes:
 		motes.queue_free()
 	motes = _add_motes(CITIES[city][2])
+	_apply_graphics()
 	player.velocity = Vector3.ZERO
 	player.position = Vector3(4, 0.1, -2)
 	player.rotation = Vector3(0, PI, 0)
@@ -1284,6 +1484,9 @@ func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	# Quonset-hut model: open end faces +Z (the runway). Longest side is its depth;
 	# 15.8 m deep makes it 14 m wide and 7 m tall. Back wall sits near at.z - 7.2.
 	prop("hangar", at, 15.8, null, 0.0, "mesh")
+	# The model's floor is uneven triangles the player's capsule could wedge into: walk on a flat slab instead.
+	var slab := box(world, Vector3(13.6, 0.12, 15.2), at + Vector3(0, 0.06, -0.2), Color.WHITE, true)
+	slab.visible = false
 	const BACK := -7.0
 	box(world, Vector3(5, 2.4, 0.05), at + Vector3(-1.5, 2.0, BACK + 0.1), tmat("pegboard", Color.WHITE, 0.5))
 	prop("toolbox", at + Vector3(-4.5, 0, BACK + 0.6), 1.1, tmat("toolbox_red", Color.WHITE, 1.5))  # drawers face +Z
@@ -1297,7 +1500,7 @@ func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	for p in [Vector3(-8.7, 0, 4), Vector3(-8.8, 0, 5.2)]:
 		prop("crate_a", at + p, 1.0, tmat("wood_planks", Color(0.9, 0.8, 0.65), 1.5), r.randf_range(-0.3, 0.3))
 	box(world, Vector3(2, 1, 0.8), at + Vector3(3, 0.5, BACK + 0.6), tmat("workbench_top", Color.WHITE, 0.6), true)  # desk
-	box(world, Vector3(0.7, 0.4, 0.4), at + Vector3(3, 1.2, BACK + 0.6), Color(0.15, 0.22, 0.15))  # radio
+	box(world, Vector3(0.7, 0.4, 0.4), at + Vector3(3, 1.2, BACK + 0.6), _trim(Color(0.35, 0.45, 0.35)))  # radio
 	interactable(world, at + Vector3(3, 1.2, BACK + 0.9), Vector3(1.4, 0.9, 1.2), "radio")
 	_text3d("RADIO", at + Vector3(3, 2.2, BACK + 0.6), 48)
 	_lamp(at + Vector3(3, 2.9, BACK + 1.2))  # over the radio desk
@@ -1487,6 +1690,7 @@ func _build_plane(job: Dictionary) -> void:
 	for id in FAULTS:
 		visuals[id] = _part_visual(id, job.fixed.has(id) or not job.faults.has(id))
 	_grime(not job.get("washed", true))
+	_refresh_markers()
 	for z in ZONES:
 		interactable(plane, ZONES[z].pos, ZONES[z].size, "zone").set_meta("zone", z)
 
@@ -1778,6 +1982,7 @@ static func _flat_shader() -> Shader:
 shader_type spatial;
 uniform sampler2D tex : source_color, filter_linear_mipmap, repeat_enable;
 uniform sampler2D mask : repeat_enable;
+uniform sampler2D tex_b : source_color, filter_linear_mipmap, repeat_enable;
 uniform float scale = 0.4;
 varying vec3 wp;
 void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
@@ -1785,7 +1990,7 @@ void fragment() {
 	float m = texture(mask, wp.xz * 0.02).r;
 	float m2 = texture(mask, wp.xz * 0.11 + 0.37).r;
 	vec3 a = texture(tex, wp.xz * scale).rgb;
-	vec3 b = texture(tex, wp.xz * scale * 0.71 + vec2(0.13, 0.71)).rgb;  // second scale: close enough to read as the same gravel
+	vec3 b = texture(tex_b, wp.xz * scale * 0.83 + vec2(0.13, 0.71)).rgb;  // second texture (gravel_b) at a nearby scale
 	vec3 c = mix(a, b, smoothstep(0.35, 0.65, m));
 	ALBEDO = c * mix(0.82, 1.08, m2) * mix(vec3(0.95, 0.93, 0.9), vec3(1.0), m);
 	ROUGHNESS = mix(0.75, 0.98, m2);
@@ -1797,10 +2002,11 @@ void fragment() {
 var _mask_tex: NoiseTexture2D  # full 0..1 range (ROUGH_TEX is squeezed to 0.7..1)
 
 
-func _flat_ground(tex: String, scale: float) -> ShaderMaterial:
+func _flat_ground(tex: String, scale: float, tex_b := "") -> ShaderMaterial:
 	var sm := ShaderMaterial.new()
 	sm.shader = FLAT_SHADER
 	sm.set_shader_parameter("tex", load("res://textures/%s.png" % tex))
+	sm.set_shader_parameter("tex_b", load("res://textures/%s.png" % (tex_b if tex_b != "" else tex)))
 	if not _mask_tex:
 		_mask_tex = NoiseTexture2D.new()
 		_mask_tex.seamless = true
@@ -1816,17 +2022,69 @@ var sock: Node3D
 
 
 func _build_windsock(at: Vector3) -> void:
-	cyl(world, 0.05, 0.07, 6.0, at + Vector3(0, 3.0, 0), Color(0.75, 0.75, 0.72), 8, true)
+	cyl(world, 0.05, 0.07, 6.0, at + Vector3(0, 3.0, 0), _trim(Color(0.85, 0.85, 0.82)), 8, true)
 	ball(world, 0.09, at + Vector3(0, 6.05, 0), Color(0.8, 0.2, 0.1))
 	sock = Node3D.new()
 	sock.position = at + Vector3(0, 5.75, 0)
 	world.add_child(sock)
 	cyl(sock, 0.025, 0.025, 0.7, Vector3(0.0, 0.0, 0.0), Color(0.3, 0.3, 0.3))  # swivel arm
-	for i in 5:  # stripes taper toward the tail
-		var r0 := lerpf(0.3, 0.14, i / 5.0)
-		var r1 := lerpf(0.3, 0.14, (i + 1) / 5.0)
-		var seg := cyl(sock, r1, r0, 0.46, Vector3(0.25 + i * 0.46, 0, 0), Color(0.95, 0.45, 0.1) if i % 2 == 0 else Color(0.95, 0.93, 0.88), 10)
-		seg.rotation.z = -PI / 2  # cylinder axis Y -> +X, narrow end out
+	var fabric := ShaderMaterial.new()  # stripes run along the sleeve: the texture's x maps to its length
+	fabric.shader = SOCK_SHADER
+	fabric.set_shader_parameter("tex", load("res://textures/windsock_fabric.png"))
+	var sleeve := cyl(sock, 0.14, 0.3, 2.3, Vector3(1.4, 0, 0), fabric, 12)
+	sleeve.rotation.z = -PI / 2  # cylinder axis Y -> +X, narrow end out
+
+
+const SOCK_SHADER_CODE := """
+shader_type spatial;
+render_mode cull_disabled;
+uniform sampler2D tex : source_color, filter_linear_mipmap;
+void fragment() {
+	ALBEDO = texture(tex, vec2(1.0 - UV.y, UV.x)).rgb;  // cylinder v runs along the sleeve; tail (top) = texture's right
+	ROUGHNESS = 0.9;
+}
+"""
+static var SOCK_SHADER := _code_shader(SOCK_SHADER_CODE)
+
+
+static func _code_shader(code: String) -> Shader:
+	var s := Shader.new()
+	s.code = code
+	return s
+
+
+## Worn metal from the team's trim sheet (panel seams, rivets, chipped edges) with its roughness map.
+func _trim(tint: Color) -> StandardMaterial3D:
+	var m := tmat("trim_metal", tint, 1.2)
+	m.roughness = 1.0
+	m.roughness_texture = load("res://textures/trim_metal_rough.png")
+	m.metallic = 0.45
+	return m
+
+
+## Dry leaves under the windbreak and in the hangar corners, pebbles along the apron edges.
+func _scatter_litter(r: RandomNumberGenerator) -> void:
+	for i in 40:
+		var p := Vector3(r.randf_range(-60, 60), 0, r.randf_range(-70, 75))
+		if _kept_clear(p) and not (p.x < -9 and p.x > -23 and p.z < -7 and p.z > -21):  # runway/lot stay clean, hangar floor ok
+			continue
+		if terrain.in_water(p.x, p.z):
+			continue
+		p.y = terrain.height(p.x, p.z) + 0.03
+		var leaf := decal(world, Vector2.ONE * r.randf_range(0.6, 1.3), p, "decal_leaves", Vector3.UP)
+		var cell := Vector2(r.randi() % 2, r.randi() % 2) * 0.5  # one clump of the 2x2 sheet
+		leaf.mesh.material.uv1_scale = Vector3(0.5, 0.5, 1)
+		leaf.mesh.material.uv1_offset = Vector3(cell.x, cell.y, 0)
+		leaf.rotate_y(r.randf() * TAU)
+	for i in 14:  # loose stones kicked off the apron edges
+		var side := r.randi() % 4
+		var p := Vector3(r.randf_range(-9, 9), 0.035, r.randf_range(1, 14))
+		if side == 0: p.x = -9.3
+		elif side == 1: p.x = 9.3
+		elif side == 2: p.z = 0.8
+		else: p.z = 14.2
+		var peb := decal(world, Vector2.ONE * r.randf_range(0.4, 0.9), p, "decal_pebbles", Vector3.UP)
+		peb.rotate_y(r.randf() * TAU)
 
 
 ## A bare warm bulb: lights the spots you walk up to (radio, toolbox, parts counter).
@@ -1942,237 +2200,3 @@ func _text3d(text: String, pos: Vector3, size: int) -> void:
 	l.position = pos
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	world.add_child(l)
-
-
-# ---------- self-test: godot --path . -- --self-test [--shot=prefix] [--all-faults] ----------
-
-func _self_test(args: PackedStringArray) -> void:
-	var shot := ""
-	for a in args:
-		if a.begins_with("--shot="):
-			shot = a.trim_prefix("--shot=")
-	var edges_ok := _edge_tests()
-	var job: Dictionary = jobs[0]
-	if "--all-faults" in args:  # every broken part on one plane, for screenshots
-		job.faults = FAULTS.keys()
-		job.years = 9  # a long-sat plane: grime, stale fuel, dry engine, stuck door
-		job.washed = false
-	for a in args:
-		if a.begins_with("--city="):  # pick the field, e.g. a plains town to see trees
-			job.city = a.trim_prefix("--city=")
-	var start := money
-	job.deadline = day + 30  # don't let a long test trip expire the job
-	_travel(job, 0)
-	await _snap(shot, "broken", 1.5)
-	if shot != "":  # wheels close up, while any flat tire is still flat
-		for v in [["gear", Vector3(2.2, 0.1, 4.6), Vector3(0, 0, 7.1)], ["gear_l", Vector3(2.2, 0.1, 11.4), Vector3(0, 0, 8.9)],
-				["gear_front", Vector3(-7.5, 0.1, 8.6), Vector3(0, 0, 8)], ["tail", Vector3(8.5, 0.1, 5.0), Vector3(5, 0, 8)],
-				["side", Vector3(1.5, 0.1, 1.0), Vector3(1.5, 0, 8)]]:
-			player.position = v[1]
-			player.look_at(Vector3(v[2].x, player.position.y, v[2].z), Vector3.UP)
-			player.cam.rotation.x = -0.35
-			await _snap(shot, v[0])
-		_load_field(location, job)
-	_open_travel()
-	await _snap(shot, "radio")
-	_pocket("wallet")
-	var pockets_ok := panel != null and panel_kind == "wallet"
-	await _snap(shot, "wallet")
-	_pocket("logbook")
-	await _snap(shot, "logbook")
-	_pocket("logbook")  # same key again puts it away
-	pockets_ok = pockets_ok and panel == null
-	var first_zone: String = FAULTS[job.faults[0]].zone
-	if not job.washed:  # grime hides everything until it's washed
-		await _snap(shot, "grimy")
-		_inspect_zone(first_zone)
-		pockets_ok = pockets_ok and job.checked.is_empty() and job.found.is_empty()
-		_wash()
-		pockets_ok = pockets_ok and job.washed
-	_inspect_zone(first_zone)  # one spot: the work order shows only what that spot revealed
-	await _snap(shot, "inspect")
-	var ok: bool = pockets_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return FAULTS[id].zone == first_zone))
-	for z in ZONES:
-		_inspect_zone(z)
-	# The walk-around finds what you can see; the rest only shows on a run-up.
-	ok = ok and job.checked.size() == ZONES.size() and job.faults.all(func(id): return job.found.has(id) != (id in RUNUP_FAULTS))
-	_run_up()
-	# A clean start hears every run-up fault; a dead battery or starter cuts the test short.
-	ok = ok and job.faults.filter(func(id): return id in RUNUP_FAULTS).all(func(id):
-		return job.found.has(id) or job.runup == "dead")
-	if job.faults.has("battery"):
-		ok = ok and job.runup == "dead"  # dead battery: nothing to hear past the master switch
-	# Save, scramble, load: everything comes back and the job here is still the one you're on.
-	_save_game()
-	var before := [money, day, jobs.size(), current_job.city, current_job.checked.size()]
-	money = -999
-	current_job = null
-	jobs = []
-	var loaded := _load_game()
-	ok = ok and loaded and [money, day, jobs.size(), current_job.city, current_job.checked.size()] == before \
-		and jobs.has(current_job)
-	job = current_job  # the loaded copy is the live one now
-	_load_field(location, job)
-	_open_shop()
-	await _snap(shot, "shop")
-	# Work scenes: with no tools nothing comes apart; with tools but no part it stalls at the
-	# empty slot; with both, the whole job gets done bolt by bolt.
-	var id0: String = job.faults[0]
-	tools.clear()
-	_repair(id0)
-	ok = ok and panel is Work
-	await _snap(shot, "work_" + id0)
-	ok = ok and not panel.solve() and not job.fixed.has(id0)
-	for t in Work.TOOLS:
-		if t != "hand":
-			tools[t] = true
-	# Mouse path: hover the first screw/bolt, hold the button with its tool, let go.
-	# Fed to the scene directly so the real cursor (windowed runs) can't interfere.
-	var w = panel
-	var f0: Dictionary = w.els.filter(func(e): return e.type == "fastener" and w.action(e).verb == "loosen")[0]
-	w.tool = f0.tool
-	var mv := InputEventMouseMotion.new()
-	mv.position = w._origin() + f0.pos
-	w._gui_input(mv)
-	var press := InputEventMouseButton.new()
-	press.button_index = MOUSE_BUTTON_LEFT
-	press.position = mv.position
-	press.pressed = true
-	w._gui_input(press)
-	for _i in 10:  # 1 s of holding, stepped by hand: no real cursor or frame timing can interfere
-		w._gui_input(mv)
-		w._process(0.1)
-	var release: InputEventMouseButton = press.duplicate()
-	release.pressed = false
-	w._gui_input(release)
-	ok = ok and w.st[f0.id] == "loose"
-	if w.st[f0.id] != "loose":
-		print("MOUSE HOLD did not loosen ", f0.id, ": ", w.st[f0.id], " hover=", w.hover, " hold=", w.hold, " pressing=", w.pressing, " held_done=", w.held_done, " tool=", w.tool, " action=", w.action(f0))
-	if FAULTS[id0].part != "":
-		inventory.erase(FAULTS[id0].part)
-		ok = ok and not panel.solve() and not job.fixed.has(id0)
-		await _snap(shot, "work_apart")
-	for id in job.faults:
-		var part: String = FAULTS[id].part
-		if part != "":
-			inventory[part] = 1
-		if id != id0:
-			_repair(id)
-			await _snap(shot, "work_" + id, 0.1)
-		var solved: bool = panel.solve()
-		ok = ok and solved and job.fixed.has(id)
-		if not solved:
-			print("WORK STUCK on ", id)
-	_run_up()  # everything fixed: it should fire up and run clean now
-	ok = ok and job.runup == "ran"
-	await _snap(shot, "airworthy")
-	_close_panel()
-	await _snap(shot, "fixed")
-	if shot != "":  # extra viewpoints of the hangar and the parts shed
-		for v in [["hangar_out", Vector3(-10, 0.1, 4), Vector3(-16, 0, -14)], ["hangar", Vector3(-14, 0.1, -12), Vector3(-19, 0, -20)],
-				["drums", Vector3(-3.5, 0.1, -13), Vector3(-7.5, 0, -17)], ["shed", Vector3(18, 0.1, -1), Vector3(14, 0, -8)],
-				["truck", Vector3(-1, 0.1, 4), Vector3(-8, 0, -1)], ["windsock", Vector3(26, 0.1, 25), Vector3(33, 0, 30)],
-				["apron", Vector3(6, 0.1, -1), Vector3(-2, 0, 12)],				["trees", Vector3(-20, 0.1, -25), Vector3(-60, 0, -60)],
-			["vista_n", Vector3(0, 0.1, -28), Vector3(0, 0, -300)], ["vista_e", Vector3(100, 0.1, 25), Vector3(400, 0, 60)],
-			["vista_w", Vector3(-100, 0.1, 10), Vector3(-400, 0, -40)]]:
-			player.position = v[1]
-			player.look_at(Vector3(v[2].x, player.position.y, v[2].z), Vector3.UP)
-			player.cam.rotation.x = 0.02 if v[0].begins_with("vista") else (0.35 if v[0] == "windsock" else -0.35)
-			if v[0] == "vista_n":
-				await get_tree().create_timer(2.0).timeout
-				print("FPS at vista: ", Engine.get_frames_per_second())
-			await _snap(shot, v[0])
-		if flock:  # look up at the birds
-			var bird: Vector3 = flock.get_child(0).global_position
-			player.position = Vector3(bird.x + 25, 0.1, bird.z + 25)
-			player.look_at(Vector3(bird.x, player.position.y, bird.z), Vector3.UP)
-			player.cam.rotation.x = atan2(bird.y - 1.7, Vector2(25, 25).length())
-			await _snap(shot, "birds")
-		if terrain.pond != Vector3.INF:
-			var pd: Vector3 = terrain.pond
-			player.position = Vector3(pd.x + pd.z + 6, terrain.height(pd.x + pd.z + 6, pd.y) + 0.2, pd.y)
-			player.look_at(Vector3(pd.x, player.position.y, pd.y), Vector3.UP)
-			player.cam.rotation.x = -0.2
-			await _snap(shot, "pond")
-		var trees := world.get_children().filter(func(n): return n.has_meta("tree"))
-		for i in mini(3, trees.size()):  # close-ups to check the bark/leaf split
-			var spot: Vector3 = trees[i].position
-			player.position = Vector3(spot.x + 9, terrain.height(spot.x + 9, spot.z + 9) + 0.2, spot.z + 9)
-			player.look_at(Vector3(spot.x, player.position.y, spot.z), Vector3.UP)
-			player.cam.rotation.x = 0.15
-			await _snap(shot, "tree%d" % i)
-		_load_field(location, job)  # put the player back by the plane
-	ok = ok and job.fixed.size() == job.faults.size()
-	# Fly it out for real: hold throttle, pull back once past rotate speed.
-	_start_ferry()
-	Input.action_press("move_forward")
-	await _snap(shot, "cockpit", 1.0)
-	var t0 := Time.get_ticks_msec()
-	while ferry and Time.get_ticks_msec() - t0 < 30000:
-		if ferry.speed >= Ferry.ROTATE:
-			Input.action_press("move_back")
-		if shot != "" and ferry.alt > 8 and not FileAccess.file_exists(shot + "_climb.png"):
-			await _snap(shot, "climb", 0.0)
-		await get_tree().process_frame
-	Input.action_release("move_forward")
-	Input.action_release("move_back")
-	ok = ok and ferry == null and rescued == 1 and money == start + job.reward and jobs.size() == MAX_JOBS
-	ok = ok and logbook.size() == 1 and logbook[0].has("parts")  # the cost sheet was written
-	if shot != "":
-		_pocket("logbook")
-		await _snap(shot, "logbook_after")
-	print("SELF-TEST ", "PASS" if ok and edges_ok else "FAIL", " edges=", edges_ok, " faults=", job.faults, " day=%.1f" % day)
-	get_tree().quit(0 if ok else 1)
-
-
-## Money and deadline edges, run at home before the main test; restores what it touches.
-func _edge_tests() -> bool:
-	var saved := [money, jobs, current_job, day]
-	var fake := func(id: String, deadline: float) -> Dictionary:
-		return {"city": location, "type": "Test", "faults": [id], "fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": 0, "deadline": deadline}
-	# 0. Update version compare: numeric per part, missing parts are 0.
-	var ok: bool = Updater.newer("1.10.0", "1.9.3") and Updater.newer("0.9.1", "0.9") \
-		and not Updater.newer("0.9.0", "0.9.0") and not Updater.newer("0.8.9", "0.9.0")
-	# 0b. Release check: offers a newer release's setup from this repo; ignores older ones and
-	#     anything not hosted on the repo's own release downloads.
-	var up = Updater.new()
-	add_child(up)
-	var offered := []
-	up.available.connect(func(v, _n): offered.append(v))
-	var release := func(tag: String, url: String) -> PackedByteArray:
-		return JSON.stringify({"tag_name": tag, "body": "", "assets": [{"name": url.get_file(), "browser_download_url": url}]}).to_utf8_buffer()
-	var good: String = Updater.ASSET_PREFIX + "v9.9.9/AirplaneRescue-9.9.9-setup.exe"
-	up._on_latest(HTTPRequest.RESULT_SUCCESS, 200, [], release.call("v9.9.9", good))
-	up._on_latest(HTTPRequest.RESULT_SUCCESS, 200, [], release.call("v0.0.1", good.replace("9.9.9", "0.0.1")))
-	up._on_latest(HTTPRequest.RESULT_SUCCESS, 200, [], release.call("v9.9.9", "https://evil.example/AirplaneRescue-9.9.9-setup.exe"))
-	up._on_latest(HTTPRequest.RESULT_SUCCESS, 404, [], PackedByteArray())
-	ok = ok and offered == ["9.9.9"] and up.setup_url == good
-	up.queue_free()
-	# 1. Broke, no flight, the needed part is mail-order only: shelf price is affordable but the
-	#    real price isn't, so it must be game over rather than a dead end.
-	var mail_only := FAULTS.keys().filter(func(id): return FAULTS[id].part != "" and not _stocked(id))
-	if mail_only.size() > 0:
-		var id: String = mail_only[0]
-		jobs = []
-		current_job = fake.call(id, day + 30)
-		money = FAULTS[id].cost
-		_open_travel()
-		ok = ok and panel != null and not panel_closable  # the game-over panel can't be closed
-		_close_panel()
-	# 2. The owner's deadline passes during an inspection: the job is dropped cleanly.
-	jobs = [fake.call("tire", day + 0.01)]
-	current_job = jobs[0]
-	_inspect_zone("gear_l")
-	ok = ok and current_job == null and panel == null  # before the fix this line ran after a script error
-	money = saved[0]
-	jobs = saved[1]
-	current_job = saved[2]
-	day = saved[3]
-	return ok
-
-
-func _snap(prefix: String, name: String, wait := 0.4) -> void:
-	if prefix == "":
-		return
-	await get_tree().create_timer(wait).timeout
-	get_viewport().get_texture().get_image().save_png("%s_%s.png" % [prefix, name])

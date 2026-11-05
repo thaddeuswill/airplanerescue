@@ -70,8 +70,15 @@ func setup(m, fault_id: String, job: Dictionary) -> void:
 
 
 func _build_toolbar() -> void:
-	var cur := "res://textures/work/cursor_%s.png" % tool  # the mouse becomes the tool in your hand
-	Input.set_custom_mouse_cursor(load(cur) if ResourceLoader.exists(cur) else null, Input.CURSOR_ARROW, Vector2(6, 6))
+	# The mouse becomes the tool in your hand, drawn big (96 px) so you always know what you hold.
+	var cur := "res://textures/work/cursor_%s.png" % tool
+	if ResourceLoader.exists(cur):
+		var img: Image = load(cur).get_image()
+		img.decompress()
+		img.resize(96, 96, Image.INTERPOLATE_LANCZOS)
+		Input.set_custom_mouse_cursor(ImageTexture.create_from_image(img), Input.CURSOR_ARROW, Vector2(10, 10))
+	else:
+		Input.set_custom_mouse_cursor(null)
 	for c in toolbar.get_children():
 		c.queue_free()
 	for t in TOOLS:
@@ -166,6 +173,9 @@ func action(e: Dictionary) -> Dictionary:
 				if waiting.size() > 0:
 					a.why = "Finish the %s before this goes back." % waiting[0].name
 					return a
+				if _out_of(e) != "":
+					a.why = _out_of(e)
+					return a
 				a.merge({"verb": "on", "tool": e.tool, "hold": 0.0 if e.tool == "hand" else 0.8}, true)
 		"part":
 			var b := _blocker(e)
@@ -203,8 +213,19 @@ func action(e: Dictionary) -> Dictionary:
 				if req != "":
 					a.why = req
 					return a
+				if _out_of(e) != "":
+					a.why = _out_of(e)
+					return a
 				a.merge({"verb": "do", "tool": e.tool, "hold": e.get("hold", 1.5)}, true)
 	return a
+
+
+## Material this step uses up (safety wire, a cotter pin, penetrant) that you're out of, or "".
+func _out_of(e: Dictionary) -> String:
+	var item: String = e.get("uses", "")
+	if item == "" or main.inventory.get(item, 0) > 0:
+		return ""
+	return "Out of %s. Buy it at a parts shed, or mail-order it from the hangar TOOLS box." % item.to_lower()
 
 
 func _unmet(e: Dictionary) -> String:
@@ -247,6 +268,8 @@ func perform(e: Dictionary, v: String) -> bool:
 				st._paid = true
 			st[e.id] = "new"
 		"do": st[e.id] = "done"
+	if v in ["on", "do"] and e.get("uses", "") != "":
+		main.inventory[e.uses] -= 1  # a fresh length of safety wire, a new cotter pin, a squirt of penetrant
 	if v in ["torque", "install", "on"]:
 		main.sound.clink()
 	if not main._work_time(DAYS[v]):
@@ -430,6 +453,12 @@ func _draw() -> void:
 	draw_string(font, Vector2(o.x, 30), "%s  -  %s" % [main.FAULTS[fault].name, def.title], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.98, 0.94, 0.85))
 	draw_string(font, Vector2(o.x, 54), "Hover a piece to see what it needs. Hold the mouse to turn. Wheel: switch tools. Esc: step away (work is kept).",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.85, 0.82, 0.75))
+	# What's in your hand, riding just under the cursor.
+	var mp := get_local_mouse_position() + Vector2(34, 78)
+	var tname: String = TOOLS[tool]
+	var tw := font.get_string_size(tname, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+	draw_rect(Rect2(mp - Vector2(6, 16), Vector2(tw + 12, 22)), Color(0.1, 0.08, 0.05, 0.85))
+	draw_string(font, mp, tname, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1.0, 0.85, 0.35))
 
 
 func _fill(r: Rect2, texname: String, tint: Color, shape := "rect") -> void:
@@ -539,8 +568,10 @@ func _draw_bench() -> void:
 	y = BENCH.end.y - 40
 	var have: int = main.inventory.get(part_name, 0) if part_name != "" else 0
 	if part_name != "":
-		draw_string(font, Vector2(BENCH.position.x + 10, y), "New %s: %s" % [part_name, "fitted" if st._paid else ("in hand" if have > 0 else "none")],
-			HORIZONTAL_ALIGNMENT_LEFT, BENCH.size.x - 16, 12, Color(0.9, 0.85, 0.75))
+		# Name and status on separate lines: long names ("Door pin & cotter") were clipped mid-word.
+		draw_string(font, Vector2(BENCH.position.x + 10, y - 16), "New " + part_name, HORIZONTAL_ALIGNMENT_LEFT, BENCH.size.x - 16, 12, Color(0.9, 0.85, 0.75))
+		draw_string(font, Vector2(BENCH.position.x + 10, y), "fitted" if st._paid else ("in hand" if have > 0 else "none: parts shed"),
+			HORIZONTAL_ALIGNMENT_LEFT, BENCH.size.x - 16, 12, Color(0.95, 0.8, 0.45) if have == 0 and not st._paid else Color(0.9, 0.85, 0.75))
 
 
 func _draw_hover(e: Dictionary) -> void:
@@ -636,7 +667,7 @@ static func scenes() -> Dictionary:
 		"els": [_part("prop", "Propeller", Rect2(40, 245, 740, 70), ["spinner", "wire"], {"tex": "prop_wood", "col": Color(0.62, 0.4, 0.2)})]
 		+ _ring("prop", hub, 52, 6, "bolt", "ratchet", true)
 		+ [_cover("wire", "Safety wire", Rect2(hub - Vector2(70, 70), Vector2(140, 140)), ["spinner"],
-			{"tool": "pliers", "col": Color(0.75, 0.75, 0.78, 0.35), "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the bolts"}),
+			{"tool": "pliers", "col": Color(0.75, 0.75, 0.78, 0.35), "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the bolts", "uses": "Safety wire"}),
 		_cover("spinner", "Spinner", Rect2(hub - Vector2(105, 105), Vector2(210, 210)), [], {"shape": "circle", "col": Color(0.85, 0.86, 0.88)})]
 		+ _ring("spinner", hub, 88, 4, "screw", "screwdriver", false, PI / 4)}
 
@@ -688,7 +719,7 @@ static func scenes() -> Dictionary:
 		_task("pump", "Pump it up to 18 psi", Rect2(600, 380, 200, 70), "hand", [], {"requires": ["tire"], "col": Color(0.4, 0.15, 0.1, 0.9), "hold": 2.5}),
 		_part("tire", "Tire & tube", Rect2(wc - Vector2(170, 170), Vector2(340, 340)), ["jack", "hubcap", "pin"], {"shape": "circle", "col": RUBBER})]
 		+ _at("tire", [wc], "nut", "ratchet")
-		+ [_cover("pin", "Cotter pin", Rect2(wc - Vector2(22, 40), Vector2(44, 24)), ["hubcap"], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it"}),
+		+ [_cover("pin", "Cotter pin", Rect2(wc - Vector2(22, 40), Vector2(44, 24)), ["hubcap"], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it", "uses": "Cotter pin"}),
 		_cover("hubcap", "Hubcap", Rect2(wc - Vector2(70, 70), Vector2(140, 140)), [], {"shape": "circle", "col": METAL})]
 		+ _ring("hubcap", wc, 52, 3, "screw", "screwdriver", false, -PI / 2)
 		+ [_cover("jack", "Jack", Rect2(80, 330, 130, 140), [], {"col": Color(0.7, 0.15, 0.1), "verb_off": "Jack the wing up", "verb_on": "Lower the plane back down"})]}
@@ -700,7 +731,7 @@ static func scenes() -> Dictionary:
 		+ _ring("disc", bc, 80, 4, "bolt", "ratchet", false, PI / 4)
 		+ [_cover("wheel", "Wheel", Rect2(bc - Vector2(160, 160), Vector2(320, 320)), ["jack", "pin"], {"shape": "circle", "col": RUBBER})]
 		+ _at("wheel", [bc], "nut", "ratchet")
-		+ [_cover("pin", "Cotter pin", Rect2(bc - Vector2(22, 40), Vector2(44, 24)), [], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it"}),
+		+ [_cover("pin", "Cotter pin", Rect2(bc - Vector2(22, 40), Vector2(44, 24)), [], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it", "uses": "Cotter pin"}),
 		_cover("caliper", "Brake caliper", Rect2(520, 160, 120, 150), [], {"col": Color(0.6, 0.15, 0.12)})]
 		+ _at("caliper", [Vector2(580, 185), Vector2(580, 285)], "bolt", "ratchet")
 		+ [_cover("jack", "Jack", Rect2(650, 330, 130, 140), [], {"col": Color(0.7, 0.15, 0.1), "verb_off": "Jack the wing up", "verb_on": "Lower the plane back down"})]}
@@ -745,8 +776,8 @@ static func scenes() -> Dictionary:
 		"els": [_part("cable", "Rudder cable", Rect2(100, 255, 620, 14), ["plate", "wire_a", "wire_b"], {"col": Color(0.7, 0.7, 0.72)}),
 		_task("tb_a", "Tension the left turnbuckle", Rect2(180, 230, 120, 60), "screwdriver", ["plate", "wire_a"], {"fixture": true, "requires": ["cable"], "col": Color(0.6, 0.55, 0.3, 0.9), "hold": 2.5}),
 		_task("tb_b", "Tension the right turnbuckle", Rect2(520, 230, 120, 60), "screwdriver", ["plate", "wire_b"], {"fixture": true, "requires": ["cable"], "col": Color(0.6, 0.55, 0.3, 0.9), "hold": 2.5}),
-		_cover("wire_a", "Left safety wire", Rect2(170, 220, 140, 80), ["plate"], {"tool": "pliers", "col": Color(0.75, 0.75, 0.78, 0.35), "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the turnbuckle"}),
-		_cover("wire_b", "Right safety wire", Rect2(510, 220, 140, 80), ["plate"], {"tool": "pliers", "col": Color(0.75, 0.75, 0.78, 0.35), "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the turnbuckle"}),
+		_cover("wire_a", "Left safety wire", Rect2(170, 220, 140, 80), ["plate"], {"tool": "pliers", "col": Color(0.75, 0.75, 0.78, 0.35), "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the turnbuckle", "uses": "Safety wire"}),
+		_cover("wire_b", "Right safety wire", Rect2(510, 220, 140, 80), ["plate"], {"tool": "pliers", "col": Color(0.75, 0.75, 0.78, 0.35), "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the turnbuckle", "uses": "Safety wire"}),
 		_cover("plate", "Inspection plate", pr, [], {"tex": "plane_body_worn", "col": SKIN})]
 		+ _corners("plate", pr, "screw", "screwdriver")}
 
@@ -774,8 +805,8 @@ static func scenes() -> Dictionary:
 	s.door_pin = {"title": "Cabin door, hinge side", "deco": [[Rect2(20, 40, 790, 480), "plane_body_worn", SKIN.darkened(0.15)], [Rect2(320, 140, 180, 280), "", Color(0.12, 0.11, 0.1)]],
 		"els": [_part("pin", "Door pin", Rect2(395, 150, 30, 260), ["trim", "cotter"], {"tool": "pliers", "col": Color(0.55, 0.35, 0.2), "after": ["soak"],
 			"verb_remove": "Work the seized pin out"}),
-		_task("soak", "Soak the pin in penetrant", Rect2(370, 360, 80, 60), "rag", ["trim"], {"col": Color(0.5, 0.3, 0.15, 0.8), "hold": 3.0}),
-		_cover("cotter", "Cotter pin", Rect2(388, 410, 44, 24), ["trim"], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it"}),
+		_task("soak", "Soak the pin in penetrant", Rect2(370, 360, 80, 60), "rag", ["trim"], {"col": Color(0.5, 0.3, 0.15, 0.8), "hold": 3.0, "uses": "Penetrant"}),
+		_cover("cotter", "Cotter pin", Rect2(388, 410, 44, 24), ["trim"], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it", "uses": "Cotter pin"}),
 		_cover("trim", "Door trim panel", dp, [], {"col": Color(0.4, 0.3, 0.22)})]
 		+ _corners("trim", dp, "screw", "screwdriver")}
 

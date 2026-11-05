@@ -66,8 +66,8 @@ func install(done: Callable) -> void:
 		if result != HTTPRequest.RESULT_SUCCESS or code != 200 or not FileAccess.file_exists(path):
 			done.call(false, "Download failed (%d). Try again later." % code)
 			return
-		# Silent install over this copy; the setup closes the game and starts the new one.
-		var pid := OS.create_process(path, ["/SILENT", "/SP-", "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS"])
+		# Silent install over this copy; the setup closes the game and relaunches it once itself.
+		var pid := OS.create_process(path, ["/SILENT", "/SP-", "/CLOSEAPPLICATIONS"])
 		if pid <= 0:
 			done.call(false, "Couldn't start the installer.")
 			return

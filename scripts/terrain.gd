@@ -114,13 +114,7 @@ func build(parent: Node3D, ground_tex: String) -> void:
 		wm.set_shader_parameter("tex", load("res://textures/water.png"))
 		wm.set_shader_parameter("center", Vector2(pond.x, pond.y))
 		wm.set_shader_parameter("radius", pond.z)
-		var ripples := NoiseTexture2D.new()
-		ripples.seamless = true
-		ripples.as_normal_map = true
-		ripples.bump_strength = 4.0
-		ripples.noise = FastNoiseLite.new()
-		ripples.noise.frequency = 0.06
-		wm.set_shader_parameter("ripples", ripples)
+		wm.set_shader_parameter("ripples", load("res://textures/water_ripples_n.png"))
 		disc.material = wm
 		w.mesh = disc
 		w.position = Vector3(pond.x, WATER_Y, pond.y)

@@ -9,6 +9,14 @@ Open the folder in Godot 4.7 (Import → select `project.godot`) and press F5.
 **Pockets:** Tab opens your wallet (cash, day, parts, tools, start over), J the clipboard (the work order), L the logbook (every rescue). The game autosaves and picks up where you left off.
 **Ferry flight:** hold W for throttle, and at 55 knots hold S to lift off.
 
+## Install and updates
+- **Build the installer:** `powershell -ExecutionPolicy Bypass -File tools/build_release.ps1`, which writes `dist\AirplaneRescue-<version>-setup.exe`. It needs the Godot 4.7.2 Windows export templates and Inno Setup 6 (both already installed on the dev PC). The installer is per user (no admin prompt), adds Start menu and optional desktop shortcuts, and comes with an uninstaller. Saves live in AppData and survive updates and uninstalls.
+- **Auto-update:** on launch, the installed game asks GitHub for the latest release of `thaddeuswill/airplanerescue`. If the release tag (for example `v0.9.1`) is newer than `application/config/version` in `project.godot` and has a `*-setup.exe` attached, the game offers "Install now". It saves, downloads the setup, installs silently and relaunches. It only runs files from this repo's own release downloads.
+- **To ship an update:**
+  1. Bump `config/version` in `project.godot`.
+  2. Run the build script.
+  3. Create a GitHub release tagged `v<version>` and attach the setup .exe.
+
 ## Loop
 1. **Take a call.** The **RADIO** in the hangar shows rescue calls on a map, with the owner's symptoms ("runs rough, oil spots under the nose"), the pay, the distance, and how many days the owner will wait. Flying there costs fuel and days.
 2. **Walk around the plane.** Some planes just sat a few weeks; others sat out in the weather for years (it's on the radio call, and they pay more). Those are caked in grime, so **wash it down** first or you can't tell damage from dirt, and expect stale fuel to sump, an engine to pre-oil before its first start, maybe a door pin rusted shut.
@@ -23,6 +31,8 @@ Rescue 10 planes to win. Owners scrap their planes if you're too late. Run out o
 - `scripts/main.gd`: game state, world and plane building, panels
 - `scripts/work.gd`: the 2D work scenes (rules, drawing, and all 13 jobs as data)
 - `scripts/gauge.gd`: round cockpit dials drawn into the Cub's panel
+- `scripts/updater.gd`: checks GitHub Releases and installs newer versions
+- `installer/airplane_rescue.iss`, `tools/build_release.ps1`: the Windows installer and its build
 - `scripts/player.gd`: first-person controller
 - `scripts/terrain.gd`: noise terrain per region (flat airfield, hills to mountains, ponds), slope/height ground blending
 - `scripts/ferry.gd`: cockpit takeoff

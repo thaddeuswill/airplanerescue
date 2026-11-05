@@ -10,6 +10,7 @@ const Sound := preload("res://scripts/sound.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Work := preload("res://scripts/work.gd")
 const Gauge := preload("res://scripts/gauge.gd")
+const Updater := preload("res://scripts/updater.gd")
 const GOAL := 10
 const MAX_JOBS := 3
 const START_CITY := "Wichita"
@@ -147,6 +148,32 @@ func _ready() -> void:
 		_say("Home base. Walk into the hangar and use the RADIO to take a rescue call.")
 	if "--self-test" in args:
 		_self_test(args)
+	else:
+		updater = Updater.new()
+		add_child(updater)
+		updater.available.connect(_offer_update)
+		updater.check()
+
+
+# ---------- auto-update ----------
+
+var updater
+
+
+func _offer_update(version: String, notes: String) -> void:
+	if panel and not panel_closable:
+		return  # mid game-over or win screen: offer next launch
+	var rows := [["Version %s is out (you have %s)." % [version, ProjectSettings.get_setting("application/config/version")]]]
+	if notes.strip_edges() != "":
+		rows.append([notes.left(400)])
+	rows.append(["Your game is saved and carries over.", "Install now", _install_update, true])
+	_open_panel("Update available", rows)
+
+
+func _install_update() -> void:
+	_save_game()
+	_open_panel("Downloading the update...", [["The game closes and the installer takes it from here."]], false)
+	updater.install(func(_ok, message): _open_panel("Update", [[message]]))
 
 
 # ---------- save / load ----------
@@ -2012,13 +2039,15 @@ func _self_test(args: PackedStringArray) -> void:
 	press.position = mv.position
 	press.pressed = true
 	w._gui_input(press)
-	await get_tree().create_timer(1.2).timeout
+	for _i in 10:  # 1 s of holding, stepped by hand: no real cursor or frame timing can interfere
+		w._gui_input(mv)
+		w._process(0.1)
 	var release: InputEventMouseButton = press.duplicate()
 	release.pressed = false
 	w._gui_input(release)
 	ok = ok and w.st[f0.id] == "loose"
 	if w.st[f0.id] != "loose":
-		print("MOUSE HOLD did not loosen ", f0.id, ": ", w.st[f0.id], " hover=", w.hover)
+		print("MOUSE HOLD did not loosen ", f0.id, ": ", w.st[f0.id], " hover=", w.hover, " hold=", w.hold, " pressing=", w.pressing, " held_done=", w.held_done, " tool=", w.tool, " action=", w.action(f0))
 	if FAULTS[id0].part != "":
 		inventory.erase(FAULTS[id0].part)
 		ok = ok and not panel.solve() and not job.fixed.has(id0)
@@ -2101,7 +2130,24 @@ func _edge_tests() -> bool:
 	var saved := [money, jobs, current_job, day]
 	var fake := func(id: String, deadline: float) -> Dictionary:
 		return {"city": location, "type": "Test", "faults": [id], "fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": 0, "deadline": deadline}
-	var ok := true
+	# 0. Update version compare: numeric per part, missing parts are 0.
+	var ok: bool = Updater.newer("1.10.0", "1.9.3") and Updater.newer("0.9.1", "0.9") \
+		and not Updater.newer("0.9.0", "0.9.0") and not Updater.newer("0.8.9", "0.9.0")
+	# 0b. Release check: offers a newer release's setup from this repo; ignores older ones and
+	#     anything not hosted on the repo's own release downloads.
+	var up = Updater.new()
+	add_child(up)
+	var offered := []
+	up.available.connect(func(v, _n): offered.append(v))
+	var release := func(tag: String, url: String) -> PackedByteArray:
+		return JSON.stringify({"tag_name": tag, "body": "", "assets": [{"name": url.get_file(), "browser_download_url": url}]}).to_utf8_buffer()
+	var good: String = Updater.ASSET_PREFIX + "v9.9.9/AirplaneRescue-9.9.9-setup.exe"
+	up._on_latest(HTTPRequest.RESULT_SUCCESS, 200, [], release.call("v9.9.9", good))
+	up._on_latest(HTTPRequest.RESULT_SUCCESS, 200, [], release.call("v0.0.1", good.replace("9.9.9", "0.0.1")))
+	up._on_latest(HTTPRequest.RESULT_SUCCESS, 200, [], release.call("v9.9.9", "https://evil.example/AirplaneRescue-9.9.9-setup.exe"))
+	up._on_latest(HTTPRequest.RESULT_SUCCESS, 404, [], PackedByteArray())
+	ok = ok and offered == ["9.9.9"] and up.setup_url == good
+	up.queue_free()
 	# 1. Broke, no flight, the needed part is mail-order only: shelf price is affordable but the
 	#    real price isn't, so it must be game over rather than a dead end.
 	var mail_only := FAULTS.keys().filter(func(id): return FAULTS[id].part != "" and not _stocked(id))

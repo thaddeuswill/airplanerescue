@@ -66,9 +66,12 @@ func setup(m, fault_id: String, job: Dictionary) -> void:
 	toolbar.add_theme_constant_override("separation", 8)
 	add_child(toolbar)
 	_build_toolbar()
+	_preload_art()
 
 
 func _build_toolbar() -> void:
+	var cur := "res://textures/work/cursor_%s.png" % tool  # the mouse becomes the tool in your hand
+	Input.set_custom_mouse_cursor(load(cur) if ResourceLoader.exists(cur) else null, Input.CURSOR_ARROW, Vector2(6, 6))
 	for c in toolbar.get_children():
 		c.queue_free()
 	for t in TOOLS:
@@ -85,8 +88,8 @@ func _build_toolbar() -> void:
 		var icon := "res://textures/work/tool_%s.png" % t
 		if ResourceLoader.exists(icon):
 			b.icon = load(icon)
-			b.expand_icon = true
-			b.custom_minimum_size = Vector2(120, 48)
+			b.add_theme_constant_override("icon_max_width", 36)  # fixed size: long names squeezed it to nothing
+			b.custom_minimum_size = Vector2(0, 48)
 		toolbar.add_child(b)
 
 
@@ -311,11 +314,19 @@ func _gui_input(ev: InputEvent) -> void:
 
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		Input.set_custom_mouse_cursor(null)  # back to the normal pointer outside the scene
 	if what == NOTIFICATION_RESIZED and toolbar:
 		toolbar.position = _origin() + Vector2(0, H + 8)
 
 
+var _settle := 3  # redraw the first few frames so freshly uploaded art shows without a mouse move
+
+
 func _process(delta: float) -> void:
+	if _settle > 0:
+		_settle -= 1
+		queue_redraw()
 	if hover == "" or held_done or not pressing:
 		return
 	var e: Dictionary = by_id[hover]
@@ -367,21 +378,36 @@ func _visible(e: Dictionary) -> bool:
 			var host: Dictionary = by_id[e.host]
 			return _visible(host) and _present(host)
 		"cover": return st[e.id] == "on"
-		"task": return st[e.id] == "todo"
+		"task": return st[e.id] == "todo" or e.get("fixture", false)  # fixtures (turnbuckles) stay put once done
 	return true
 
 
 # ---------- drawing (placeholders until textures/work/ art exists) ----------
 
+var _texcache := {}
+
+
+## Textures are loaded once and kept: one first loaded mid-draw shows up blank for that frame.
 func _tex(name: String) -> Texture2D:
-	var p := "res://textures/%s.png" % name
-	return load(p) if ResourceLoader.exists(p) else null
+	if not _texcache.has(name):
+		var p := "res://textures/%s.png" % name
+		_texcache[name] = load(p) if ResourceLoader.exists(p) else null
+	return _texcache[name]
+
+
+func _preload_art() -> void:
+	for n in ["work/%s_bg" % fault, "work/screw", "work/bolt", "work/nut", "icon_" + fault]:
+		_tex(n)
+	for e in els:
+		for n in ["work/%s_%s" % [fault, e.id], "work/%s_%s_old" % [fault, e.id], "work/%s_%s_new" % [fault, e.id], e.get("tex", "")]:
+			if n != "":
+				_tex(n)
 
 
 func _draw() -> void:
 	var o := _origin()
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.09, 0.08, 0.07))  # the work fills the screen; HUD stays hidden
-	draw_string(font, Vector2(o.x + W - 220, 30), "Day %d   $%d" % [floori(main.day), main.money], HORIZONTAL_ALIGNMENT_RIGHT, 220, 16, Color(0.85, 0.82, 0.75))
+	draw_string(font, Vector2(o.x + W - 220, 30), "Day %d" % floori(main.day), HORIZONTAL_ALIGNMENT_RIGHT, 220, 16, Color(0.85, 0.82, 0.75))
 	draw_set_transform(o)
 	var bg := _tex("work/%s_bg" % fault)
 	if bg:
@@ -426,15 +452,19 @@ func _draw_piece(e: Dictionary) -> void:
 			_fill(e.rect, e.get("tex", "plane_body_worn"), e.get("col", SKIN), e.get("shape", "rect"))
 			_label(e.rect, e.name)
 		"part":
-			if s == "out":
-				draw_rect(e.rect, Color(0, 0, 0, 0.35))
+			if s == "out":  # the bare spot shows through; a faint outline says where the new one goes
+				var painted := _tex("work/%s_bg" % fault) != null
+				if not painted:
+					draw_rect(e.rect, Color(0, 0, 0, 0.35))
 				draw_dashed_line(e.rect.position, e.rect.position + Vector2(e.rect.size.x, 0), Color(1, 1, 1, 0.5), 2.0, 8.0)
 				draw_dashed_line(e.rect.end, e.rect.end - Vector2(e.rect.size.x, 0), Color(1, 1, 1, 0.5), 2.0, 8.0)
-				_label(e.rect, "(empty: new %s goes here)" % e.name)
+				if not painted:
+					_label(e.rect, "(empty: new %s goes here)" % e.name)
 				return
 			var art := _tex("work/%s_%s_%s" % [fault, e.id, s])
 			if art:
 				draw_texture_rect(art, e.rect, false)
+				return  # the painting speaks for itself
 			else:
 				var c: Color = e.get("col", METAL)
 				_fill(e.rect, e.get("tex", "metal_steel"), c.darkened(0.25) if s == "old" else c.lightened(0.1), e.get("shape", "rect"))
@@ -448,8 +478,8 @@ func _draw_piece(e: Dictionary) -> void:
 			var art := _tex("work/%s_%s" % [fault, e.id])
 			if art:
 				draw_texture_rect(art, e.rect, false)
-			else:
-				_fill(e.rect, e.get("tex", ""), e.get("col", Color(0.15, 0.12, 0.08, 0.8)))
+				return
+			_fill(e.rect, e.get("tex", ""), e.get("col", Color(0.15, 0.12, 0.08, 0.8)))
 			_label(e.rect, e.label)
 		"fastener":
 			_draw_fastener(e, s)
@@ -465,7 +495,10 @@ func _draw_fastener(e: Dictionary, s: String) -> void:
 	if s == "loose":
 		draw_circle(p + Vector2(2, 2), r, Color(0, 0, 0, 0.4))  # backed out: casts a shadow
 	var head := Color(0.78, 0.78, 0.8) if s != "loose" else Color(0.9, 0.9, 0.92)
-	if e.kind == "screw":
+	var sprite := _tex("work/" + e.kind)
+	if sprite:  # painted head; loose ones sit raised and a touch brighter
+		draw_texture_rect(sprite, Rect2(p + lift - Vector2(12, 12), Vector2(24, 24)), false, Color(1.15, 1.15, 1.15) if s == "loose" else Color.WHITE)
+	elif e.kind == "screw":
 		draw_circle(p + lift, r, head)
 		draw_line(p + lift + Vector2(-6, -2), p + lift + Vector2(6, 2), Color(0.2, 0.2, 0.22), 2.5)
 	else:
@@ -485,7 +518,8 @@ func _label(r: Rect2, t: String) -> void:
 
 
 func _draw_bench() -> void:
-	draw_rect(BENCH, Color(0.36, 0.27, 0.18))
+	var painted := _tex("work/%s_bg" % fault) != null  # the background already has a wooden bench
+	draw_rect(BENCH, Color(0.12, 0.08, 0.05, 0.45) if painted else Color(0.36, 0.27, 0.18))
 	draw_rect(BENCH, Color(0.2, 0.14, 0.08), false, 2.0)
 	var y := BENCH.position.y + 22
 	draw_string(font, Vector2(BENCH.position.x + 10, y), "BENCH", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.95, 0.88, 0.7))
@@ -637,7 +671,7 @@ static func scenes() -> Dictionary:
 	# Magneto: harness cap off, two clamp nuts, swap, time it.
 	var mr := Rect2(470, 130, 220, 170)
 	s.magneto = {"title": "Engine, rear accessory case", "deco": engine_deco, "els": [
-		_task("timing", "Set the magneto timing", Rect2(130, 260, 260, 50), "screwdriver", ["cowl"], {"requires": ["magneto"], "col": Color(0.2, 0.3, 0.2, 0.85), "hold": 3.0}),
+		_task("timing", "Set the magneto timing", Rect2(130, 260, 260, 50), "screwdriver", ["cowl"], {"fixture": true, "requires": ["magneto"], "col": Color(0.2, 0.3, 0.2, 0.85), "hold": 3.0}),
 		_part("magneto", "Magneto", mr, ["cowl", "cap"], {"col": Color(0.15, 0.15, 0.17)})]
 		+ _at("magneto", [Vector2(mr.position.x - 14, mr.end.y - 30), Vector2(mr.end.x + 14, mr.end.y - 30)], "nut", "ratchet")
 		+ [_cover("cap", "Harness cap", Rect2(mr.position + Vector2(30, 20), Vector2(160, 70)), ["cowl"], {"col": Color(0.2, 0.2, 0.5)})]
@@ -705,8 +739,8 @@ static func scenes() -> Dictionary:
 	var pr := Rect2(80, 110, 660, 320)
 	s.control_cables = {"title": "Tail, inspection panel", "deco": [[Rect2(20, 60, 790, 420), "plane_body_worn", SKIN.darkened(0.2)], [pr.grow(-10), "", Color(0.1, 0.09, 0.08)]],
 		"els": [_part("cable", "Rudder cable", Rect2(100, 255, 620, 14), ["plate", "wire_a", "wire_b"], {"col": Color(0.7, 0.7, 0.72)}),
-		_task("tb_a", "Tension the left turnbuckle", Rect2(180, 230, 120, 60), "screwdriver", ["plate", "wire_a"], {"requires": ["cable"], "col": Color(0.6, 0.55, 0.3, 0.9), "hold": 2.5}),
-		_task("tb_b", "Tension the right turnbuckle", Rect2(520, 230, 120, 60), "screwdriver", ["plate", "wire_b"], {"requires": ["cable"], "col": Color(0.6, 0.55, 0.3, 0.9), "hold": 2.5}),
+		_task("tb_a", "Tension the left turnbuckle", Rect2(180, 230, 120, 60), "screwdriver", ["plate", "wire_a"], {"fixture": true, "requires": ["cable"], "col": Color(0.6, 0.55, 0.3, 0.9), "hold": 2.5}),
+		_task("tb_b", "Tension the right turnbuckle", Rect2(520, 230, 120, 60), "screwdriver", ["plate", "wire_b"], {"fixture": true, "requires": ["cable"], "col": Color(0.6, 0.55, 0.3, 0.9), "hold": 2.5}),
 		_cover("wire_a", "Left safety wire", Rect2(170, 220, 140, 80), ["plate"], {"tool": "pliers", "col": Color(0.75, 0.75, 0.78, 0.35), "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the turnbuckle"}),
 		_cover("wire_b", "Right safety wire", Rect2(510, 220, 140, 80), ["plate"], {"tool": "pliers", "col": Color(0.75, 0.75, 0.78, 0.35), "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the turnbuckle"}),
 		_cover("plate", "Inspection plate", pr, [], {"tex": "plane_body_worn", "col": SKIN})]

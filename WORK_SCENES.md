@@ -26,6 +26,15 @@ Shown on the tool roll buttons, **96 x 96 px**, transparent:
 
 Also wanted: a mouse cursor for each tool, **48 x 48 px**, named `work/cursor_<tool>.png`. Not wired in yet.
 
+## Pocket icons (HUD)
+Small icons in the bottom-left corner, **64 x 64 px**, transparent, in `textures/ui/` (not `work/`):
+
+| File | What |
+|---|---|
+| `ui/wallet.png` | Worn leather wallet |
+| `ui/clipboard.png` | Clipboard with a work order |
+| `ui/logbook.png` | Pilot/mechanic logbook |
+
 ## Scenes
 
 ### propeller (Nose, head-on)

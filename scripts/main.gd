@@ -9,6 +9,7 @@ const Ferry := preload("res://scripts/ferry.gd")
 const Sound := preload("res://scripts/sound.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Work := preload("res://scripts/work.gd")
+const Gauge := preload("res://scripts/gauge.gd")
 const GOAL := 10
 const MAX_JOBS := 3
 const START_CITY := "Wichita"
@@ -51,6 +52,24 @@ const FAULTS := {
 	"avionics": {"name": "Broken radio antenna", "part": "Antenna & radio", "cost": 1800, "zone": "cabin", "symptom": "radio's dead, can't raise anyone"},
 	"propeller": {"name": "Bent propeller", "part": "Propeller", "cost": 2600, "zone": "prop", "symptom": "hit a fence post taxiing"},
 }
+# How you find each fault. Seen on the walk-around (clue = what you notice at that spot), or only
+# heard/felt on the run-up from the cockpit.
+const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs"]
+const CLUES := {
+	"tire": "the left tire is squashed flat on its rim",
+	"brakes": "orange rust and deep grooves on the right brake disc",
+	"oil_leak": "fresh oil dripping off the bottom of the cowling",
+	"bird_nest": "straw poking out of the cowl inlet, and chirping inside",
+	"fuel_line": "a blue stain and a sharp avgas smell under the wing root",
+	"windshield": "a long crack right across the windshield",
+	"control_cables": "the rudder flops loose; its cables feel slack",
+	"propeller": "a prop tip bent back and the blade edge chewed up",
+	"battery": "Master ON: nothing. No ammeter flicker, no lights. Battery's dead",
+	"starter": "Starter just clicks and won't turn the prop over",
+	"avionics": "Radio's dead silent, not even a hiss. The antenna's snapped too",
+	"magneto": "Mag check: big drop on the left mag, the engine nearly quits",
+	"spark_plugs": "Runs rough on both mags and puffs black smoke",
+}
 # Walk-around inspection spots, in plane-local coords (nose -Z), probed from the plane model.
 const ZONES := {
 	"prop": {"name": "propeller", "pos": Vector3(0, 1.2, -1.45), "size": Vector3(1.9, 1.9, 0.3)},
@@ -72,6 +91,7 @@ var location := START_CITY
 var inventory := {}
 var jobs: Array = []
 var current_job = null  # Dictionary of the plane at this field, or null
+var logbook: Array = []  # one entry per rescue: {day, city, type, pay, faults}
 var rng := RandomNumberGenerator.new()
 
 var world: Node3D
@@ -80,7 +100,7 @@ var cub: Node3D  # the plane model; its parts (tyre_l, rudder, antenna_elt...) a
 var visuals := {}  # fault id -> Node3D showing broken/fixed state
 var player
 var ui: CanvasLayer
-var hud: Label
+var hud: Control  # the pocket strip (wallet, clipboard, logbook keys)
 var prompt: Label
 var msg: Label
 var panel: Control
@@ -105,13 +125,53 @@ func _ready() -> void:
 	add_child(player)
 	sound = Sound.new()
 	add_child(sound)
-	while jobs.size() < MAX_JOBS:
-		_spawn_job()
-	_load_field(START_CITY, null)
-	_say("Home base. Walk into the hangar and use the RADIO to take a rescue call.")
 	var args := OS.get_cmdline_user_args()
 	if "--self-test" in args:
+		save_path = "user://selftest.save"  # never touch the player's game
+		DirAccess.remove_absolute(save_path)
+	if _load_game():
+		_load_field(location, current_job)
+		_say("Welcome back. Day %d in %s." % [floori(day), location])
+	else:
+		while jobs.size() < MAX_JOBS:
+			_spawn_job()
+		_load_field(START_CITY, null)
+		_say("Home base. Walk into the hangar and use the RADIO to take a rescue call.")
+	if "--self-test" in args:
 		_self_test(args)
+
+
+# ---------- save / load ----------
+
+var save_path := "user://airplane_rescue.save"
+const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook"]
+
+
+## Autosaves after anything that changes the game (time passing, buying, travel, tools).
+func _save_game() -> void:
+	var data := {"version": 1, "current": jobs.find(current_job)}
+	for k in SAVE_KEYS:
+		data[k] = get(k)
+	var f := FileAccess.open(save_path, FileAccess.WRITE)
+	if f:
+		f.store_var(data)
+
+
+func _load_game() -> bool:
+	if not FileAccess.file_exists(save_path):
+		return false
+	var f := FileAccess.open(save_path, FileAccess.READ)
+	var data = f.get_var() if f else null
+	if not data is Dictionary or data.get("version") != 1:
+		return false  # unreadable or from an older build: start fresh rather than crash
+	for k in SAVE_KEYS:
+		set(k, data[k])
+	current_job = jobs[data.current] if data.current >= 0 else null
+	return true
+
+
+func _delete_save() -> void:
+	DirAccess.remove_absolute(save_path)
 
 
 # ---------- game state ----------
@@ -163,6 +223,7 @@ func _advance(days: float) -> void:
 					plane = null
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
+	_save_game()
 
 
 func _travel(job: Dictionary, cost: int) -> void:
@@ -183,15 +244,48 @@ func _inspect_zone(zone: String) -> void:
 		_advance(0.05)
 		if not current_job:  # the owner gave up while you were looking
 			return
-		var found: PackedStringArray = []
+		var seen: PackedStringArray = []
 		for id in current_job.faults:
-			if FAULTS[id].zone == zone:
+			if FAULTS[id].zone == zone and not id in RUNUP_FAULTS:  # the rest only show on the run-up
 				current_job.found[id] = true
-				found.append(FAULTS[id].name)
-		_say(("%s: found %s" % [ZONES[zone].name.capitalize(), ", ".join(found)]) if found.size() > 0
-			else "%s: looks good." % ZONES[zone].name.capitalize())
+				seen.append(CLUES[id])
+		_say(("%s: %s." % [ZONES[zone].name.capitalize(), "; ".join(seen)]) if seen.size() > 0
+			else "%s: nothing wrong you can see." % ZONES[zone].name.capitalize())
 	if current_job:
 		_open_inspection()
+
+
+## Sit in and run the engine up: master, crank, radio, mag check. What you hear and feel finds
+## the faults a walk-around can't. A dead battery or starter stops the test there.
+func _run_up() -> void:
+	var job: Dictionary = current_job
+	_advance(0.04)
+	if not current_job:
+		return
+	var heard: PackedStringArray = []
+	var broken := func(id): return job.faults.has(id) and not job.fixed.has(id)
+	var hear := func(id):
+		job.found[id] = true
+		heard.append(CLUES[id])
+	if broken.call("battery"):
+		hear.call("battery")
+		job.runup = "dead"
+	else:
+		if broken.call("avionics"):
+			hear.call("avionics")
+		if broken.call("starter"):
+			hear.call("starter")
+			job.runup = "dead"
+		else:
+			for id in ["magneto", "spark_plugs"]:
+				if broken.call(id):
+					hear.call(id)
+			if heard.is_empty():
+				heard.append("Fires right up, smooth on both mags, oil pressure in the green")
+			job.runup = "ran"
+	_say(". ".join(heard) + ("." if job.runup == "ran" else ". Can't run it up until that's fixed."))
+	_save_game()
+	_open_inspection()
 
 
 ## Opens the 2D work scene for this fault: real tools, every screw and bolt (scripts/work.gd).
@@ -230,6 +324,7 @@ func _buy(part: String, cost: int, mail := false) -> void:
 	if mail:
 		_advance(1.0)
 		_say("The %s came on the morning mail truck." % part)
+	_save_game()
 	_open_shop()
 
 
@@ -240,6 +335,7 @@ func _start_ferry() -> void:
 	for c in plane.get_children():
 		if c.has_meta("kind"):
 			c.queue_free()  # inspection spots
+	_build_gauges()
 	ferry = Ferry.new()
 	add_child(ferry)
 	ferry.finished.connect(_ferry_done)
@@ -247,7 +343,35 @@ func _start_ferry() -> void:
 	_say("Hold W to open the throttle. At 55 knots, hold S to lift off.")
 
 
+## The Cub panel's four dial holes (probed: front face z=-0.202, y=1.382, r 0.044 m).
+var gauges := {}
+
+
+func _build_gauges() -> void:
+	var at := func(x: float) -> Vector3: return Vector3(x, 1.382, -0.199)
+	gauges.asi = Gauge.make(plane, at.call(-0.197), 0.044, func(g):
+		g.title = "AIRSPEED MPH"; g.hi = 120.0; g.marks = 6; g.green = Vector2(45, 85))
+	gauges.alt = Gauge.make(plane, at.call(-0.091), 0.044, func(g):
+		g.title = "ALT x100"; g.hi = 1000.0; g.marks = 10; g.full_turn = true)
+	gauges.tach = Gauge.make(plane, at.call(0.104), 0.044, func(g):
+		g.title = "RPM x100"; g.hi = 3000.0; g.marks = 6; g.label_scale = 0.01; g.green = Vector2(2100, 2350))
+	gauges.oil = Gauge.make(plane, at.call(0.197), 0.044, func(g):
+		g.title = "OIL PSI"; g.hi = 100.0; g.marks = 5; g.green = Vector2(30, 60))
+
+
+## Ferry flight feeds the dials every frame.
+func update_gauges(speed_ms: float, alt_m: float, throttle: float) -> void:
+	if gauges.is_empty():
+		return
+	gauges.asi.value = speed_ms * 2.237
+	gauges.alt.value = alt_m * 3.281
+	var rpm := lerpf(gauges.tach.value, 600.0 + throttle * 1700.0 + speed_ms * 6.0, 0.08)
+	gauges.tach.value = rpm
+	gauges.oil.value = 25.0 + rpm / 2300.0 * 35.0
+
+
 func _ferry_done() -> void:
+	gauges.clear()
 	ferry.queue_free()
 	ferry = null
 	prompt.text = ""
@@ -266,9 +390,12 @@ func _sign_off() -> void:
 	rescued += 1
 	jobs.erase(job)
 	current_job = null
+	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": job.reward,
+		"work": job.faults.map(func(id): return FAULTS[id].name)})
 	_say("The %s is back in the air! Owner paid $%d." % [job.type, job.reward])
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
+	_save_game()
 
 
 func _after_flight() -> void:
@@ -290,6 +417,7 @@ func _can_finish_here() -> bool:
 
 
 func _restart() -> void:
+	_delete_save()  # "Play again" means a fresh career
 	get_tree().reload_current_scene()
 
 
@@ -300,6 +428,7 @@ func _setup_input() -> void:
 		"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN],
 		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "interact": [KEY_E],
+		"wallet": [KEY_TAB], "clipboard": [KEY_J], "logbook": [KEY_L],
 	}
 	for action in keys:
 		if InputMap.has_action(action):
@@ -342,6 +471,14 @@ func _process(delta: float) -> void:
 			"toolbox": _open_toolbox()
 
 
+func _input(e: InputEvent) -> void:  # before the GUI, so Tab isn't eaten by focus navigation
+	for kind in ["wallet", "clipboard", "logbook"]:
+		if e.is_action_pressed(kind):
+			_pocket(kind)
+			get_viewport().set_input_as_handled()
+			return
+
+
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("interact") and panel and panel_closable:  # E toggles panels shut too
 		_close_panel()
@@ -364,9 +501,7 @@ func _unhandled_input(e: InputEvent) -> void:
 func _setup_ui() -> void:
 	ui = CanvasLayer.new()
 	add_child(ui)
-	hud = _label(20, HORIZONTAL_ALIGNMENT_LEFT, VERTICAL_ALIGNMENT_TOP)
-	hud.offset_left = 16
-	hud.offset_top = 12
+	_setup_pockets()
 	_label(26, HORIZONTAL_ALIGNMENT_CENTER, VERTICAL_ALIGNMENT_CENTER).text = "+"
 	prompt = _label(22, HORIZONTAL_ALIGNMENT_CENTER, VERTICAL_ALIGNMENT_BOTTOM)
 	prompt.offset_bottom = -120
@@ -387,16 +522,89 @@ func _label(size: int, h: HorizontalAlignment, v: VerticalAlignment) -> Label:
 	return l
 
 
+## Almost no HUD (ART_DIRECTION.md): money, parts and career live in things you take out.
 func _update_hud() -> void:
+	hud.visible = panel == null and ferry == null
+
+
+## Bottom-left strip of key hints (icons from textures/ui/ when the art exists).
+func _setup_pockets() -> void:
+	var strip := HBoxContainer.new()
+	strip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	strip.offset_left = 16
+	strip.offset_top = -48
+	strip.offset_bottom = -12
+	strip.add_theme_constant_override("separation", 18)
+	for p in [["wallet", "Tab", "Wallet"], ["clipboard", "J", "Clipboard"], ["logbook", "L", "Logbook"]]:
+		var tex := "res://textures/ui/%s.png" % p[0]
+		if ResourceLoader.exists(tex):
+			var icon := TextureRect.new()
+			icon.texture = load(tex)
+			icon.custom_minimum_size = Vector2(40, 40)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.modulate = Color(1, 1, 1, 0.8)
+			strip.add_child(icon)
+		var l := Label.new()
+		l.text = "%s  %s" % [p[1], p[2]]
+		l.add_theme_font_size_override("font_size", 14)
+		l.add_theme_constant_override("outline_size", 5)
+		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+		l.modulate = Color(1, 1, 1, 0.75)
+		strip.add_child(l)
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud = strip
+	ui.add_child(hud)
+
+
+var panel_kind := ""  # which pocket panel is open, so its key closes it again
+
+
+func _pocket(kind: String) -> void:
+	if ferry or (panel and not panel_closable):
+		return
+	if panel and panel_kind == kind:
+		_close_panel()
+		return
+	match kind:
+		"wallet": _open_wallet()
+		"clipboard":
+			if current_job:
+				_open_inspection()
+			else:
+				_open_panel("Clipboard", [["No plane at this field. Take a call on the hangar RADIO."]])
+		"logbook": _open_logbook()
+	panel_kind = kind
+
+
+func _open_wallet() -> void:
+	var rows := [["Cash: $%d" % money], ["Day %d, at %s" % [floori(day), location]]]
 	var inv: PackedStringArray = []
 	for k in inventory:
 		if inventory[k] > 0:
 			inv.append("%s x%d" % [k, inventory[k]])
-	var due := ""
-	if current_job:
-		due = "    Owner waits %d more day(s)" % maxi(0, ceili(current_job.deadline - day))
-	hud.text = "$%d    Day %d    Rescued %d/%d    %s%s\nParts: %s    Tool roll: %d of %d tools" % [money, floori(day), rescued, GOAL, location, due,
-		", ".join(inv) if inv.size() > 0 else "none", tools.size(), Work.TOOLS.size() - 1]
+	rows.append(["Parts in the truck: " + (", ".join(inv) if inv.size() > 0 else "none")])
+	var have: PackedStringArray = []
+	for t in tools:
+		have.append(Work.TOOLS[t])
+	rows.append(["Tool roll: " + (", ".join(have) if have.size() > 0 else "empty. Fill it at the hangar TOOLS box.")])
+	rows.append(["", "Start a new career", _confirm_restart, true])
+	_open_panel("Wallet", rows, true, "paper_catalog")
+
+
+func _confirm_restart() -> void:
+	_open_panel("Start over?", [["This throws away your money, logbook and every job in progress."],
+		["", "Yes, start over", _restart, true], ["", "Keep playing", _close_panel, true]])
+
+
+func _open_logbook() -> void:
+	var rows := [["Planes back in the air: %d of %d" % [rescued, GOAL]]]
+	for i in range(logbook.size() - 1, -1, -1):
+		var e: Dictionary = logbook[i]
+		rows.append(["Day %d  %s  -  %s, paid $%d\n%s" % [e.day, e.city, e.type, e.pay, ", ".join(e.work)]])
+	if logbook.is_empty():
+		rows.append(["No entries yet. Your first rescue goes here."])
+	_open_panel("Logbook", rows, true, "logbook_page" if ResourceLoader.exists("res://textures/logbook_page.png") else "paper_catalog")
 
 
 func _say(text: String) -> void:
@@ -499,6 +707,7 @@ func _close_panel() -> void:
 	if panel:
 		panel.queue_free()
 		panel = null
+	panel_kind = ""
 	player.frozen = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -507,6 +716,7 @@ func _close_panel() -> void:
 func _open_inspection() -> void:
 	var job: Dictionary = current_job
 	var rows := [["Owner reports: " + _symptoms(job)],
+		["Owner waits %d more day(s)" % maxi(0, ceili(job.deadline - day))],
 		["Walk-around: %d of %d spots checked" % [job.checked.size(), ZONES.size()]]]
 	for id in job.faults:
 		if not job.found.has(id):
@@ -521,12 +731,15 @@ func _open_inspection() -> void:
 			var have: int = inventory.get(f.part, 0)
 			rows.append(["%s\nNeeds %s (have %d)" % [f.name, f.part, have],
 				"Work on it", func(): _repair(id), true, icon])
-	var all_checked: bool = job.checked.size() == ZONES.size()
+	var ran: bool = job.get("runup", "") == "ran"
+	rows.append(["Run-up: " + {"": "not done yet", "dead": "wouldn't start", "ran": "engine runs"}[job.get("runup", "")],
+		"Sit in & run it up", _run_up, true])
+	var all_checked: bool = job.checked.size() == ZONES.size() and ran
 	var done: bool = all_checked and job.fixed.size() == job.faults.size()
 	if done:
 		rows.append(["Airworthy! Fly it out to the owner.", "Climb in & take off (+$%d)" % job.reward, _start_ferry, true])
 	elif not all_checked:
-		rows.append(["Check every spot before you sign it off."])
+		rows.append(["Check every spot and do a run-up before you sign it off."])
 	_open_panel("Work order: " + job.type, rows, true, "paper_catalog",
 		"stamp_airworthy" if done else ("stamp_inspected" if all_checked else ""))
 
@@ -565,6 +778,7 @@ func _take_tool(t: String, take: bool) -> void:
 			tools[k] = true
 		else:
 			tools.erase(k)
+	_save_game()
 	_open_toolbox()
 
 
@@ -600,8 +814,8 @@ func _open_travel() -> void:
 		var cost := int(miles(location, job.city) * FUEL_PER_MILE)
 		can_fly = can_fly or money >= cost
 		var trip := miles(location, job.city) / 700.0
-		rows.append(["%s: %s, pays $%d. %d mi, %.1f days, owner waits %d\n%s" % [job.city, job.type, job.reward,
-			int(miles(location, job.city)), trip, maxi(0, ceili(job.deadline - day)), _symptoms(job)],
+		rows.append(["%s: %s, pays $%d. %d NM, %.1f days, owner waits %d\n%s" % [job.city, job.type, job.reward,
+			roundi(miles(location, job.city) * 0.869), trip, maxi(0, ceili(job.deadline - day)), _symptoms(job)],
 			"Fly ($%d)" % cost, func(): _travel(job, cost), money >= cost])
 	if not can_fly and not _can_finish_here():
 		_open_panel("Out of money and grounded. Game over.",
@@ -671,6 +885,15 @@ func course(a: String, b: String) -> float:
 func _draw_chart(map: Control, calls: Array) -> void:
 	var font := ThemeDB.fallback_font
 	var grid := Color(CHART_BLUE, 0.35)
+	# The base map's own decorative compass (bottom right, 1715..1965 x 905..1185 px) would fight the
+	# real compass rose: paper over it with a chart legend box.
+	var legend := Rect2(Vector2(1712, 900) * CHART_K, Vector2(256, 288) * CHART_K)
+	map.draw_rect(legend, Color(0.83, 0.86, 0.8))
+	map.draw_rect(legend, CHART_BLUE, false, 1.0)
+	var ly := legend.position.y + 14
+	for line in [["LEGEND", CHART_BLUE], ["- - course", CHART_MAGENTA], ["o  airport", CHART_MAGENTA], ["NM / true", CHART_BLUE]]:
+		map.draw_string(font, Vector2(legend.position.x + 6, ly), line[0], HORIZONTAL_ALIGNMENT_LEFT, -1, 9, line[1])
+		ly += 16
 	for lon in range(-125, -64, 5):  # meridians
 		var pts := PackedVector2Array()
 		for lat in range(24, 51):
@@ -734,12 +957,15 @@ func _setup_environment() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.fog_enabled = true
-	env.fog_density = 0.003
+	env.fog_mode = Environment.FOG_MODE_DEPTH  # clear up close, haze from ~30% of the view out
+	env.fog_density = 1.0
+	env.fog_depth_curve = 1.6
 	env.fog_light_color = Color(0.92, 0.8, 0.62)  # warm haze
 	env.fog_sky_affect = 0.15  # keep the golden panorama visible
 	# Warm sun vs cool shadows: the ambient fill that lights shadowed sides is pulled toward blue.
-	env.ambient_light_color = Color(0.55, 0.65, 0.85)
-	env.ambient_light_sky_contribution = 0.6
+	env.ambient_light_color = Color(0.45, 0.58, 0.95)
+	env.ambient_light_sky_contribution = 0.35
+	env.ambient_light_energy = 0.8
 	env.glow_enabled = true  # gentle bloom on bright sky and sunlit paint only
 	env.glow_intensity = 0.4
 	env.glow_hdr_threshold = 0.9
@@ -761,6 +987,7 @@ func _setup_environment() -> void:
 	add_child(we)
 	sun = DirectionalLight3D.new()
 	sun.shadow_enabled = true
+	sun.light_energy = 1.35  # strong warm key against the blue fill = warm/cool contrast
 	add_child(sun)
 	var vignette := TextureRect.new()  # soft dark corners pull the eye to the middle
 	var vg := GradientTexture2D.new()
@@ -824,16 +1051,16 @@ func _add_motes(region_name: String) -> GPUParticles3D:
 ## A small flock wheeling slowly over the field; wings flap now and then, otherwise glide.
 func _add_birds() -> void:
 	flock = Node3D.new()
-	flock.position = Vector3(r_bird.randf_range(-40, 40), 38, r_bird.randf_range(-60, 20))
+	flock.position = Vector3(r_bird.randf_range(-20, 20), 22, r_bird.randf_range(-30, 0))  # low over the field, easy to spot
 	world.add_child(flock)
 	var c := Color(0.12, 0.1, 0.1)
 	for i in 7:
 		var b := Node3D.new()
-		b.position = Vector3(55 + r_bird.randf_range(-6, 6), r_bird.randf_range(-3, 3), i * 2.2 - 7)
+		b.position = Vector3(32 + r_bird.randf_range(-4, 4), r_bird.randf_range(-3, 3), i * 2.6 - 8)
 		for s in [-1, 1]:
-			var wing := box(b, Vector3(0.55, 0.03, 0.18), Vector3(s * 0.27, 0, 0), c)
+			var wing := box(b, Vector3(0.8, 0.04, 0.26), Vector3(s * 0.4, 0, 0), c)
 			wing.set_meta("side", s)
-		box(b, Vector3(0.1, 0.08, 0.35), Vector3.ZERO, c)
+		box(b, Vector3(0.14, 0.1, 0.5), Vector3.ZERO, c)
 		b.set_meta("phase", r_bird.randf() * TAU)
 		flock.add_child(b)
 
@@ -854,16 +1081,16 @@ func _animate_birds() -> void:
 		for w in b.get_children():
 			if w.has_meta("side"):
 				w.rotation.z = flap * w.get_meta("side")
-				w.position.x = cos(flap) * 0.27 * w.get_meta("side")
-				w.position.y = sin(flap) * 0.27
+				w.position.x = cos(flap) * 0.4 * w.get_meta("side")
+				w.position.y = sin(flap) * 0.4
 
 
 ## Each region gets its own light: golden plains, hot hazy desert, green-tinged forest, cold snow.
 const REGION_LIGHT := {
-	"plains": {"sun": Color(1.0, 0.85, 0.65), "fog": Color(0.92, 0.8, 0.62), "elev": -20.0, "haze": 0.003},
-	"desert": {"sun": Color(1.0, 0.8, 0.55), "fog": Color(0.96, 0.76, 0.55), "elev": -30.0, "haze": 0.0045},
-	"forest": {"sun": Color(1.0, 0.9, 0.75), "fog": Color(0.72, 0.8, 0.7), "elev": -18.0, "haze": 0.004},
-	"snow": {"sun": Color(0.95, 0.93, 0.92), "fog": Color(0.86, 0.88, 0.93), "elev": -14.0, "haze": 0.0035},
+	"plains": {"sun": Color(1.0, 0.85, 0.65), "fog": Color(0.92, 0.8, 0.62), "elev": -20.0, "haze": 750.0},
+	"desert": {"sun": Color(1.0, 0.8, 0.55), "fog": Color(0.96, 0.76, 0.55), "elev": -30.0, "haze": 600.0},
+	"forest": {"sun": Color(1.0, 0.9, 0.75), "fog": Color(0.72, 0.8, 0.7), "elev": -18.0, "haze": 650.0},
+	"snow": {"sun": Color(0.95, 0.93, 0.92), "fog": Color(0.86, 0.88, 0.93), "elev": -14.0, "haze": 700.0},
 }
 
 
@@ -872,7 +1099,8 @@ func _apply_light(region_name: String) -> void:
 	sun.light_color = l.sun
 	sun.rotation_degrees = Vector3(l.elev, 30, 0)
 	env.fog_light_color = l.fog
-	env.fog_density = l.haze
+	env.fog_depth_begin = 110.0
+	env.fog_depth_end = l.haze  # meters to full haze
 
 
 func _load_field(city: String, job) -> void:
@@ -920,6 +1148,7 @@ func _load_field(city: String, job) -> void:
 	player.position = Vector3(4, 0.1, -2)
 	player.rotation = Vector3(0, PI, 0)
 	player.cam.rotation = Vector3.ZERO
+	_save_game()  # arriving somewhere is a checkpoint
 
 
 func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
@@ -1012,7 +1241,7 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 				tree.set_meta("tree", true)
 				_paint_tree(tree, TREE_SPLIT[kind], Color.WHITE.darkened(r.randf() * 0.25))
 			"pine":  # shortcut: code-built cones until a plain (snowless) pine model exists
-				cones.append(Transform3D(Basis.from_scale(Vector3.ONE * h), pos))
+				cones.append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * h), pos))
 				_trunk(pos)
 			"snowpine":
 				var pine := prop("tree_pine_snow_a", pos, r.randf_range(6.0, 11.0), null, r.randf() * TAU, "trunk")
@@ -1034,14 +1263,20 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 		trunk.height = 1.2 / 4.5
 		trunk.radial_segments = 5
 		trunk.material = tmat("bark")
-		var cone := CylinderMesh.new()
-		cone.top_radius = 0
-		cone.bottom_radius = 0.3
-		cone.height = 1.5
-		cone.radial_segments = 6
-		cone.material = tmat("foliage", Color(0.55, 0.7, 0.6))
+		# Three stacked, drooping tiers read as a fir; one plain cone read as a party hat.
+		var st := SurfaceTool.new()
+		for tier in [[0.34, 0.7, 0.55], [0.26, 0.6, 0.95], [0.17, 0.5, 1.32]]:  # radius, height, center y
+			var c := CylinderMesh.new()
+			c.top_radius = 0.0
+			c.bottom_radius = tier[0]
+			c.height = tier[1]
+			c.radial_segments = 7
+			c.rings = 1
+			st.append_from(c, 0, Transform3D(Basis(), Vector3(0, tier[2], 0)))
+		var crown := st.commit()
+		crown.surface_set_material(0, tmat("foliage", Color(0.38, 0.55, 0.42)))
 		_multi(trunk, cones.map(func(t): return t.translated_local(Vector3(0, 0.6 / 4.5, 0))))
-		_multi(cone, cones.map(func(t): return t.translated_local(Vector3(0, 0.75 + 1.0 / 4.5, 0))))
+		_multi(crown, cones)
 	var rocks := 0  # outcrops half-buried in hillsides (the hills and mountains themselves are terrain)
 	var tries := 0
 	while rocks < (0 if region.prop == "tree" else 18) and tries < 2000:
@@ -1506,13 +1741,38 @@ func _self_test(args: PackedStringArray) -> void:
 		_load_field(location, job)
 	_open_travel()
 	await _snap(shot, "radio")
+	_pocket("wallet")
+	var pockets_ok := panel != null and panel_kind == "wallet"
+	await _snap(shot, "wallet")
+	_pocket("logbook")
+	await _snap(shot, "logbook")
+	_pocket("logbook")  # same key again puts it away
+	pockets_ok = pockets_ok and panel == null
 	var first_zone: String = FAULTS[job.faults[0]].zone
 	_inspect_zone(first_zone)  # one spot: the work order shows only what that spot revealed
 	await _snap(shot, "inspect")
-	var ok: bool = job.found.size() < job.faults.size() or job.faults.all(func(id): return FAULTS[id].zone == first_zone)
+	var ok: bool = pockets_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return FAULTS[id].zone == first_zone))
 	for z in ZONES:
 		_inspect_zone(z)
-	ok = ok and job.found.size() == job.faults.size() and job.checked.size() == ZONES.size()
+	# The walk-around finds what you can see; the rest only shows on a run-up.
+	ok = ok and job.checked.size() == ZONES.size() and job.faults.all(func(id): return job.found.has(id) != (id in RUNUP_FAULTS))
+	_run_up()
+	# A clean start hears every run-up fault; a dead battery or starter cuts the test short.
+	ok = ok and job.faults.filter(func(id): return id in RUNUP_FAULTS).all(func(id):
+		return job.found.has(id) or job.runup == "dead")
+	if job.faults.has("battery"):
+		ok = ok and job.runup == "dead"  # dead battery: nothing to hear past the master switch
+	# Save, scramble, load: everything comes back and the job here is still the one you're on.
+	_save_game()
+	var before := [money, day, jobs.size(), current_job.city, current_job.checked.size()]
+	money = -999
+	current_job = null
+	jobs = []
+	var loaded := _load_game()
+	ok = ok and loaded and [money, day, jobs.size(), current_job.city, current_job.checked.size()] == before \
+		and jobs.has(current_job)
+	job = current_job  # the loaded copy is the live one now
+	_load_field(location, job)
 	_open_shop()
 	await _snap(shot, "shop")
 	# Work scenes: with no tools nothing comes apart; with tools but no part it stalls at the
@@ -1561,6 +1821,8 @@ func _self_test(args: PackedStringArray) -> void:
 		ok = ok and solved and job.fixed.has(id)
 		if not solved:
 			print("WORK STUCK on ", id)
+	_run_up()  # everything fixed: it should fire up and run clean now
+	ok = ok and job.runup == "ran"
 	await _snap(shot, "airworthy")
 	_close_panel()
 	await _snap(shot, "fixed")

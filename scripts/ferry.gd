@@ -60,6 +60,7 @@ func _process(delta: float) -> void:
 	if is_instance_valid(prop):
 		prop.rotate_object_local(Vector3.FORWARD, (speed * 1.5 + (25.0 if throttle else 6.0)) * delta)
 	main.sound.engine = clampf(speed / TOP_SPEED * 0.7 + (0.3 if throttle else 0.0), 0.0, 1.0)
+	main.update_gauges(speed, alt, 1.0 if throttle else 0.0)
 	var kt := speed * 1.94
 	main.prompt.text = "W: throttle     S: pull back     %d kt     %d ft\n%s" % [kt, alt * 3.28,
 		"Rotate at 55 kt" if kt < 55 and alt < 1 else ("Pull back!" if alt < 1 else "Climbing out...")]

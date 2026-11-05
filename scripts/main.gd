@@ -8,6 +8,7 @@ const Player := preload("res://scripts/player.gd")
 const Ferry := preload("res://scripts/ferry.gd")
 const Sound := preload("res://scripts/sound.gd")
 const Terrain := preload("res://scripts/terrain.gd")
+const Work := preload("res://scripts/work.gd")
 const GOAL := 10
 const MAX_JOBS := 3
 const START_CITY := "Wichita"
@@ -61,7 +62,6 @@ const ZONES := {
 	"battery": {"name": "battery bay", "pos": Vector3(0.45, 1.45, 1.7), "size": Vector3(0.3, 0.6, 0.8)},
 	"tail": {"name": "tail & rudder", "pos": Vector3(0, 2.0, 4.7), "size": Vector3(1.6, 1.6, 1.4)},
 }
-const DIFFICULTY := {1: "easy", 2: "fiddly", 3: "tricky"}  # by part cost, see _difficulty()
 const PLANE_TYPES := [["High-wing trainer", 1500], ["Rag-wing taildragger", 2000],
 	["Bush plane", 2500], ["Vintage tourer", 3000], ["Utility hauler", 3500]]
 
@@ -87,7 +87,7 @@ var panel: Control
 var panel_closable := true
 var msg_time := 0.0
 var close_frame := -1  # frame a panel was closed with E, so the same press doesn't reopen it
-var mg = null  # active repair mini-game state (Dictionary) or null
+var tools := {}  # tool id -> true for each tool taken from the hangar toolbox (see Work.TOOLS)
 var ferry: Node = null  # active ferry flight
 var sound
 var env: Environment
@@ -137,7 +137,7 @@ func _spawn_job() -> void:
 	for id in faults:
 		cost += FAULTS[id].cost
 	jobs.append({"city": options[rng.randi() % options.size()], "type": t[0], "faults": faults,
-		"fixed": {}, "found": {}, "checked": {}, "reward": int(round((t[1] + cost * 2.0) / 50.0)) * 50,
+		"fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": int(round((t[1] + cost * 2.0) / 50.0)) * 50,
 		"deadline": day + 7 + rng.randi() % 9})
 
 
@@ -194,62 +194,33 @@ func _inspect_zone(zone: String) -> void:
 		_open_inspection()
 
 
-func _difficulty(id: String) -> int:
-	var c: int = FAULTS[id].cost
-	return 1 if c < 400 else (2 if c < 1200 else 3)
-
-
-## Starts the wrench-timing mini-game; _finish_repair applies the result.
+## Opens the 2D work scene for this fault: real tools, every screw and bolt (scripts/work.gd).
 func _repair(id: String) -> void:
-	var d := _difficulty(id)
-	var vb := _open_panel("Repair: " + FAULTS[id].name, [["Stop the needle in the green. %s job%s." % [DIFFICULTY[d].capitalize(),
-		", a slip can ruin the part" if d > 1 else ""]]], true, "paper_catalog")
-	var bar := ColorRect.new()
-	bar.color = Color(0.85, 0.8, 0.7)
-	bar.custom_minimum_size = Vector2(440, 34)
-	vb.add_child(bar)
-	vb.move_child(bar, vb.get_child_count() - 2)  # above the Close button
-	var width := 0.34 - d * 0.08
-	var zone := ColorRect.new()
-	zone.color = Color(0.3, 0.6, 0.3)
-	var zl := rng.randf_range(0.05, 0.95 - width)
-	zone.position = Vector2(zl * 440, 0)
-	zone.size = Vector2(width * 440, 34)
-	bar.add_child(zone)
-	var needle := ColorRect.new()
-	needle.color = Color(0.7, 0.13, 0.1)
-	needle.size = Vector2(5, 42)
-	needle.position.y = -4
-	bar.add_child(needle)
-	var b := Button.new()
-	b.text = "Tighten! (Space)"
-	b.pressed.connect(func(): _finish_repair(id, absf(mg.pos - (zl + width / 2)) <= width / 2))
-	vb.add_child(b)
-	vb.move_child(b, vb.get_child_count() - 2)  # above Close
-	b.grab_focus()
-	mg = {"id": id, "pos": 0.0, "dir": 1.0, "speed": 0.55 + d * 0.4, "needle": needle}
+	_close_panel()
+	var w = Work.new()
+	w.setup(self, id, current_job)
+	w.finished.connect(func(): _work_done(id))
+	ui.add_child(w)
+	panel = w
+	panel_closable = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
 
 
-func _finish_repair(id: String, hit: bool) -> void:
-	mg = null
-	var f: Dictionary = FAULTS[id]
-	_advance(0.25)
-	if not current_job:
-		_close_panel()
-		return
-	if hit:
-		if f.part != "":
-			inventory[f.part] -= 1
-		current_job.fixed[id] = true
-		visuals[id].queue_free()
-		visuals[id] = _part_visual(id, true)
-		sound.clink()
-		_say("Fixed: " + f.name)
-	elif f.part != "" and rng.randf() < (_difficulty(id) - 1) * 0.15:
-		inventory[f.part] -= 1
-		_say("The wrench slipped and ruined the %s. You'll need another." % f.part)
-	else:
-		_say("The wrench slipped. Try again.")
+## Time spent on one step of a job. False if the owner gave up meanwhile (the scene closes).
+func _work_time(days: float) -> bool:
+	_advance(days)
+	if current_job:
+		return true
+	_close_panel()
+	return false
+
+
+func _work_done(id: String) -> void:
+	current_job.fixed[id] = true
+	visuals[id].queue_free()
+	visuals[id] = _part_visual(id, true)
+	_say("Fixed: " + FAULTS[id].name)
 	_open_inspection()
 
 
@@ -347,12 +318,6 @@ func _process(delta: float) -> void:
 		msg_time -= delta
 		if msg_time <= 0.0:
 			msg.text = ""
-	if mg:  # repair mini-game needle sweeps back and forth
-		mg.pos += mg.dir * mg.speed * delta
-		if mg.pos > 1.0 or mg.pos < 0.0:
-			mg.dir = -mg.dir
-			mg.pos = clampf(mg.pos, 0.0, 1.0)
-		mg.needle.position.x = mg.pos * 440 - 2
 	if ferry:
 		return  # the ferry flight drives its own prompt
 	prompt.text = ""
@@ -368,21 +333,21 @@ func _process(delta: float) -> void:
 			prompt.text = ("E: Work order  (%s checked)" if current_job.checked.has(z) else "E: Inspect %s") % ZONES[z].name
 		"shop": prompt.text = "E: Parts shed"
 		"radio": prompt.text = "E: Radio - rescue calls"
+		"toolbox": prompt.text = "E: Toolbox"
 	if kind != "" and Input.is_action_just_pressed("interact") and close_frame != Engine.get_process_frames():
 		match kind:
 			"zone": _inspect_zone(t.get_meta("zone"))
 			"shop": _open_shop()
 			"radio": _open_travel()
+			"toolbox": _open_toolbox()
 
 
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("interact") and panel and panel_closable:  # E toggles panels shut too
-		mg = null
 		_close_panel()
 		close_frame = Engine.get_process_frames()
 		return
 	if e.is_action_pressed("ui_cancel"):
-		mg = null
 		if panel:
 			if panel_closable:
 				_close_panel()
@@ -430,8 +395,8 @@ func _update_hud() -> void:
 	var due := ""
 	if current_job:
 		due = "    Owner waits %d more day(s)" % maxi(0, ceili(current_job.deadline - day))
-	hud.text = "$%d    Day %d    Rescued %d/%d    %s%s\nToolbox: %s" % [money, floori(day), rescued, GOAL, location, due,
-		", ".join(inv) if inv.size() > 0 else "empty"]
+	hud.text = "$%d    Day %d    Rescued %d/%d    %s%s\nParts: %s    Tool roll: %d of %d tools" % [money, floori(day), rescued, GOAL, location, due,
+		", ".join(inv) if inv.size() > 0 else "none", tools.size(), Work.TOOLS.size() - 1]
 
 
 func _say(text: String) -> void:
@@ -551,11 +516,11 @@ func _open_inspection() -> void:
 		if job.fixed.has(id):
 			rows.append(["OK  -  " + f.name, "", null, false, icon])
 		elif f.part == "":
-			rows.append(["%s\nNo part needed" % f.name, "Repair", func(): _repair(id), true, icon])
+			rows.append(["%s\nNo part needed" % f.name, "Work on it", func(): _repair(id), true, icon])
 		else:
 			var have: int = inventory.get(f.part, 0)
 			rows.append(["%s\nNeeds %s (have %d)" % [f.name, f.part, have],
-				"Repair", func(): _repair(id), have > 0, icon])
+				"Work on it", func(): _repair(id), true, icon])
 	var all_checked: bool = job.checked.size() == ZONES.size()
 	var done: bool = all_checked and job.fixed.size() == job.faults.size()
 	if done:
@@ -576,6 +541,31 @@ func _stocked(part_id: String) -> bool:
 ## What this town's shed charges for a fault's part: shelf price, or +25% by mail.
 func _price(id: String) -> int:
 	return FAULTS[id].cost if _stocked(id) else int(FAULTS[id].cost * 1.25)
+
+
+## The hangar toolbox: take tools into your roll (they travel with you) or put them back.
+func _open_toolbox() -> void:
+	var rows := []
+	for t in Work.TOOLS:
+		if t == "hand":
+			continue
+		var have := tools.has(t)
+		rows.append(["%s%s" % [Work.TOOLS[t], "   (in your roll)" if have else ""], "Put back" if have else "Take",
+			func(): _take_tool(t, not have), true, "work/tool_" + t if ResourceLoader.exists("res://textures/work/tool_%s.png" % t) else ""])
+	rows.append(["", "Take everything", func(): _take_tool("", true), tools.size() < Work.TOOLS.size() - 1])
+	_open_panel("Toolbox", rows)
+
+
+## t "" = every tool.
+func _take_tool(t: String, take: bool) -> void:
+	for k in (Work.TOOLS.keys() if t == "" else [t]):
+		if k == "hand":
+			continue
+		if take:
+			tools[k] = true
+		else:
+			tools.erase(k)
+	_open_toolbox()
 
 
 func _open_shop() -> void:
@@ -939,6 +929,8 @@ func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	const BACK := -7.0
 	box(world, Vector3(5, 2.4, 0.05), at + Vector3(-1.5, 2.0, BACK + 0.1), tmat("pegboard", Color.WHITE, 0.5))
 	prop("toolbox", at + Vector3(-4.5, 0, BACK + 0.6), 1.1, tmat("toolbox_red", Color.WHITE, 1.5))  # drawers face +Z
+	interactable(world, at + Vector3(-4.5, 0.6, BACK + 1.0), Vector3(1.4, 1.2, 1.2), "toolbox")
+	_text3d("TOOLS", at + Vector3(-4.5, 1.6, BACK + 0.6), 40)
 	decal(world, Vector2(0.5, 0.5), at + Vector3(-4.03, 0.75, BACK + 0.6), "sticker_sheet", Vector3.RIGHT)
 	var drum_paint := [Color(0.45, 0.6, 0.85), Color(0.8, 0.35, 0.3), Color(0.5, 0.6, 0.45)]
 	for p in [Vector3(8.3, 0, -4), Vector3(9.0, 0, -3.2), Vector3(8.4, 0, -2.4), Vector3(-5.0, 0, 3)]:
@@ -1523,19 +1515,52 @@ func _self_test(args: PackedStringArray) -> void:
 	ok = ok and job.found.size() == job.faults.size() and job.checked.size() == ZONES.size()
 	_open_shop()
 	await _snap(shot, "shop")
+	# Work scenes: with no tools nothing comes apart; with tools but no part it stalls at the
+	# empty slot; with both, the whole job gets done bolt by bolt.
 	var id0: String = job.faults[0]
+	tools.clear()
+	_repair(id0)
+	ok = ok and panel is Work
+	await _snap(shot, "work_" + id0)
+	ok = ok and not panel.solve() and not job.fixed.has(id0)
+	for t in Work.TOOLS:
+		if t != "hand":
+			tools[t] = true
+	# Mouse path: hover the first screw/bolt, hold the button with its tool, let go.
+	# Fed to the scene directly so the real cursor (windowed runs) can't interfere.
+	var w = panel
+	var f0: Dictionary = w.els.filter(func(e): return e.type == "fastener" and w.action(e).verb == "loosen")[0]
+	w.tool = f0.tool
+	var mv := InputEventMouseMotion.new()
+	mv.position = w._origin() + f0.pos
+	w._gui_input(mv)
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.position = mv.position
+	press.pressed = true
+	w._gui_input(press)
+	await get_tree().create_timer(1.2).timeout
+	var release: InputEventMouseButton = press.duplicate()
+	release.pressed = false
+	w._gui_input(release)
+	ok = ok and w.st[f0.id] == "loose"
+	if w.st[f0.id] != "loose":
+		print("MOUSE HOLD did not loosen ", f0.id, ": ", w.st[f0.id], " hover=", w.hover)
 	if FAULTS[id0].part != "":
-		inventory[FAULTS[id0].part] = 1
-	_repair(id0)  # opens the timing mini-game
-	ok = ok and mg != null
-	await _snap(shot, "minigame")
-	_finish_repair(id0, false)  # a miss never fixes it
-	ok = ok and not job.fixed.has(id0)
+		inventory.erase(FAULTS[id0].part)
+		ok = ok and not panel.solve() and not job.fixed.has(id0)
+		await _snap(shot, "work_apart")
 	for id in job.faults:
 		var part: String = FAULTS[id].part
 		if part != "":
 			inventory[part] = 1
-		_finish_repair(id, true)
+		if id != id0:
+			_repair(id)
+			await _snap(shot, "work_" + id, 0.1)
+		var solved: bool = panel.solve()
+		ok = ok and solved and job.fixed.has(id)
+		if not solved:
+			print("WORK STUCK on ", id)
 	await _snap(shot, "airworthy")
 	_close_panel()
 	await _snap(shot, "fixed")
@@ -1595,7 +1620,7 @@ func _self_test(args: PackedStringArray) -> void:
 func _edge_tests() -> bool:
 	var saved := [money, jobs, current_job, day]
 	var fake := func(id: String, deadline: float) -> Dictionary:
-		return {"city": location, "type": "Test", "faults": [id], "fixed": {}, "found": {}, "checked": {}, "reward": 0, "deadline": deadline}
+		return {"city": location, "type": "Test", "faults": [id], "fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": 0, "deadline": deadline}
 	var ok := true
 	# 1. Broke, no flight, the needed part is mail-order only: shelf price is affordable but the
 	#    real price isn't, so it must be game over rather than a dead end.

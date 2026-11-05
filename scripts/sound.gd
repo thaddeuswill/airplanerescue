@@ -9,6 +9,7 @@ var _wind := 0.0
 var _phase := 0.0
 var _clink := 0.0
 var _clink_t := 0.0
+var _tick := 0.0
 
 
 func _ready() -> void:
@@ -26,6 +27,10 @@ func clink() -> void:
 	_clink_t = 0.0
 
 
+func tick() -> void:  # one ratchet pawl click
+	_tick = 1.0
+
+
 func _process(_delta: float) -> void:
 	if _pb == null:  # no audio device (headless runs)
 		return
@@ -39,4 +44,7 @@ func _process(_delta: float) -> void:
 			_clink_t += 1.0 / RATE
 			s += sin(_clink_t * TAU * 2300.0) * _clink * 0.35
 			_clink *= 0.9992
+		if _tick > 0.01:
+			s += (randf() * 2.0 - 1.0) * _tick * 0.5
+			_tick *= 0.985
 		_pb.push_frame(Vector2(s, s))

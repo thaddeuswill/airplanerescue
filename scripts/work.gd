@@ -179,6 +179,10 @@ func action(e: Dictionary) -> Dictionary:
 				if left > 0:
 					a.why = "Remove its %d %s first." % [left, _fasteners(e.id)[0].kind + ("s" if left > 1 else "")]
 					return a
+				for x in e.get("after", []):  # work that has to happen before it'll come out (soak a seized pin)
+					if st[x] != "done":
+						a.why = "%s first." % by_id[x].label
+						return a
 				a.merge({"verb": "remove", "tool": t, "hold": hold_s}, true)
 			elif s == "out":
 				var req := _unmet(e)
@@ -220,8 +224,8 @@ func _verb_text(e: Dictionary, v: String) -> String:
 		"insert": return "Put a %s back in" % e.kind
 		"off": return e.get("verb_off", "Take off the " + e.name)
 		"on": return e.get("verb_on", "Put the %s back on" % e.name)
-		"remove": return "Pull the old %s out" % e.name
-		"install": return "Fit the new " + e.name
+		"remove": return e.get("verb_remove", "Pull the old %s out" % e.name)
+		"install": return e.get("verb_install", "Fit the new " + e.name)
 		"do": return e.label
 	return ""
 
@@ -755,6 +759,34 @@ static func scenes() -> Dictionary:
 		+ [_cover("coax", "Coax cable", Rect2(560, 300, 160, 30), [], {"col": Color(0.25, 0.25, 0.25), "verb_off": "Unplug the coax", "verb_on": "Plug the coax back in"}),
 		_part("radio", "Radio", rr, [], {"col": Color(0.2, 0.2, 0.22)})]
 		+ _corners("radio", rr, "screw", "screwdriver", 12.0)}
+
+	# Stale fuel (sat for years): open the cap, drain the old gas, sump both tanks clean, refill.
+	var wing_deco := [[Rect2(20, 40, 790, 480), "plane_body_worn", SKIN.darkened(0.2)]]
+	s.stale_fuel = {"title": "Left wing, fuel tank and sumps", "deco": wing_deco, "els": [
+		_part("fuel", "Avgas", Rect2(160, 170, 500, 120), ["cap"], {"col": Color(0.45, 0.35, 0.12, 0.85), "requires": ["sump_l", "sump_r"],
+			"verb_remove": "Drain out the stale fuel", "verb_install": "Fill up with fresh 100LL"}),
+		_task("sump_l", "Sump the left tank until it runs clean", Rect2(160, 330, 220, 60), "hand", [], {"col": Color(0.3, 0.45, 0.8, 0.7), "hold": 2.5}),
+		_task("sump_r", "Sump the gascolator until it runs clean", Rect2(440, 330, 220, 60), "hand", [], {"col": Color(0.3, 0.45, 0.8, 0.7), "hold": 2.5}),
+		_cover("cap", "Fuel cap", Rect2(380, 90, 80, 60), [], {"col": METAL, "verb_off": "Open the fuel cap", "verb_on": "Close the fuel cap"})]}
+
+	# Door pin rusted into the hinge: trim panel off, soak it, pull the cotter, drive the pin out.
+	var dp := Rect2(260, 120, 300, 320)
+	s.door_pin = {"title": "Cabin door, hinge side", "deco": [[Rect2(20, 40, 790, 480), "plane_body_worn", SKIN.darkened(0.15)], [Rect2(320, 140, 180, 280), "", Color(0.12, 0.11, 0.1)]],
+		"els": [_part("pin", "Door pin", Rect2(395, 150, 30, 260), ["trim", "cotter"], {"tool": "pliers", "col": Color(0.55, 0.35, 0.2), "after": ["soak"],
+			"verb_remove": "Work the seized pin out"}),
+		_task("soak", "Soak the pin in penetrant", Rect2(370, 360, 80, 60), "rag", ["trim"], {"col": Color(0.5, 0.3, 0.15, 0.8), "hold": 3.0}),
+		_cover("cotter", "Cotter pin", Rect2(388, 410, 44, 24), ["trim"], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it"}),
+		_cover("trim", "Door trim panel", dp, [], {"col": Color(0.4, 0.3, 0.22)})]
+		+ _corners("trim", dp, "screw", "screwdriver")}
+
+	# Pre-oil a dry engine before its first start in years: top plugs out, turn it by hand.
+	var po := []
+	for i in 4:
+		po.append(_cover("plug%d" % i, "Top plug %d" % (i + 1), Rect2(150 + i * 170, 160, 60, 110), ["cowl"], {"tool": "ratchet", "col": Color(0.85, 0.85, 0.8),
+			"verb_off": "Pull the top plug", "verb_on": "Put the plug back in"}))
+	s.pre_oil = {"title": "Engine, left side", "deco": engine_deco, "els": [
+		_task("turn", "Turn the prop by hand until oil pressure shows", Rect2(150, 290, 520, 40), "hand", ["cowl", "plug0", "plug1", "plug2", "plug3"],
+			{"col": Color(0.65, 0.5, 0.15, 0.85), "hold": 4.0})] + po + _cowl()}
 
 	_scenes = s
 	return s

@@ -51,7 +51,12 @@ const FAULTS := {
 	"magneto": {"name": "Bad magneto", "part": "Magneto", "cost": 1400, "zone": "engine", "symptom": "dies on the mag check"},
 	"avionics": {"name": "Broken radio antenna", "part": "Antenna & radio", "cost": 1800, "zone": "cabin", "symptom": "radio's dead, can't raise anyone"},
 	"propeller": {"name": "Bent propeller", "part": "Propeller", "cost": 2600, "zone": "prop", "symptom": "hit a fence post taxiing"},
+	# Neglect jobs: only planes that sat for years get these (see _spawn_job).
+	"stale_fuel": {"name": "Stale fuel in the tanks", "part": "Fresh avgas", "cost": 90, "zone": "wing_l", "symptom": "hasn't had fresh gas in years"},
+	"pre_oil": {"name": "Dry engine: pre-oil before start", "part": "", "cost": 0, "zone": "engine", "symptom": "hasn't been started in years"},
+	"door_pin": {"name": "Door pin rusted solid", "part": "Door pin & cotter", "cost": 120, "zone": "cabin", "symptom": "can't even get the door open"},
 }
+const NEGLECT_FAULTS := ["stale_fuel", "pre_oil", "door_pin"]
 # How you find each fault. Seen on the walk-around (clue = what you notice at that spot), or only
 # heard/felt on the run-up from the cockpit.
 const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs"]
@@ -69,6 +74,9 @@ const CLUES := {
 	"avionics": "Radio's dead silent, not even a hiss. The antenna's snapped too",
 	"magneto": "Mag check: big drop on the left mag, the engine nearly quits",
 	"spark_plugs": "Runs rough on both mags and puffs black smoke",
+	"stale_fuel": "the sumped fuel smells like varnish and comes out dark",
+	"pre_oil": "an engine that sat this long can't be cranked dry: pull the plugs and pre-oil it first",
+	"door_pin": "the cabin door won't budge; the handle moves but the pin doesn't",
 }
 # Walk-around inspection spots, in plane-local coords (nose -Z), probed from the plane model.
 const ZONES := {
@@ -190,14 +198,25 @@ func _spawn_job() -> void:
 	var taken := jobs.map(func(j): return j.city)
 	var options := CITIES.keys().filter(func(c): return c != location and not taken.has(c))
 	var t: Array = PLANE_TYPES[rng.randi() % PLANE_TYPES.size()]
-	var ids := FAULTS.keys()
+	var ids := FAULTS.keys().filter(func(id): return not id in NEGLECT_FAULTS)
 	ids.shuffle()
 	var faults := ids.slice(0, 1 + rng.randi() % mini(4, 2 + rescued / 3))
+	# Some planes were just parked; others sat in the weather for years (Rebuild Rescue style):
+	# grimy, stale gas, a dry engine, maybe a door rusted shut. Those pay more.
+	var years := 0 if rng.randf() < 0.45 else rng.randi_range(2, 15)
+	if years >= 2:
+		faults.append("stale_fuel")
+	if years >= 5:
+		faults.append("pre_oil")
+	if years >= 8 and rng.randf() < 0.6:
+		faults.append("door_pin")
 	var cost := 0
 	for id in faults:
 		cost += FAULTS[id].cost
 	jobs.append({"city": options[rng.randi() % options.size()], "type": t[0], "faults": faults,
-		"fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": int(round((t[1] + cost * 2.0) / 50.0)) * 50,
+		"fixed": {}, "found": {}, "checked": {}, "work": {}, "years": years, "washed": years == 0,
+		"spent": {"fuel": 0, "parts": 0, "mail": 0},
+		"reward": int(round((t[1] + cost * 2.0 + years * 150) / 50.0)) * 50,
 		"deadline": day + 7 + rng.randi() % 9})
 
 
@@ -207,7 +226,9 @@ func _symptoms(job: Dictionary) -> String:
 	for id in job.faults:
 		s.append(FAULTS[id].symptom)
 	var t := "; ".join(s)
-	return "\"" + t[0].to_upper() + t.substr(1) + ".\""
+	var years: int = job.get("years", 0)
+	var sat := (" Sat out in the weather %d years." % years) if years > 0 else ""
+	return "\"" + t[0].to_upper() + t.substr(1) + ".\"" + sat
 
 
 func _advance(days: float) -> void:
@@ -226,10 +247,19 @@ func _advance(days: float) -> void:
 	_save_game()
 
 
+## What a job cost you, itemized for the logbook (like the end of a Rebuild Rescue episode).
+func _spend(job: Dictionary, what: String, amount: int) -> void:
+	if not job.has("spent"):
+		job.spent = {"fuel": 0, "parts": 0, "mail": 0}
+	job.spent[what] = job.spent.get(what, 0) + amount
+
+
 func _travel(job: Dictionary, cost: int) -> void:
 	money -= cost
+	_spend(job, "fuel", cost)
 	_close_panel()
 	_advance(miles(location, job.city) / 700.0)
+	job.arrived = day
 	if not jobs.has(job):  # ran out of time on the way
 		_load_field(job.city, null)
 		return
@@ -239,6 +269,10 @@ func _travel(job: Dictionary, cost: int) -> void:
 
 ## Walk-around inspection of one spot: reveals any faults there.
 func _inspect_zone(zone: String) -> void:
+	if not current_job.get("washed", true):  # years of dirt and lichen hide everything
+		_say("It's caked in grime and lichen. You can't tell what's damage and what's dirt: wash it down first.")
+		_open_inspection()
+		return
 	if not current_job.checked.has(zone):
 		current_job.checked[zone] = true
 		_advance(0.05)
@@ -255,6 +289,28 @@ func _inspect_zone(zone: String) -> void:
 		_open_inspection()
 
 
+## Bucket, brush and a hose: an afternoon's work, and then you can see what you bought.
+func _wash() -> void:
+	_advance(0.2)
+	if not current_job:
+		return
+	current_job.washed = true
+	_grime(false)
+	_say("Washed it down. Under all that it's... %s." % ["better than it looked", "about what you feared", "a real airplane again"][rng.randi() % 3])
+	_save_game()
+	_open_inspection()
+
+
+## Dirt and lichen over the whole plane until it's washed.
+func _grime(on: bool) -> void:
+	var m: Material = null
+	if on:
+		m = tmat("rock", Color(0.3, 0.33, 0.2, 0.6), 2.5)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for mi: MeshInstance3D in cub.find_children("*", "MeshInstance3D", true, false):
+		mi.material_overlay = m
+
+
 ## Sit in and run the engine up: master, crank, radio, mag check. What you hear and feel finds
 ## the faults a walk-around can't. A dead battery or starter stops the test there.
 func _run_up() -> void:
@@ -267,7 +323,13 @@ func _run_up() -> void:
 	var hear := func(id):
 		job.found[id] = true
 		heard.append(CLUES[id])
-	if broken.call("battery"):
+	if broken.call("door_pin"):  # you can't run it up from outside
+		hear.call("door_pin")
+		job.runup = "dead"
+	elif broken.call("pre_oil"):  # cranking a dry engine that sat for years wipes the cam
+		hear.call("pre_oil")
+		job.runup = "dead"
+	elif broken.call("battery"):
 		hear.call("battery")
 		job.runup = "dead"
 	else:
@@ -321,6 +383,8 @@ func _work_done(id: String) -> void:
 func _buy(part: String, cost: int, mail := false) -> void:
 	money -= cost
 	inventory[part] = inventory.get(part, 0) + 1
+	if current_job:
+		_spend(current_job, "parts", cost)
 	if mail:
 		_advance(1.0)
 		_say("The %s came on the morning mail truck." % part)
@@ -390,8 +454,10 @@ func _sign_off() -> void:
 	rescued += 1
 	jobs.erase(job)
 	current_job = null
+	var spent: Dictionary = job.get("spent", {})
 	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": job.reward,
-		"work": job.faults.map(func(id): return FAULTS[id].name)})
+		"work": job.faults.map(func(id): return FAULTS[id].name), "years": job.get("years", 0),
+		"fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "days": day - job.get("arrived", day)})
 	_say("The %s is back in the air! Owner paid $%d." % [job.type, job.reward])
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
@@ -601,10 +667,13 @@ func _open_logbook() -> void:
 	var rows := [["Planes back in the air: %d of %d" % [rescued, GOAL]]]
 	for i in range(logbook.size() - 1, -1, -1):
 		var e: Dictionary = logbook[i]
-		rows.append(["Day %d  %s  -  %s, paid $%d\n%s" % [e.day, e.city, e.type, e.pay, ", ".join(e.work)]])
+		var net: int = e.pay - e.get("fuel", 0) - e.get("parts", 0)
+		rows.append(["Day %d  %s  -  %s%s\n%s\nPaid $%d - fuel $%d - parts $%d = %s$%d   (%.1f days on site)" % [e.day, e.city, e.type,
+			(", sat %d yrs" % e.years) if e.get("years", 0) > 0 else "", ", ".join(e.work), e.pay, e.get("fuel", 0), e.get("parts", 0),
+			"" if net >= 0 else "-", absi(net), e.get("days", 0.0)]])
 	if logbook.is_empty():
 		rows.append(["No entries yet. Your first rescue goes here."])
-	_open_panel("Logbook", rows, true, "logbook_page" if ResourceLoader.exists("res://textures/logbook_page.png") else "paper_catalog")
+	_open_panel("" if ResourceLoader.exists("res://textures/logbook_page.png") else "Logbook", rows, true, "logbook_page" if ResourceLoader.exists("res://textures/logbook_page.png") else "paper_catalog")
 
 
 func _say(text: String) -> void:
@@ -731,6 +800,8 @@ func _open_inspection() -> void:
 			var have: int = inventory.get(f.part, 0)
 			rows.append(["%s\nNeeds %s (have %d)" % [f.name, f.part, have],
 				"Work on it", func(): _repair(id), true, icon])
+	if not job.get("washed", true):
+		rows.append(["Sat %d years: filthy, lichen on the wings." % job.years, "Wash it down", _wash, true])
 	var ran: bool = job.get("runup", "") == "ran"
 	rows.append(["Run-up: " + {"": "not done yet", "dead": "wouldn't start", "ran": "engine runs"}[job.get("runup", "")],
 		"Sit in & run it up", _run_up, true])
@@ -1128,6 +1199,19 @@ func _load_field(city: String, job) -> void:
 	for x in range(-76, 80, 10):
 		box(world, Vector3(5, 0.05, 0.4), Vector3(x, 0.03, 20), Color(0.95, 0.95, 0.9))
 	box(world, Vector3(18, 0.03, 13), Vector3(0, 0.015, 7.5), tmat("gravel", Color.WHITE, 0.4))  # apron
+	var probe := ReflectionProbe.new()  # glass and paint pick up the sky and the field around them
+	probe.size = Vector3(60, 24, 60)
+	probe.position = Vector3(0, 4, 8)
+	world.add_child(probe)
+	# Lived-in clutter: old oil drips on the apron, rubber skid marks at the runway's touchdown zones.
+	for i in 5:
+		var stain := decal(world, Vector2.ONE * r.randf_range(0.5, 1.4), Vector3(r.randf_range(-8, 8), 0.035, r.randf_range(2, 13)), "oil_puddle", Vector3.UP)
+		stain.mesh.material.albedo_color = Color(1, 1, 1, r.randf_range(0.3, 0.6))
+		stain.rotate_y(r.randf() * TAU)
+	for end_x in [-55.0, 55.0]:
+		for i in 6:
+			var skid := decal(world, Vector2(r.randf_range(4, 9), 0.22), Vector3(end_x + r.randf_range(-12, 12), 0.045, 20 + r.randf_range(-2.5, 2.5)), "", Vector3.UP)
+			skid.mesh.material.albedo_color = Color(0.05, 0.05, 0.05, r.randf_range(0.2, 0.45))
 	_build_hangar(Vector3(-16, 0, -14), r)
 	_build_shed(Vector3(14, 0, -8))
 	_build_sign(Vector3(9, 0, 4), city)
@@ -1354,6 +1438,7 @@ func _build_plane(job: Dictionary) -> void:
 	plane.add_child(hull)
 	for id in FAULTS:
 		visuals[id] = _part_visual(id, job.fixed.has(id) or not job.faults.has(id))
+	_grime(not job.get("washed", true))
 	for z in ZONES:
 		interactable(plane, ZONES[z].pos, ZONES[z].size, "zone").set_meta("zone", z)
 
@@ -1723,6 +1808,8 @@ func _self_test(args: PackedStringArray) -> void:
 	var job: Dictionary = jobs[0]
 	if "--all-faults" in args:  # every broken part on one plane, for screenshots
 		job.faults = FAULTS.keys()
+		job.years = 9  # a long-sat plane: grime, stale fuel, dry engine, stuck door
+		job.washed = false
 	for a in args:
 		if a.begins_with("--city="):  # pick the field, e.g. a plains town to see trees
 			job.city = a.trim_prefix("--city=")
@@ -1749,6 +1836,12 @@ func _self_test(args: PackedStringArray) -> void:
 	_pocket("logbook")  # same key again puts it away
 	pockets_ok = pockets_ok and panel == null
 	var first_zone: String = FAULTS[job.faults[0]].zone
+	if not job.washed:  # grime hides everything until it's washed
+		await _snap(shot, "grimy")
+		_inspect_zone(first_zone)
+		pockets_ok = pockets_ok and job.checked.is_empty() and job.found.is_empty()
+		_wash()
+		pockets_ok = pockets_ok and job.washed
 	_inspect_zone(first_zone)  # one spot: the work order shows only what that spot revealed
 	await _snap(shot, "inspect")
 	var ok: bool = pockets_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return FAULTS[id].zone == first_zone))
@@ -1874,6 +1967,10 @@ func _self_test(args: PackedStringArray) -> void:
 	Input.action_release("move_forward")
 	Input.action_release("move_back")
 	ok = ok and ferry == null and rescued == 1 and money == start + job.reward and jobs.size() == MAX_JOBS
+	ok = ok and logbook.size() == 1 and logbook[0].has("parts")  # the cost sheet was written
+	if shot != "":
+		_pocket("logbook")
+		await _snap(shot, "logbook_after")
 	print("SELF-TEST ", "PASS" if ok and edges_ok else "FAIL", " edges=", edges_ok, " faults=", job.faults, " day=%.1f" % day)
 	get_tree().quit(0 if ok else 1)
 

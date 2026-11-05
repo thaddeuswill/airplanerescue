@@ -178,3 +178,42 @@ Small icons in the bottom-left corner, **64 x 64 px**, transparent, in `textures
 | `work/avionics_radio_old.png` | 260 x 120 | 90, 300 | Radio, worn/broken |
 | `work/avionics_radio_new.png` | 260 x 120 | 90, 300 | Radio, new |
 
+
+## New: jobs for planes that sat for years (batch 2)
+Same rules as above. Notes for the painter:
+- **stale_fuel**: `fuel_old` is a dark, varnish-brown tank view seen through the open filler; `fuel_new` is clean blue 100LL. The two `sump` images are a clear fuel-tester cup under each drain, showing murky fuel. They disappear once that drain runs clean.
+- **door_pin**: the background shows the door frame and hinge with the trim panel off. `pin_old` is a rust-crusted hinge pin, `pin_new` is bright steel. `soak` is a wet penetrant stain around the pin.
+- **pre_oil**: the background is the engine side with its top plug holes empty. The 4 `plug` images are installed spark plugs with leads, so it can reuse the spark_plugs art. `turn` is the prop blade and an oil-pressure gauge reading zero. It disappears when the job is done.
+- `pre_oil_cowl.png` can be the same image as the other cowlings, and `door_pin_cotter.png` the same as the other cotter pins.
+
+### stale_fuel (Left wing, fuel tank and sumps)
+| File | Size (px) | Placed at (x, y) | What it is |
+|---|---|---|---|
+| `work/stale_fuel_bg.png` | 1000 x 560 | 0, 0 | Painted background of this spot, everything removable left off |
+| `work/stale_fuel_fuel_old.png` | 500 x 120 | 160, 170 | Avgas, worn/broken |
+| `work/stale_fuel_fuel_new.png` | 500 x 120 | 160, 170 | Avgas, new |
+| `work/stale_fuel_sump_l.png` | 220 x 60 | 160, 330 | Mess to clear: Sump the left tank until it runs clean |
+| `work/stale_fuel_sump_r.png` | 220 x 60 | 440, 330 | Mess to clear: Sump the gascolator until it runs clean |
+| `work/stale_fuel_cap.png` | 80 x 60 | 380, 90 | Fuel cap (comes off) |
+
+### door_pin (Cabin door, hinge side)
+| File | Size (px) | Placed at (x, y) | What it is |
+|---|---|---|---|
+| `work/door_pin_bg.png` | 1000 x 560 | 0, 0 | Painted background of this spot, everything removable left off |
+| `work/door_pin_pin_old.png` | 30 x 260 | 395, 150 | Door pin, worn/broken |
+| `work/door_pin_pin_new.png` | 30 x 260 | 395, 150 | Door pin, new |
+| `work/door_pin_soak.png` | 80 x 60 | 370, 360 | Mess to clear: Soak the pin in penetrant |
+| `work/door_pin_cotter.png` | 44 x 24 | 388, 410 | Cotter pin (comes off) |
+| `work/door_pin_trim.png` | 300 x 320 | 260, 120 | Door trim panel (comes off) |
+
+### pre_oil (Engine, left side)
+| File | Size (px) | Placed at (x, y) | What it is |
+|---|---|---|---|
+| `work/pre_oil_bg.png` | 1000 x 560 | 0, 0 | Painted background of this spot, everything removable left off |
+| `work/pre_oil_turn.png` | 520 x 40 | 150, 290 | Mess to clear: Turn the prop by hand until oil pressure shows |
+| `work/pre_oil_plug0.png` | 60 x 110 | 150, 160 | Top plug 1 (comes off) |
+| `work/pre_oil_plug1.png` | 60 x 110 | 320, 160 | Top plug 2 (comes off) |
+| `work/pre_oil_plug2.png` | 60 x 110 | 490, 160 | Top plug 3 (comes off) |
+| `work/pre_oil_plug3.png` | 60 x 110 | 660, 160 | Top plug 4 (comes off) |
+| `work/pre_oil_cowl.png` | 760 x 300 | 40, 40 | Cowling (comes off) |
+

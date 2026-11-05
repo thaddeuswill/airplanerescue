@@ -109,14 +109,18 @@ func build(parent: Node3D, ground_tex: String) -> void:
 		disc.bottom_radius = pond.z
 		disc.height = 0.02
 		disc.radial_segments = 32
-		var wm := StandardMaterial3D.new()
-		wm.albedo_texture = load("res://textures/water.png")
-		wm.albedo_color = Color(0.32, 0.45, 0.42, 0.92)  # dark pond green-blue, sky glints from the specular
-		wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		wm.roughness = 0.08
-		wm.metallic_specular = 0.6
-		wm.uv1_triplanar = true
-		wm.uv1_scale = Vector3.ONE * 0.08
+		var wm := ShaderMaterial.new()  # ripples drift with the wind, foam rings the bank
+		wm.shader = WATER_SHADER
+		wm.set_shader_parameter("tex", load("res://textures/water.png"))
+		wm.set_shader_parameter("center", Vector2(pond.x, pond.y))
+		wm.set_shader_parameter("radius", pond.z)
+		var ripples := NoiseTexture2D.new()
+		ripples.seamless = true
+		ripples.as_normal_map = true
+		ripples.bump_strength = 4.0
+		ripples.noise = FastNoiseLite.new()
+		ripples.noise.frequency = 0.06
+		wm.set_shader_parameter("ripples", ripples)
 		disc.material = wm
 		w.mesh = disc
 		w.position = Vector3(pond.x, WATER_Y, pond.y)
@@ -142,6 +146,36 @@ func _material(ground_tex: String) -> ShaderMaterial:
 # region's high-ground texture (wheat, snow...) on top. Two texture scales plus a big noise tint
 # break up the tiling, which is what made the old flat ground look like wallpaper.
 static var SHADER := _make_shader()
+static var WATER_SHADER := _make_water()
+
+
+static func _make_water() -> Shader:
+	var s := Shader.new()
+	s.code = """
+shader_type spatial;
+render_mode blend_mix, cull_back;
+uniform sampler2D tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D ripples : hint_normal, filter_linear_mipmap, repeat_enable;
+uniform vec2 center;
+uniform float radius = 20.0;
+varying vec3 wp;
+void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	vec2 uv = wp.xz * 0.05;
+	vec3 n1 = texture(ripples, uv + vec2(TIME * 0.012, TIME * 0.005)).rgb;
+	vec3 n2 = texture(ripples, uv * 1.7 - vec2(TIME * 0.008, TIME * 0.011)).rgb;
+	NORMAL_MAP = normalize(n1 + n2 - 1.0);
+	NORMAL_MAP_DEPTH = 0.6;
+	float d = length(wp.xz - center) / radius;  // 0 middle, 1 bank
+	float foam = smoothstep(0.86, 0.99, d) * (0.55 + 0.45 * sin(TIME * 0.8 + wp.x * 0.9 + wp.z * 0.7));
+	vec3 water = mix(vec3(0.16, 0.26, 0.24), vec3(0.3, 0.42, 0.38), texture(tex, uv * 1.6).r);
+	ALBEDO = mix(water, vec3(0.86, 0.88, 0.82), foam * 0.7);
+	ROUGHNESS = mix(0.32, 0.6, foam);
+	SPECULAR = 0.15;  // low: at grazing angles a glossy pond mirrored the bright sky and read as ice
+	ALPHA = mix(0.88, 0.97, foam);
+}
+"""
+	return s
 
 
 static func _make_shader() -> Shader:
@@ -173,7 +207,7 @@ void fragment() {
 	float hi = smoothstep(top_height - 5.0, top_height + 5.0, wp.y + v * 12.0) * (1.0 - smoothstep(0.4, 0.65, slope));
 	c = mix(c, mix(texture(top, wp.xz * 0.17).rgb, texture(top, wp.xz * 0.029).rgb, 0.4), hi);
 	ALBEDO = c;
-	ROUGHNESS = 0.95;
+	ROUGHNESS = mix(0.78, 1.0, v) - hi * 0.15;  // patchy: packed dirt a touch glossier, snow/wheat tops smoother
 }
 """
 	return s

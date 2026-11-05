@@ -305,8 +305,11 @@ func _wash() -> void:
 func _grime(on: bool) -> void:
 	var m: Material = null
 	if on:
-		m = tmat("rock", Color(0.3, 0.33, 0.2, 0.6), 2.5)
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		var dirt := tmat("rock", Color(0.25, 0.29, 0.15, 0.82), 2.5)  # years of grime and lichen: heavy, matte, greenish
+		dirt.roughness = 1.0
+		dirt.metallic = 0.0
+		dirt.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m = dirt
 	for mi: MeshInstance3D in cub.find_children("*", "MeshInstance3D", true, false):
 		mi.material_overlay = m
 
@@ -1031,6 +1034,17 @@ func _setup_environment() -> void:
 	env.fog_mode = Environment.FOG_MODE_DEPTH  # clear up close, haze from ~30% of the view out
 	env.fog_density = 1.0
 	env.fog_depth_curve = 1.6
+	env.fog_aerial_perspective = 0.45  # far haze takes on the sky color: distant hills go blue-gray
+	if not "--no-vfog" in OS.get_cmdline_user_args():
+		# Thin volumetric haze, scattering forward: sun shafts through trees, the hangar door, windows.
+		env.volumetric_fog_enabled = true
+		env.volumetric_fog_density = 0.007  # 0.012 washed out trees at 50 m; strong forward scatter keeps the shafts
+		env.volumetric_fog_albedo = Color(1.0, 0.92, 0.8)
+		env.volumetric_fog_anisotropy = 0.85
+		env.volumetric_fog_length = 90.0
+	if not "--no-gi" in OS.get_cmdline_user_args():
+		env.sdfgi_enabled = true  # soft bounce light: the red truck tints the gravel, the hangar glows inside
+		env.sdfgi_use_occlusion = true
 	env.fog_light_color = Color(0.92, 0.8, 0.62)  # warm haze
 	env.fog_sky_affect = 0.15  # keep the golden panorama visible
 	# Warm sun vs cool shadows: the ambient fill that lights shadowed sides is pulled toward blue.
@@ -1041,13 +1055,13 @@ func _setup_environment() -> void:
 	env.glow_intensity = 0.4
 	env.glow_hdr_threshold = 0.9
 	env.ssao_enabled = true  # grounds wheels, props and trees
-	env.ssao_intensity = 1.5
+	env.ssao_intensity = 2.2
 	# Grade: a touch of teal in the darks, warm highlights (each channel looks up its own curve).
 	var grade := Gradient.new()
 	grade.set_color(0, Color(0.0, 0.02, 0.04))
 	grade.set_color(1, Color(1.0, 0.97, 0.9))
-	grade.add_point(0.3, Color(0.27, 0.3, 0.32))
-	grade.add_point(0.75, Color(0.79, 0.75, 0.7))
+	grade.add_point(0.3, Color(0.25, 0.3, 0.34))
+	grade.add_point(0.75, Color(0.81, 0.75, 0.67))
 	var curve := GradientTexture1D.new()
 	curve.gradient = grade
 	env.adjustment_enabled = true
@@ -1082,7 +1096,7 @@ func _setup_environment() -> void:
 ## A few dozen dust motes / pollen drifting around the player (snowflakes up north).
 func _add_motes(region_name: String) -> GPUParticles3D:
 	var p := GPUParticles3D.new()
-	p.amount = 60
+	p.amount = 110
 	p.lifetime = 8.0
 	p.preprocess = 8.0
 	p.local_coords = false
@@ -1099,12 +1113,12 @@ func _add_motes(region_name: String) -> GPUParticles3D:
 	pm.turbulence_noise_strength = 0.3
 	p.process_material = pm
 	var q := QuadMesh.new()
-	q.size = Vector2.ONE * (0.05 if region_name == "snow" else 0.02)
+	q.size = Vector2.ONE * (0.05 if region_name == "snow" else 0.035)
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = Color(1, 1, 1, 0.8) if region_name == "snow" else Color(1.0, 0.92, 0.7, 0.55)
+	m.albedo_color = Color(1, 1, 1, 0.8) if region_name == "snow" else Color(1.0, 0.95, 0.78, 0.85)
 	var dot := GradientTexture2D.new()  # soft round speck instead of a square
 	dot.fill = GradientTexture2D.FILL_RADIAL
 	dot.fill_from = Vector2(0.5, 0.5)
@@ -1142,9 +1156,12 @@ var flock: Node3D  # the current field's birds (freed with the world)
 
 
 func _animate_birds() -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	if is_instance_valid(sock):  # same wind as the grass: from the west-southwest, in gusts
+		var gust := sin(sock.position.x * 0.07 + sock.position.z * 0.04 - t * 1.3) * 0.5 + 0.5
+		sock.rotation = Vector3(sin(t * 3.1) * 0.06 * gust, -0.42 + sin(t * 0.6) * 0.12, -0.32 + gust * 0.28)  # near level in a breeze, lifting in gusts
 	if not is_instance_valid(flock):
 		return
-	var t := Time.get_ticks_msec() / 1000.0
 	flock.rotation.y = -t * 0.08  # ~80 s per lap
 	for b in flock.get_children():
 		var ph: float = b.get_meta("phase")
@@ -1159,7 +1176,7 @@ func _animate_birds() -> void:
 ## Each region gets its own light: golden plains, hot hazy desert, green-tinged forest, cold snow.
 const REGION_LIGHT := {
 	"plains": {"sun": Color(1.0, 0.85, 0.65), "fog": Color(0.92, 0.8, 0.62), "elev": -20.0, "haze": 750.0},
-	"desert": {"sun": Color(1.0, 0.8, 0.55), "fog": Color(0.96, 0.76, 0.55), "elev": -30.0, "haze": 600.0},
+	"desert": {"sun": Color(1.0, 0.8, 0.55), "fog": Color(0.96, 0.76, 0.55), "elev": -19.0, "haze": 600.0},
 	"forest": {"sun": Color(1.0, 0.9, 0.75), "fog": Color(0.72, 0.8, 0.7), "elev": -18.0, "haze": 650.0},
 	"snow": {"sun": Color(0.95, 0.93, 0.92), "fog": Color(0.86, 0.88, 0.93), "elev": -14.0, "haze": 700.0},
 }
@@ -1170,7 +1187,7 @@ func _apply_light(region_name: String) -> void:
 	sun.light_color = l.sun
 	sun.rotation_degrees = Vector3(l.elev, 30, 0)
 	env.fog_light_color = l.fog
-	env.fog_depth_begin = 110.0
+	env.fog_depth_begin = 190.0  # about 30% of the ~650 m view: clear near, hazy far
 	env.fog_depth_end = l.haze  # meters to full haze
 
 
@@ -1195,10 +1212,11 @@ func _load_field(city: String, job) -> void:
 	fs.shape = WorldBoundaryShape3D.new()
 	floor_body.add_child(fs)
 	world.add_child(floor_body)
-	box(world, Vector3(160, 0.04, 12), Vector3(0, 0.02, 20), tmat("runway_asphalt", Color.WHITE, 0.15))
+	box(world, Vector3(160, 0.04, 12), Vector3(0, 0.02, 20), _flat_ground("runway_asphalt", 0.15))
 	for x in range(-76, 80, 10):
 		box(world, Vector3(5, 0.05, 0.4), Vector3(x, 0.03, 20), Color(0.95, 0.95, 0.9))
-	box(world, Vector3(18, 0.03, 13), Vector3(0, 0.015, 7.5), tmat("gravel", Color.WHITE, 0.4))  # apron
+	box(world, Vector3(18, 0.03, 13), Vector3(0, 0.015, 7.5), _flat_ground("gravel", 0.4))  # apron
+	_build_windsock(Vector3(32, 0, 30))  # beside the strip, clear of the wingtips
 	var probe := ReflectionProbe.new()  # glass and paint pick up the sky and the field around them
 	probe.size = Vector3(60, 24, 60)
 	probe.position = Vector3(0, 4, 8)
@@ -1244,6 +1262,7 @@ func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	prop("toolbox", at + Vector3(-4.5, 0, BACK + 0.6), 1.1, tmat("toolbox_red", Color.WHITE, 1.5))  # drawers face +Z
 	interactable(world, at + Vector3(-4.5, 0.6, BACK + 1.0), Vector3(1.4, 1.2, 1.2), "toolbox")
 	_text3d("TOOLS", at + Vector3(-4.5, 1.6, BACK + 0.6), 40)
+	_lamp(at + Vector3(-4.5, 2.6, BACK + 1.2))  # over the toolbox
 	decal(world, Vector2(0.5, 0.5), at + Vector3(-4.03, 0.75, BACK + 0.6), "sticker_sheet", Vector3.RIGHT)
 	var drum_paint := [Color(0.45, 0.6, 0.85), Color(0.8, 0.35, 0.3), Color(0.5, 0.6, 0.45)]
 	for p in [Vector3(8.3, 0, -4), Vector3(9.0, 0, -3.2), Vector3(8.4, 0, -2.4), Vector3(-5.0, 0, 3)]:
@@ -1254,6 +1273,7 @@ func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	box(world, Vector3(0.7, 0.4, 0.4), at + Vector3(3, 1.2, BACK + 0.6), Color(0.15, 0.22, 0.15))  # radio
 	interactable(world, at + Vector3(3, 1.2, BACK + 0.9), Vector3(1.4, 0.9, 1.2), "radio")
 	_text3d("RADIO", at + Vector3(3, 2.2, BACK + 0.6), 48)
+	_lamp(at + Vector3(3, 2.9, BACK + 1.2))  # over the radio desk
 
 
 func _build_shed(at: Vector3) -> void:
@@ -1261,6 +1281,7 @@ func _build_shed(at: Vector3) -> void:
 	# 5.4 m wide -> about 2.8 m deep and 3.7 m tall.
 	prop("parts_shed", at, 5.4, null, 0.0, "mesh")
 	interactable(world, at + Vector3(0, 1.2, 1.1), Vector3(4.6, 1.6, 1.2), "shop")
+	_lamp(at + Vector3(0, 3.0, 1.6))  # over the counter
 	var crate := tmat("wood_planks", Color(0.9, 0.8, 0.65), 1.5)
 	prop("crate_a", at + Vector3(3.4, 0, -1.2), 1.0, crate, 0.2)  # delivery stack beside the shed
 	prop("crate_a", at + Vector3(3.5, 0.87, -1.2), 0.9, crate, -0.3)
@@ -1514,12 +1535,32 @@ func _part_visual(id: String, ok: bool) -> Node3D:
 
 # ---------- mesh helpers ----------
 
+## Smudges and wear: roughness multiplier between 0.7 and 1.0, so nothing is one flat sheen.
+static var ROUGH_TEX := _rough_tex()
+
+
+static func _rough_tex() -> NoiseTexture2D:
+	var t := NoiseTexture2D.new()
+	t.seamless = true
+	t.noise = FastNoiseLite.new()
+	t.noise.frequency = 0.04
+	t.noise.fractal_octaves = 4
+	t.color_ramp = Gradient.new()
+	t.color_ramp.set_color(0, Color.WHITE * 0.7)
+	t.color_ramp.set_color(1, Color.WHITE)
+	return t
+
+
+const METALS := ["galvanized_metal", "metal_rust", "metal_steel", "cowling_metal"]
+
+
 func mat(c) -> Material:  # c: Color, or an already-built Material
 	if c is Material:
 		return c
 	var m := StandardMaterial3D.new()
 	m.albedo_color = c
-	m.roughness = 0.85
+	m.roughness = 0.95  # x0.7..1.0 from the smudge map
+	m.roughness_texture = ROUGH_TEX
 	return m
 
 
@@ -1530,6 +1571,9 @@ func tmat(tex: String, tint := Color.WHITE, scale := 0.5) -> StandardMaterial3D:
 	m.albedo_texture = load("res://textures/%s.png" % tex)
 	m.uv1_triplanar = true
 	m.uv1_scale = Vector3.ONE * scale
+	if tex in METALS:  # worn metal: 0.42..0.6, with a real metallic response
+		m.roughness = 0.6
+		m.metallic = 0.55
 	return m
 
 
@@ -1694,6 +1738,82 @@ void fragment() {
 	ROUGHNESS = 0.9;
 }
 """
+
+
+## Runway and apron surface: the texture at two scales, blended by a big noise mask, plus a
+## patchy tint and roughness, so the gravel doesn't repeat like wallpaper.
+static var FLAT_SHADER := _flat_shader()
+
+
+static func _flat_shader() -> Shader:
+	var s := Shader.new()
+	s.code = """
+shader_type spatial;
+uniform sampler2D tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform sampler2D mask : repeat_enable;
+uniform float scale = 0.4;
+varying vec3 wp;
+void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	float m = texture(mask, wp.xz * 0.02).r;
+	float m2 = texture(mask, wp.xz * 0.11 + 0.37).r;
+	vec3 a = texture(tex, wp.xz * scale).rgb;
+	vec3 b = texture(tex, wp.xz * scale * 0.71 + vec2(0.13, 0.71)).rgb;  // second scale: close enough to read as the same gravel
+	vec3 c = mix(a, b, smoothstep(0.35, 0.65, m));
+	ALBEDO = c * mix(0.82, 1.08, m2) * mix(vec3(0.95, 0.93, 0.9), vec3(1.0), m);
+	ROUGHNESS = mix(0.75, 0.98, m2);
+}
+"""
+	return s
+
+
+var _mask_tex: NoiseTexture2D  # full 0..1 range (ROUGH_TEX is squeezed to 0.7..1)
+
+
+func _flat_ground(tex: String, scale: float) -> ShaderMaterial:
+	var sm := ShaderMaterial.new()
+	sm.shader = FLAT_SHADER
+	sm.set_shader_parameter("tex", load("res://textures/%s.png" % tex))
+	if not _mask_tex:
+		_mask_tex = NoiseTexture2D.new()
+		_mask_tex.seamless = true
+		_mask_tex.noise = FastNoiseLite.new()
+		_mask_tex.noise.frequency = 0.02
+	sm.set_shader_parameter("mask", _mask_tex)
+	sm.set_shader_parameter("scale", scale)
+	return sm
+
+
+## Orange-and-white windsock on a pole beside the strip; it swings and lifts with the gusts.
+var sock: Node3D
+
+
+func _build_windsock(at: Vector3) -> void:
+	cyl(world, 0.05, 0.07, 6.0, at + Vector3(0, 3.0, 0), Color(0.75, 0.75, 0.72), 8, true)
+	ball(world, 0.09, at + Vector3(0, 6.05, 0), Color(0.8, 0.2, 0.1))
+	sock = Node3D.new()
+	sock.position = at + Vector3(0, 5.75, 0)
+	world.add_child(sock)
+	cyl(sock, 0.025, 0.025, 0.7, Vector3(0.0, 0.0, 0.0), Color(0.3, 0.3, 0.3))  # swivel arm
+	for i in 5:  # stripes taper toward the tail
+		var r0 := lerpf(0.3, 0.14, i / 5.0)
+		var r1 := lerpf(0.3, 0.14, (i + 1) / 5.0)
+		var seg := cyl(sock, r1, r0, 0.46, Vector3(0.25 + i * 0.46, 0, 0), Color(0.95, 0.45, 0.1) if i % 2 == 0 else Color(0.95, 0.93, 0.88), 10)
+		seg.rotation.z = -PI / 2  # cylinder axis Y -> +X, narrow end out
+
+
+## A bare warm bulb: lights the spots you walk up to (radio, toolbox, parts counter).
+func _lamp(at: Vector3) -> void:
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.72, 0.42)
+	l.light_energy = 3.0
+	l.omni_range = 7.0
+	l.position = at
+	world.add_child(l)
+	var bulb := ball(world, 0.07, at + Vector3(0, 0.08, 0), Color(1.0, 0.85, 0.55))
+	bulb.mesh.material.emission_enabled = true
+	bulb.mesh.material.emission = Color(1.0, 0.75, 0.4)
+	bulb.mesh.material.emission_energy_multiplier = 3.0
 
 
 ## Draws one mesh at many transforms in a single draw call.
@@ -1922,12 +2042,13 @@ func _self_test(args: PackedStringArray) -> void:
 	if shot != "":  # extra viewpoints of the hangar and the parts shed
 		for v in [["hangar_out", Vector3(-10, 0.1, 4), Vector3(-16, 0, -14)], ["hangar", Vector3(-14, 0.1, -12), Vector3(-19, 0, -20)],
 				["drums", Vector3(-3.5, 0.1, -13), Vector3(-7.5, 0, -17)], ["shed", Vector3(18, 0.1, -1), Vector3(14, 0, -8)],
-				["truck", Vector3(-1, 0.1, 4), Vector3(-8, 0, -1)],				["trees", Vector3(-20, 0.1, -25), Vector3(-60, 0, -60)],
+				["truck", Vector3(-1, 0.1, 4), Vector3(-8, 0, -1)], ["windsock", Vector3(26, 0.1, 25), Vector3(33, 0, 30)],
+				["apron", Vector3(6, 0.1, -1), Vector3(-2, 0, 12)],				["trees", Vector3(-20, 0.1, -25), Vector3(-60, 0, -60)],
 			["vista_n", Vector3(0, 0.1, -28), Vector3(0, 0, -300)], ["vista_e", Vector3(100, 0.1, 25), Vector3(400, 0, 60)],
 			["vista_w", Vector3(-100, 0.1, 10), Vector3(-400, 0, -40)]]:
 			player.position = v[1]
 			player.look_at(Vector3(v[2].x, player.position.y, v[2].z), Vector3.UP)
-			player.cam.rotation.x = 0.02 if v[0].begins_with("vista") else -0.35
+			player.cam.rotation.x = 0.02 if v[0].begins_with("vista") else (0.35 if v[0] == "windsock" else -0.35)
 			if v[0] == "vista_n":
 				await get_tree().create_timer(2.0).timeout
 				print("FPS at vista: ", Engine.get_frames_per_second())

@@ -8,6 +8,7 @@ onto it (plain decimation scrambles Meshy's fragmented UVs). Exports
 <out_dir>/<name>.glb and optionally renders a preview PNG.
 """
 import bpy, sys, os, re, glob
+import numpy as np
 from mathutils import Vector
 
 args = sys.argv[sys.argv.index("--") + 1:]
@@ -18,6 +19,7 @@ TRIS = {"plane_trainer": 10000}  # face budget after remesh; triangulating rough
 DEFAULT_TRIS = 2500
 TEX = {"plane_trainer": 2048}    # everything else: DEFAULT_TEX
 DEFAULT_TEX = 1024
+AO_STRENGTH = 0.65  # how much baked occlusion darkens the color map (the usual 60-70%)
 WELD_ONLY = {"plane_trainer"}  # watertight once welded: decimate directly, skip the voxel remesh
 LIGHT_TRIS = 25000  # at or under this, skip the remesh/bake (it would smear thin parts like needles)
 
@@ -135,11 +137,23 @@ for name, f in sorted(files.items()):
         high.select_set(True); low.select_set(True)
         bpy.context.view_layer.objects.active = low
         extrusion = radius * 0.03
-        for node, kind in ((col, "DIFFUSE"), (nrm, "NORMAL")):
+        # Ambient occlusion: creases where parts meet go darker. Baked separately (it needs more
+        # samples than color), then multiplied into the color map at AO_STRENGTH.
+        ao_img = bpy.data.images.new(name + "_ao", size, size)
+        ao = nt.nodes.new("ShaderNodeTexImage"); ao.image = ao_img
+        for node, kind in ((col, "DIFFUSE"), (nrm, "NORMAL"), (ao, "AO")):
             nt.nodes.active = node
             kw = {"pass_filter": {"COLOR"}} if kind == "DIFFUSE" else {}
+            sc.cycles.samples = 24 if kind == "AO" else 1
             bpy.ops.object.bake(type=kind, use_selected_to_active=True, cage_extrusion=extrusion, **kw)
-            node.image.pack()
+            if kind != "AO":
+                node.image.pack()
+        c_px = np.array(col_img.pixels[:]).reshape(-1, 4)
+        a_px = np.array(ao_img.pixels[:]).reshape(-1, 4)[:, :1]
+        c_px[:, :3] *= 1.0 - AO_STRENGTH * (1.0 - a_px)
+        col_img.pixels[:] = c_px.ravel()
+        col_img.pack()
+        nt.nodes.remove(ao); bpy.data.images.remove(ao_img)
         nt.nodes.active = col  # workbench previews show the active image node
     bpy.data.objects.remove(high)
 

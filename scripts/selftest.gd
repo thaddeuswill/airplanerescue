@@ -1,7 +1,8 @@
 extends Node
 ## The game's self-test: plays a whole rescue through the real code paths (travel, inspect,
 ## run-up, every work scene bolt by bolt, save/load, the ferry flight) and quits with 0 on
-## pass, 1 on fail.  godot --path . -- --self-test [--all-faults] [--city=X] [--shot=prefix]
+## pass, 1 on fail.  godot --path . -- --self-test [--all-faults] [--city=X] [--seed=N] [--shot=prefix]
+## --all-fields flies a forced landing at every field instead: run it before a release.
 ## Started by main.gd; `g` is the running game.
 
 const Work := preload("res://scripts/work.gd")
@@ -11,13 +12,23 @@ const Updater := preload("res://scripts/updater.gd")
 var g  # main.gd
 
 
+var _trip_volume := -80.0
+var _trip_saved_at := ""
+var _quit_open := false  # the pause menu offered a way out during an emergency
+
+
 func run(main, args: PackedStringArray) -> void:
 	g = main
 	var shot = ""
 	for a in args:
 		if a.begins_with("--shot="):
 			shot = a.trim_prefix("--shot=")
-	var edges_ok = _edge_tests()
+	if "--all-fields" in args:
+		var fields_ok: bool = await _all_fields()
+		print("ALL-FIELDS ", "PASS" if fields_ok else "FAIL", " seed=", g.test_seed)
+		get_tree().quit(0 if fields_ok else 1)
+		return
+	var edges_ok: bool = _edge_tests() and Work.spin_dir("tight") < 0.0 and Work.spin_dir("loose") > 0.0 and Work.spin_dir("snug") > 0.0
 	var job: Dictionary = g.jobs[0]
 	if "--all-faults" in args:  # every broken part on one plane, for screenshots
 		job.faults = g.FAULTS.keys()
@@ -28,14 +39,39 @@ func run(main, args: PackedStringArray) -> void:
 			job.city = a.trim_prefix("--city=")
 	var start = g.money
 	job.deadline = g.day + 30  # don't let a long test trip expire the job
+	while not g._warming.is_empty():  # a player spends this on the title screen
+		await get_tree().process_frame
+	var trip_start := Time.get_ticks_msec()
+	_trip_probe()
 	await g._travel(job, 0)
+	var trip_ms := Time.get_ticks_msec() - trip_start
+	var clip: AudioStreamWAV = g.sound._cruise.stream
+	var art_ok: bool = ["res://textures/logo_title.png", "res://textures/logo_ghost.png", "res://textures/logo_decal.png", "res://textures/rescue_photo.png", "res://fonts/Yellowtail-Regular.ttf", "res://fonts/BigShouldersDisplay.ttf"].all(func(p): return ResourceLoader.exists(p))
+	var trip_ok: bool = art_ok and trip_ms >= 3000 and clip.get_length() > 7.9 and clip.data.count(0) < clip.data.size() / 2 and not is_instance_valid(g._loader) and not g.player.frozen and _trip_volume > -8.0 and _trip_saved_at == job.city and not g.get_viewport().disable_3d
+	print("trip %d ms, drone %.1f s at %.1f dB, ok=%s" % [trip_ms, clip.get_length(), _trip_volume, trip_ok])
 	await _snap(shot, "broken", 1.5)
+	g._light_marker("cabin")  # aiming at a spot lights its ring; looking away puts it out
+	var cabin_mark: Label3D = g.plane.get_node("marker_cabin")
+	var marks_ok: bool = cabin_mark.get_node("ring").visible and cabin_mark.get_node("glow").visible
+	g._light_marker("")
+	marks_ok = marks_ok and cabin_mark.get_node("ring").visible and not cabin_mark.get_node("glow").visible
+	if shot != "":
+		var spot: Vector3 = g.plane.to_global(g.ZONES.prop.pos)  # the prop stands clear of the hull
+		var stand: Vector3 = g.plane.to_global(g.ZONES.prop.pos + Vector3(0, 0, -2.0))
+		g.player.position = Vector3(stand.x, 0.1, stand.z)
+		g.player.look_at(Vector3(spot.x, 0.1, spot.z), Vector3.UP)
+		g.player.cam.rotation.x = atan2(spot.y - 1.7, Vector2(stand.x - spot.x, stand.z - spot.z).length())
+		await _snap(shot, "marker_lit")
+		print("aimed at ", g._lit_zone, " live=", g.cross.live)
 	if shot != "":  # title screen and the travel card
 		g._open_menu()
 		await _snap(shot, "menu")
 		g._close_menu()
-		g._show_loading("Flying to Omaha", "264 NM, about 0.4 days on the road and in the air.")
+		g._show_loading("Flying to Omaha", "264 NM, about 0.4 days on the road and in the air.\nThe owner: " + g._symptoms(job), "Dallas", "Omaha")
+		g._bar.value = 60
 		await _snap(shot, "loading")
+		g._arrival_card("Omaha")
+		await _snap(shot, "arrival")
 		g._hide_loading()
 	if shot != "":  # wheels close up, while any flat tire is still flat
 		for v in [["gear", Vector3(2.2, 0.1, 4.6), Vector3(0, 0, 7.1)], ["gear_l", Vector3(2.2, 0.1, 11.4), Vector3(0, 0, 8.9)],
@@ -45,9 +81,28 @@ func run(main, args: PackedStringArray) -> void:
 			g.player.look_at(Vector3(v[2].x, g.player.position.y, v[2].z), Vector3.UP)
 			g.player.cam.rotation.x = -0.35
 			await _snap(shot, v[0])
+		var low := Camera3D.new()  # from between the gear legs: the brake disc sits inboard of the wheel
+		g.world.add_child(low)
+		low.position = Vector3(1.0, 0.32, 8.0)
+		low.look_at(g.plane.to_global(Vector3(0.8, 0.25, 0)), Vector3.UP)
+		low.make_current()
+		await _snap(shot, "brake_inboard")
+		g.player.cam.make_current()
+		low.queue_free()
 		g._load_field(g.location, job)
 	g._open_travel()
+	await _snap(shot, "calls")
+	g._open_radio()
 	await _snap(shot, "radio")
+	var set_panel = g.panel
+	set_panel.tune(4)  # Your Music: the set goes quiet and the keys reach the PC's player
+	var radio_ok: bool = g.sound.station == 4 and g.settings.station == 4 and set_panel._transport.visible and not g.sound._music.playing
+	set_panel._press(179)
+	radio_ok = radio_ok and g.media_sent == [179]
+	await _snap(shot, "radio_yours")
+	set_panel.tune(0)
+	radio_ok = radio_ok and g.sound.station == 0 and not set_panel._transport.visible
+	g._close_panel()
 	g._pocket("wallet")
 	var pockets_ok = g.panel != null and g.panel_kind == "wallet"
 	await _snap(shot, "wallet")
@@ -64,7 +119,7 @@ func run(main, args: PackedStringArray) -> void:
 		pockets_ok = pockets_ok and job.washed
 	g._inspect_zone(first_zone)  # one spot: the work order shows only what that spot revealed
 	await _snap(shot, "inspect")
-	var ok: bool = pockets_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return g.FAULTS[id].zone == first_zone))
+	var ok: bool = pockets_ok and radio_ok and marks_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return g.FAULTS[id].zone == first_zone))
 	for z in g.ZONES:
 		g._inspect_zone(z)
 	# The walk-around finds what you can see; the rest only shows on a run-up.
@@ -85,6 +140,13 @@ func run(main, args: PackedStringArray) -> void:
 	ok = ok and loaded and [g.money, g.day, g.jobs.size(), g.current_job.city, g.current_job.checked.size()] == before \
 		and g.jobs.has(g.current_job)
 	job = g.current_job  # the loaded copy is the live one now
+	# A write that failed partway (full disk) never replaces the good save.
+	var bad_tmp = FileAccess.open(g.save_path + ".tmp", FileAccess.WRITE)
+	bad_tmp.store_string("not a save")
+	bad_tmp.close()
+	var good_day = g._read_save(g.save_path).day
+	ok = ok and not g._commit_save(g.save_path + ".tmp") and g._read_save(g.save_path).day == good_day \
+		and not FileAccess.file_exists(g.save_path + ".tmp")
 	# A torn write (garbage in the main file) falls back to the .bak copy.
 	g._save_game()  # main = this state, .bak = the one before
 	var torn = FileAccess.open(g.save_path, FileAccess.WRITE)
@@ -104,8 +166,17 @@ func run(main, args: PackedStringArray) -> void:
 	g.save_locked = false
 	g._save_game()
 	g._load_field(g.location, job)
+	if DisplayServer.get_name() != "headless":  # a closed panel still hands the mouse back to the player
+		g._close_panel()
+		await get_tree().process_frame
+		ok = ok and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	g._open_shop()
+	ok = ok and g.panel.get_child(0).size == g.get_viewport().get_visible_rect().size  # the backdrop covers the world
 	await _snap(shot, "shop")
+	if shot != "":
+		g.panel._tab(1)
+		await _snap(shot, "shop_tools")
+		g.panel._tab(0)
 	# Work scenes: with no tools nothing comes apart; with tools but no part it stalls at the
 	# empty slot; with both, the whole job gets done bolt by bolt.
 	var id0: String = job.faults[0]
@@ -123,7 +194,7 @@ func run(main, args: PackedStringArray) -> void:
 	var f0: Dictionary = w.els.filter(func(e): return e.type == "fastener" and w.action(e).verb == "loosen")[0]
 	w.tool = f0.tool
 	var mv = InputEventMouseMotion.new()
-	mv.position = w._origin() + f0.pos
+	mv.position = w._to_screen(f0.pos)
 	w._gui_input(mv)
 	var press = InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
@@ -178,6 +249,20 @@ func run(main, args: PackedStringArray) -> void:
 		await _snap(shot, "in_hangar")
 	g._move_plane("apron")
 	ok = ok and g.plane.position.distance_to(Vector3(0, 0, 8)) < 0.5
+	if shot != "":  # the logo in the world: painted on the hangar wall, stuck on the toolbox
+		g._close_panel()
+		g.player.position = Vector3(-16, 0.1, -12)
+		g.player.look_at(Vector3(-16, 0.1, -21), Vector3.UP)
+		g.player.cam.rotation.x = 0.3
+		await _snap(shot, "ghost_sign")
+		g.player.position = Vector3(-18.6, 0.1, -20.4)
+		g.player.look_at(Vector3(-20, 0.1, -20.4), Vector3.UP)
+		g.player.cam.rotation.x = -0.45
+		await _snap(shot, "toolbox_decal")
+		g.player.position = Vector3(-13, 0.1, -17.4)
+		g.player.look_at(Vector3(-13, 0.1, -21), Vector3.UP)
+		g.player.cam.rotation.x = -0.45
+		await _snap(shot, "workbench")
 	# Fuel truck: low tanks block the take-off until it's fueled.
 	job.fuel = 0.1
 	var fuel_cost: int = g._fuel_plane()
@@ -209,6 +294,12 @@ func run(main, args: PackedStringArray) -> void:
 			if v[0] == "vista_n":
 				await get_tree().create_timer(2.0).timeout
 				print("FPS at vista: ", Engine.get_frames_per_second())
+				print("frame: %d draw calls, %d objects, %d k triangles, %.1f ms GPU" % [RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME),
+					RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME), RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME) / 1000,
+					RenderingServer.get_frame_setup_time_cpu()])
+				var load_t := Time.get_ticks_msec()
+				g._load_field(g.location, g.current_job)
+				print("field load: %d ms" % (Time.get_ticks_msec() - load_t))
 			await _snap(shot, v[0])
 		if g.flock:  # look up at the birds
 			var bird: Vector3 = g.flock.get_child(0).global_position
@@ -233,24 +324,259 @@ func run(main, args: PackedStringArray) -> void:
 	ok = ok and job.fixed.size() == job.faults.size()
 	# Fly it out for real: hold throttle, pull back once past rotate speed.
 	g._start_ferry()
-	Input.action_press("move_forward")
-	await _snap(shot, "cockpit", 1.0)
-	var t0 = Time.get_ticks_msec()
-	while g.ferry and Time.get_ticks_msec() - t0 < 30000:
-		if g.ferry.speed >= Ferry.ROTATE:
-			Input.action_press("move_back")
-		if shot != "" and g.ferry.alt > 8 and not FileAccess.file_exists(shot + "_climb.png"):
-			await _snap(shot, "climb", 0.0)
-		await get_tree().process_frame
-	Input.action_release("move_forward")
-	Input.action_release("move_back")
+	ok = ok and g.ferry == null  # an unsigned logbook keeps it on the ground
+	g._open_signoff()
+	await _snap(shot, "signoff")
+	g._sign_logbook()
+	# Pause really stops the world, and resuming leaves nothing paused behind.
+	g._close_panel()
+	g._open_pause()
+	await _snap(shot, "pause")
+	ok = ok and get_tree().paused and g.panel != null
+	g._open_settings(g._open_pause)
+	await _snap(shot, "settings")
+	ok = ok and get_tree().paused
+	g._sub_back.call()
+	g._close_panel()
+	ok = ok and not get_tree().paused and g.panel == null
+	g._start_ferry()
+	await _snap(shot, "checklist", 0.3)
+	ok = await _start_failures() and ok
+	await _fly(true, shot)
 	ok = ok and g.ferry == null and g.rescued == 1 and g.money == start + job.reward and g.jobs.size() == g.MAX_JOBS
+	# The ending and game-over screens both leave a way out and can't be closed by accident.
+	var rescued_now = g.rescued
+	g.rescued = g.GOAL
+	g._after_flight()
+	await _snap(shot, "ending")
+	ok = ok and g.panel != null and not g.panel_closable
+	g.rescued = rescued_now
+	g._open_game_over(500)
+	await _snap(shot, "game_over")
+	ok = ok and g.panel != null and not g.panel_closable
+	g._open_travel()
 	ok = ok and g.logbook.size() == 1 and g.logbook[0].has("parts")  # the cost sheet was written
 	if shot != "":
 		g._pocket("logbook")
 		await _snap(shot, "logbook_after")
-	print("SELF-TEST ", "PASS" if ok and edges_ok else "FAIL", " edges=", edges_ok, " faults=", job.faults, " day=%.1f" % g.day)
+	ok = await _trouble_tests(shot) and ok
+	ok = await _leak_test() and ok and trip_ok and g._warming.is_empty() and g._kept.size() > 50  # assets stayed loaded
+	if overflow != "":
+		print("PANEL OVERFLOW: ", overflow)
+		ok = false
+	print("SELF-TEST ", "PASS" if ok and edges_ok else "FAIL", " edges=", edges_ok, " city=", job.city, " seed=", g.test_seed, " faults=", job.faults, " day=%.1f" % g.day)
 	get_tree().quit(0 if ok else 1)
+
+
+var overflow := ""
+
+
+## Opens and closes every sheet 500 times: nodes must come back to where they started.
+func _leak_test() -> bool:
+	g._close_panel()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var nodes = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+	var mem = Performance.get_monitor(Performance.MEMORY_STATIC)
+	var opens: Array[Callable] = [g._open_wallet, g._open_logbook, g._open_shop, g._open_toolbox, g._open_travel, g._open_pause]
+	for i in 500:
+		opens[i % opens.size()].call()
+		await get_tree().process_frame
+		g._close_panel()
+		await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var grew = Performance.get_monitor(Performance.OBJECT_NODE_COUNT) - nodes
+	print("leak test: %d nodes, %.1f MB after 500 opens" % [grew, (Performance.get_monitor(Performance.MEMORY_STATIC) - mem) / 1048576.0])
+	return grew <= 5
+
+
+## Every field's terrain is different: a good pilot must be able to put it down at all of them.
+func _all_fields() -> bool:
+	Engine.time_scale = 3.0  # twenty flights in a couple of minutes
+	var ok := true
+	for city in g.CITIES:
+		var j: Dictionary = g.jobs[0]
+		j.merge({"faults": ["oil_leak"], "fixed": {}, "found": {}, "checked": {}, "work": {}, "runup": "ran", "fuel": 1.0, "washed": true,
+			"signed": true, "parked": "apron", "reward": 4000, "deadline": g.day + 30}, true)
+		g._load_field(city, j)
+		await _fly(true)
+		var landed: bool = g.ferry == null and g.current_job == j and j.found.has("oil_leak")
+		g._close_panel()
+		# And nothing wrong at all: a clean take-off has to clear the land around every strip.
+		j = g.jobs[0]
+		j.merge({"faults": [], "fixed": {}, "found": {}, "checked": {}, "work": {}, "runup": "ran", "fuel": 1.0, "washed": true,
+			"signed": true, "parked": "apron", "reward": 4000, "deadline": g.day + 30}, true)
+		g.rescued = 0
+		g._load_field(city, j)
+		await _fly(false)
+		var delivered: bool = g.ferry == null and g.rescued == 1
+		print("field ", city, ": ", "landed" if landed else "CRASHED", ", ", "climbed out" if delivered else "NEVER CLEARED")
+		ok = ok and landed and delivered
+		g._close_panel()
+	Engine.time_scale = 1.0
+	return ok
+
+
+## Flies with a fault nobody looked for, for real: once flown well, once not flown at all.
+func _trouble_tests(shot: String) -> bool:
+	g._close_panel()
+	var j: Dictionary = g.jobs[0]
+	j.merge({"faults": ["oil_leak"], "fixed": {}, "found": {}, "checked": {}, "work": {}, "runup": "ran", "fuel": 1.0, "washed": true,
+		"signed": true, "parked": "apron", "reward": 4000, "deadline": g.day + 30}, true)
+	g._load_field(g.location, j)
+	g._open_inspection("cabin")
+	var ok: bool = g.panel != null  # nothing found, run-up done: signing is open even with spots unchecked
+	g._close_panel()
+	g._start_ferry()  # second thoughts: you can always climb back out
+	g._open_pause()
+	await get_tree().process_frame
+	g._leave_cockpit()
+	await get_tree().process_frame
+	ok = ok and g.ferry == null and g.panel == null and not get_tree().paused and g.plane != null and g.current_job == j
+	await _fly(true)
+	ok = ok and g.ferry == null and g.current_job == j and j.found.has("oil_leak") and not j.signed and j.reward == 3000 and g.panel != null
+	await _snap(shot, "forced_landing")
+	g._close_panel()
+	var money = g.money
+	var rescued = g.rescued
+	j.signed = true
+	await _fly(false)
+	ok = ok and g.ferry == null and g.current_job == null and not g.jobs.has(j) and g.jobs.size() == g.MAX_JOBS
+	ok = ok and g.money == maxi(0, money - g.CRASH_BILL) and g.rescued == rescued and g.panel != null
+	await _snap(shot, "crash")
+	g._close_panel()
+	# A tire goes on the runway, before there's anything to land.
+	var k: Dictionary = g.jobs[0]
+	k.merge({"faults": ["tire"], "fixed": {}, "found": {}, "checked": {}, "work": {}, "runup": "ran", "fuel": 1.0, "washed": true,
+		"signed": true, "parked": "apron", "reward": 4000, "deadline": g.day + 30}, true)
+	g._load_field(g.location, k)
+	await _fly(false)
+	ok = ok and g.ferry == null and g.current_job == k and k.found.has("tire") and not k.signed
+	ok = ok and not _quit_open
+	# Fault-free, but held low into rising ground: that's a crash, not a pass through the hill.
+	g._close_panel()
+	k.fixed["tire"] = true
+	k.signed = true
+	g._start_ferry()
+	await _good_start(g.ferry)
+	var hit = g.ferry
+	hit.plane.position.x = -800.0
+	hit.alt = 2.0
+	hit.speed = 35.0
+	var t0 = Time.get_ticks_msec()
+	while g.ferry and Time.get_ticks_msec() - t0 < 6000:
+		await get_tree().process_frame
+	ok = ok and g.ferry == null and g.current_job == null and not g.jobs.has(k) and g.logbook.back().work[0].contains("rising ground")
+	g._close_panel()
+	print("trouble tests ", ok)
+	return ok
+
+
+## Every way the start can go wrong, for real, then none of them.
+func _start_failures() -> bool:
+	var f = g.ferry
+	await _crank(2.2)
+	var ok: bool = f.state == "off"  # master off: dead silence
+	f.toggle_master()
+	await _crank(2.2)
+	ok = ok and f.state == "off"  # no fuel
+	f.toggle_fuel()
+	await _crank(2.2)
+	ok = ok and f.state == "off"  # mags off, and nothing primed yet makes no difference without spark
+	for i in 3:
+		f.next_mags()
+	for i in 7:
+		f.prime()
+	f.throttle = 0.1
+	await _crank(2.2)
+	ok = ok and f.state == "off" and f.flood > 0.0  # flooded
+	f.throttle = 1.0
+	await _crank(3.3)
+	ok = ok and f.flood <= 0.0  # cleared with the throttle open
+	f.primes = 0
+	f.throttle = 0.1
+	await _crank(2.2)
+	ok = ok and f.state == "hung"  # no prime: hung start
+	var t0 = Time.get_ticks_msec()
+	while f.state == "hung" and Time.get_ticks_msec() - t0 < 7000:
+		await get_tree().process_frame
+	ok = ok and f.state == "off"  # left alone, it dies
+	f.primes = 1
+	await _crank(2.2)
+	f.throttle = 0.2
+	t0 = Time.get_ticks_msec()
+	while f.state == "hung" and Time.get_ticks_msec() - t0 < 3000:
+		await get_tree().process_frame
+	ok = ok and f.state == "run"  # a touch of throttle saves it
+	print("start failures ", ok)
+	return ok
+
+
+func _crank(seconds: float) -> void:
+	g.ferry._crank_total = 0.0  # the starter-rest limit has its own check below
+	g.ferry._cool = 0.0
+	Input.action_press("starter")
+	var t0 = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < seconds * 1000.0 and g.ferry.state == "off":
+		await get_tree().process_frame
+	Input.action_release("starter")
+	await get_tree().process_frame
+
+
+## Starts it by the book.
+func _good_start(f) -> void:
+	f.toggle_master()
+	f.toggle_fuel()
+	for i in 3:
+		f.prime()
+		f.next_mags()
+	f.throttle = 0.15
+	await _crank(2.2)
+
+
+## Flies the take-off and, once trouble strikes, either the forced landing or nothing at all.
+func _fly(well: bool, shot := "") -> void:
+	if g.ferry == null:
+		g._start_ferry()
+		await _good_start(g.ferry)
+	var t0 = Time.get_ticks_msec()
+	var worst := 0.0
+	var frames := 0
+	var last = Time.get_ticks_usec()
+	Input.action_press("throttle_up")
+	while g.ferry and Time.get_ticks_msec() - t0 < 40000:
+		var f = g.ferry
+		worst = maxf(worst, (Time.get_ticks_usec() - last) / 1000.0)
+		last = Time.get_ticks_usec()
+		frames += 1
+		Input.action_release("rudder_left")
+		Input.action_release("rudder_right")
+		if f.struck:
+			_quit_open = _quit_open or g._can_quit()
+			Input.action_release("throttle_up")
+			Input.action_release("stick_forward")
+			Input.action_release("stick_back")
+			if well:
+				if f.alt - maxf(0.0, g.terrain.height(f.plane.position.x, f.plane.position.z)) < 4.0 and f.speed > Ferry.STALL + 3.0:  # flare, but never below flying speed: ground can rise past the strip
+					Input.action_press("stick_back")
+				elif f.pitch > -0.1:
+					Input.action_press("stick_forward")
+		else:
+			if f.yaw + f.z_off * 0.05 > 0.0:  # hold the centerline
+				Input.action_press("rudder_right")
+			else:
+				Input.action_press("rudder_left")
+			if f.speed >= Ferry.ROTATE:
+				Input.action_press("stick_back")
+			if shot != "" and f.speed > 12.0 and not FileAccess.file_exists(shot + "_roll.png"):
+				await _snap(shot, "roll", 0.0)
+			if shot != "" and f.alt > 8 and not FileAccess.file_exists(shot + "_climb.png"):
+				await _snap(shot, "climb", 0.0)
+		await get_tree().process_frame
+	for a in ["throttle_up", "stick_forward", "stick_back", "rudder_left", "rudder_right"]:
+		Input.action_release(a)
+	print("flight at %s: %.0f fps, worst frame %.0f ms" % [g.location, frames * 1000.0 / maxf(1.0, Time.get_ticks_msec() - t0), worst])
 
 
 ## Money and deadline edges, run at home before the main test; restores what it touches.
@@ -299,7 +625,16 @@ func _edge_tests() -> bool:
 	ok = ok and not g._can_finish_here()
 	g.tools = {"screwdriver": true, "rag": true, "ratchet": true, "torque": true, "pliers": true}
 	g.inventory = {"Propeller": 1, "Safety wire": 10}
+	g.current_job.fuel = 1.0
 	ok = ok and g._can_finish_here()
+	# Everything fixed but the tanks are dry and the pump costs more than you have: not finishable.
+	g.current_job.fuel = 0.03
+	ok = ok and not g._can_finish_here()
+	g.money = g._fuel_bill(g.current_job)
+	ok = ok and g._can_finish_here()
+	g.money = 0
+	for key in g.SUPPLIES:  # off the shelf means the mail price
+		ok = ok and g._supply_price(key) == (int(g.SUPPLIES[key].cost) if g._on_shelf(key) else int(g.SUPPLIES[key].cost * 1.25))
 	g.tools = saved_tools
 	g.inventory = saved_inv
 	# 1c. A fresh set of calls always has one within a short hop.
@@ -323,4 +658,22 @@ func _snap(prefix: String, name: String, wait := 0.4) -> void:
 	if prefix == "":
 		return
 	await get_tree().create_timer(wait).timeout
+	if g.panel is PanelContainer and g.panel.size.y > get_viewport().get_visible_rect().size.y + 1.0:
+		overflow = "%s (%d px)" % [g._list_title, g.panel.size.y]  # no scroll bars, so every sheet must fit
 	get_viewport().get_texture().get_image().save_png("%s_%s.png" % [prefix, name])
+
+
+## The drone must be up to volume before the field build starts stalling frames.
+func _trip_probe() -> void:
+	var t0 := Time.get_ticks_msec()
+	var last := t0
+	var worst := 0
+	while not is_instance_valid(g._arrived):  # the flight scene: nothing loads, so no frame should stall
+		await get_tree().process_frame
+		var now := Time.get_ticks_msec()
+		worst = maxi(worst, now - last)
+		last = now
+		if _trip_volume < -70.0 and now - t0 >= 1050:
+			_trip_volume = g.sound._cruise.volume_db
+	print("flight scene worst frame ", worst, " ms")
+	_trip_saved_at = g._read_save(g.save_path).location  # the save under the card must already be at the destination

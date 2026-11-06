@@ -27,6 +27,19 @@ const SKIN := Color(0.93, 0.74, 0.22)
 const METAL := Color(0.62, 0.63, 0.66)
 const ENGINE := Color(0.3, 0.3, 0.32)
 const RUBBER := Color(0.13, 0.13, 0.13)
+const BAR := 104.0  # the tool roll along the bottom of the screen
+const HEAD := 50.0  # the job header along the top
+const SHORT := {"hand": "Hands", "screwdriver": "Screwdriver", "ratchet": "Ratchet", "torque": "Torque", "pliers": "Pliers", "rag": "Rag"}
+## What a piece sounds like coming off (numbers in ids are dropped: plug0 -> plug). Default: part.
+const HIT := {"spinner": "panel", "hubcap": "panel", "cowl": "panel", "rocker": "panel", "hatch": "panel", "fairing": "panel",
+	"plate": "panel", "top": "panel", "left": "panel", "right": "panel", "strap": "panel", "caliper": "heavy",
+	"wire": "snip", "wire_a": "snip", "wire_b": "snip", "pin": "wire", "cotter": "wire", "lead": "thread", "coax": "thread",
+	"neg": "thread", "pos": "thread", "plug": "thread", "jack": "jack", "tire": "heavy", "wheel": "heavy", "battery": "heavy",
+	"starter": "heavy", "magneto": "heavy", "prop": "wood", "valve": "latch", "cap": "latch", "fuel": "liquid"}
+## What running while the mouse is held sounds like: by piece first, then by tool.
+const PIECE_HOLD := {"scrape": "scrape", "sealant": "scrape", "nest": "rustle", "straw": "sweep", "pump": "pump",
+	"sump_l": "liquid", "sump_r": "liquid", "soak": "spray", "turn": "crank"}
+const TOOL_HOLD := {"ratchet": "ratchet", "screwdriver": "screw", "torque": "torque_turn", "pliers": "wire", "rag": "rag"}
 
 var main  # main.gd: tools, inventory, time
 var fault: String
@@ -44,12 +57,18 @@ const PART_TILE := Rect2(836, 442, 144, 96)  # where the new part sits on the be
 var held_done := false  # an action finished under the held mouse: wait for release before the next
 var tick_t := 0.0
 var note := ""
-var font := ThemeDB.fallback_font
+var font: Font
 var toolbar: HBoxContainer
+var k := 1.0  # the scene is drawn scaled up to fill the window
+var _flying := []  # pieces on their way to the bench: [texture, color, from rect, age]
+var _puffs := []  # [position, velocity, age]
+var _shake := 0.0
+var _vignette: GradientTexture2D
 
 
 func setup(m, fault_id: String, job: Dictionary) -> void:
 	main = m
+	font = m.UI_FONT
 	fault = fault_id
 	part_name = m.FAULTS[fault_id].part
 	def = scenes()[fault_id]
@@ -64,8 +83,23 @@ func setup(m, fault_id: String, job: Dictionary) -> void:
 	st = job.work[fault_id]
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)  # offsets too, or it stays 64x64 and misses clicks
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	_vignette = GradientTexture2D.new()
+	_vignette.fill = GradientTexture2D.FILL_RADIAL
+	_vignette.fill_from = Vector2(0.5, 0.45)
+	_vignette.fill_to = Vector2(1.05, 1.05)
+	_vignette.gradient = Gradient.new()
+	_vignette.gradient.set_color(0, Color(0, 0, 0, 0))
+	_vignette.gradient.set_color(1, Color(0, 0, 0, 0.6))
+	_vignette.gradient.set_offset(0, 0.55)
 	toolbar = HBoxContainer.new()
-	toolbar.add_theme_constant_override("separation", 8)
+	toolbar.theme = m._ui_theme()
+	toolbar.alignment = BoxContainer.ALIGNMENT_CENTER
+	toolbar.add_theme_constant_override("separation", 6)
+	toolbar.anchor_top = 1.0
+	toolbar.anchor_right = 1.0
+	toolbar.anchor_bottom = 1.0
+	toolbar.offset_top = -BAR + 10
+	toolbar.offset_bottom = -8
 	add_child(toolbar)
 	_build_toolbar()
 	_preload_art()
@@ -83,27 +117,46 @@ func _build_toolbar() -> void:
 		Input.set_custom_mouse_cursor(null)
 	for c in toolbar.get_children():
 		c.queue_free()
+	var n := 0
 	for t in TOOLS:
-		if t != "hand" and not main.tools.has(t):
-			continue
+		n += 1
+		var owned: bool = t == "hand" or main.tools.has(t)
 		var b := Button.new()
-		b.text = TOOLS[t]
+		b.text = "%d  %s" % [n, SHORT[t]]
+		b.tooltip_text = TOOLS[t] if owned else "%s: not in your roll yet. Buy it from the hangar toolbox." % TOOLS[t]
 		b.toggle_mode = true
 		b.button_pressed = t == tool
+		b.disabled = not owned
 		b.focus_mode = Control.FOCUS_NONE
-		b.pressed.connect(func():
-			tool = t
-			_build_toolbar())
+		b.custom_minimum_size = Vector2(96, 0)
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		b.add_theme_font_size_override("font_size", 12)
+		b.pressed.connect(func(): _pick_tool(t))
 		var icon := "res://textures/work/tool_%s.png" % t
 		if ResourceLoader.exists(icon):
 			b.icon = load(icon)
-			b.add_theme_constant_override("icon_max_width", 36)  # fixed size: long names squeezed it to nothing
-			b.custom_minimum_size = Vector2(0, 48)
+			b.add_theme_constant_override("icon_max_width", 48)
 		toolbar.add_child(b)
 
 
+func _pick_tool(t: String) -> void:
+	tool = t
+	main.sound.sfx("tool")
+	_build_toolbar()
+
+
 func _origin() -> Vector2:
-	return Vector2(maxf(0, (size.x - W) / 2), 72)
+	k = minf(size.x / W, (size.y - BAR - HEAD) / H)
+	return Vector2((size.x - W * k) / 2, HEAD + (size.y - BAR - HEAD - H * k) / 2)
+
+
+func _to_scene(p: Vector2) -> Vector2:
+	return (p - _origin()) / k
+
+
+func _to_screen(p: Vector2) -> Vector2:
+	return _origin() + p * k
 
 
 # ---------- rules ----------
@@ -277,15 +330,36 @@ func perform(e: Dictionary, v: String) -> bool:
 		"do": st[e.id] = "done"
 	if v in ["on", "do"] and e.get("uses", "") != "":
 		main.inventory[e.uses] -= 1  # a fresh length of safety wire, a new cotter pin, a squirt of penetrant
-	if v in ["torque", "install", "on"]:
-		main.sound.clink()
+	_feel(e, v)
 	if not main._work_time(DAYS[v]):
 		return false
-	hover = _hit(get_local_mouse_position() - _origin())  # what was under the cursor may have moved
+	hover = _hit(_to_scene(get_local_mouse_position()))  # what was under the cursor may have moved
 	if done():
 		finished.emit()
 	queue_redraw()
 	return true
+
+
+## The sound and movement of a finished step, so every action lands.
+func _feel(e: Dictionary, v: String) -> void:
+	var hit: String = HIT.get(_base(e.id), "part")
+	var s: String = {"loosen": "seat" if e.get("kind", "") == "screw" else "breakfree", "tighten": "seat", "torque": "click",
+		"out": "tray", "insert": "thread", "off": hit, "remove": hit, "on": "seat_panel" if hit == "panel" else hit,
+		"install": "seat_panel" if hit == "panel" else hit, "do": ""}[v]
+	main.sound.sfx(s)
+	var c: Vector2 = e.pos if e.type == "fastener" else e.rect.get_center()
+	if v in ["off", "remove"]:
+		var art := _tex("work/%s_%s" % [fault, e.id]) if e.type == "cover" else _tex("work/%s_%s_old" % [fault, e.id])
+		_flying.append([art, e.get("col", METAL), e.rect, 0.0])
+	if v != "tighten":
+		for i in 7:
+			_puffs.append([c, Vector2.from_angle(randf() * TAU) * randf_range(20, 70), 0.0])
+	if hit == "heavy" and v in ["off", "remove", "on", "install"]:
+		_shake = 5.0 if main.settings.shake else 0.0
+
+
+func _base(id: String) -> String:
+	return id.rstrip("0123456789")
 
 
 ## Self-test helper: does the whole job with the tools you carry, no mouse. True if finished.
@@ -317,19 +391,20 @@ func solve() -> bool:
 
 func _gui_input(ev: InputEvent) -> void:
 	if ev is InputEventMouseMotion:
-		var h := _hit(ev.position - _origin())
+		var h := _hit(_to_scene(ev.position))
 		if h != hover:
 			hover = h
 			hold = 0.0
 			note = ""
 		queue_redraw()
 	elif ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
-		var bp: Vector2 = ev.position - _origin()
+		var bp := _to_scene(ev.position)
 		if ev.pressed and part_name != "" and PART_TILE.has_point(bp):  # the new part on the bench
 			var have_part: bool = st._paid or main.inventory.get(part_name, 0) > 0
 			var waiting: bool = els.any(func(x): return x.type == "part" and st[x.id] != "new")
 			if have_part and waiting:
 				holding = not holding
+				main.sound.sfx("tool")
 				note = ("Holding the new %s. Click where it goes." % part_name) if holding else "Put it back on the bench."
 			elif not have_part:
 				note = "No new %s on the bench. Buy one at the parts shed (or mail-order it)." % part_name
@@ -341,9 +416,11 @@ func _gui_input(ev: InputEvent) -> void:
 			note = ""
 			if a.verb == "":
 				note = a.why
+				main.sound.sfx("deny")
 			elif a.tool != tool:
 				note = "Use the %s for that%s." % [TOOLS[a.tool],
 					"" if a.tool == "hand" or main.tools.has(a.tool) else " (it's in the hangar toolbox)"]
+				main.sound.sfx("deny")
 			elif a.hold == 0.0:
 				held_done = true
 				perform(e, a.verb)
@@ -355,15 +432,21 @@ func _gui_input(ev: InputEvent) -> void:
 	elif ev is InputEventMouseButton and ev.pressed and ev.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
 		var keys := TOOLS.keys().filter(func(t): return t == "hand" or main.tools.has(t))
 		var i := (keys.find(tool) + (1 if ev.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1) + keys.size()) % keys.size()
-		tool = keys[i]
-		_build_toolbar()
+		_pick_tool(keys[i])
+
+
+func _unhandled_key_input(ev: InputEvent) -> void:  # 1-6 pick a tool from the roll
+	if ev.pressed and not ev.echo and ev.physical_keycode >= KEY_1 and ev.physical_keycode <= KEY_6:
+		var t: String = TOOLS.keys()[ev.physical_keycode - KEY_1]
+		if t == "hand" or main.tools.has(t):
+			_pick_tool(t)
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
 		Input.set_custom_mouse_cursor(null)  # back to the normal pointer outside the scene
-	if what == NOTIFICATION_RESIZED and toolbar:
-		toolbar.position = _origin() + Vector2(0, H + 8)
+		if is_instance_valid(main) and is_instance_valid(main.sound):
+			main.sound.stop_loop()
 
 
 var _settle := 3  # redraw the first few frames so freshly uploaded art shows without a mouse move
@@ -373,20 +456,30 @@ func _process(delta: float) -> void:
 	if _settle > 0:
 		_settle -= 1
 		queue_redraw()
+	if _flying.size() > 0 or _puffs.size() > 0 or _shake > 0.0:
+		for f in _flying:
+			f[3] += delta / 0.3
+		for p in _puffs:
+			p[0] += p[1] * delta
+			p[2] += delta / 0.45
+		_flying = _flying.filter(func(f): return f[3] < 1.0)
+		_puffs = _puffs.filter(func(p): return p[2] < 1.0)
+		_shake = maxf(0.0, _shake - delta * 20.0)
+		queue_redraw()
 	if hover == "" or held_done or not pressing:
+		main.sound.stop_loop()
 		return
 	var e: Dictionary = by_id[hover]
 	var a := action(e)
 	if a.verb == "" or a.hold == 0.0 or a.tool != tool:
+		main.sound.stop_loop()
 		return
+	main.sound.loop(PIECE_HOLD.get(_base(e.id), TOOL_HOLD.get(a.tool, "")))
 	hold += delta
-	tick_t -= delta
-	if tick_t <= 0.0:  # ratchet clicks while you turn
-		main.sound.tick()
-		tick_t = 0.11
 	if hold >= a.hold:
 		hold = 0.0
 		held_done = true
+		main.sound.stop_loop()
 		perform(e, a.verb)
 	queue_redraw()
 
@@ -451,11 +544,12 @@ func _preload_art() -> void:
 
 
 func _draw() -> void:
-	var o := _origin()
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.09, 0.08, 0.07))  # the work fills the screen; HUD stays hidden
-	draw_string(font, Vector2(o.x + W - 220, 30), "Day %d" % floori(main.day), HORIZONTAL_ALIGNMENT_RIGHT, 220, 16, Color(0.85, 0.82, 0.75))
-	draw_set_transform(o)
+	var o := _origin() + Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
 	var bg := _tex("work/%s_bg" % fault)
+	draw_rect(Rect2(Vector2.ZERO, size), main.C_EARTH)
+	if bg:  # the same spot, dimmed, fills the window edges instead of black bars
+		draw_texture_rect(bg, Rect2(Vector2.ZERO, size), false, Color(0.28, 0.26, 0.24))
+	draw_set_transform(o, 0.0, Vector2(k, k))
 	if bg:
 		draw_texture_rect(bg, Rect2(0, 0, W, H), false)
 	else:
@@ -466,20 +560,55 @@ func _draw() -> void:
 		if _visible(e):
 			_draw_piece(e)
 	_draw_bench()
-	if hover != "":
-		_draw_hover(by_id[hover])
+	for f in _flying:  # lifted off, sliding across to the bench and shrinking
+		var t: float = ease(f[3], 0.5)
+		var to := Rect2(BENCH.get_center() - Vector2(30, 30), Vector2(60, 60))
+		var r := Rect2(f[2].position.lerp(to.position, t), f[2].size.lerp(to.size, t))
+		if f[0]:
+			draw_texture_rect(f[0], r, false, Color(1, 1, 1, 1.0 - f[3] * 0.6))
+		else:
+			draw_rect(r, Color(f[1], 1.0 - f[3] * 0.6))
+	for p in _puffs:
+		draw_circle(p[0], 2.0 + p[2] * 3.0, Color(0.85, 0.8, 0.7, 0.45 * (1.0 - p[2])))
 	draw_set_transform(Vector2.ZERO)
-	draw_string(font, Vector2(o.x, 30), "%s  -  %s" % [main.FAULTS[fault].name, def.title], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.98, 0.94, 0.85))
-	draw_string(font, Vector2(o.x, 54), "Hover a piece to see what it needs. Hold the mouse to turn. Wheel: switch tools. Esc: step away (work is kept).",
-		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.85, 0.82, 0.75))
+	draw_texture_rect(_vignette, Rect2(Vector2.ZERO, size), false)
+	# Job header, laid over the top of the picture.
+	draw_rect(Rect2(0, 0, size.x, HEAD), main.C_EARTH)
+	draw_rect(Rect2(0, HEAD - 1, size.x, 1), Color(main.C_BRASS, 0.5))
+	draw_string(main.HEAD_FONT, Vector2(24, 24), main.FAULTS[fault].name.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, main.C_PAPER)
+	draw_string(font, Vector2(24, 41), def.title, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, main.C_BRASS)
+	var ok := els.filter(func(e): return _complete(e)).size()
+	draw_string(font, Vector2(size.x - 244, 22), "Day %d   %d of %d steps in place" % [floori(main.day), ok, els.size()], HORIZONTAL_ALIGNMENT_RIGHT, 220, 13, main.C_BRASS)
+	draw_rect(Rect2(size.x - 244, 31, 220, 4), Color(main.C_BRASS, 0.2))
+	draw_rect(Rect2(size.x - 244, 31, 220.0 * ok / els.size(), 4), main.C_BRASS)
+	# The tool roll.
+	draw_rect(Rect2(0, size.y - BAR, size.x, BAR), main.C_EARTH)
+	draw_rect(Rect2(0, size.y - BAR, size.x, 1), Color(main.C_BRASS, 0.5))
+	var hint := Vector2(24, size.y - BAR + 40)
+	for line in ["Hold the mouse to turn", "Wheel or 1-6: switch tool", "Esc: step away, work is kept"]:
+		draw_string(font, hint, line, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(main.C_BRASS, 0.8))
+		hint.y += 17
 	if holding and _tex("icon_" + fault):  # the part rides along with the cursor until it's fitted
 		draw_texture_rect(_tex("icon_" + fault), Rect2(get_local_mouse_position() + Vector2(30, -10), Vector2(64, 64)), false)
-	# What's in your hand, riding just under the cursor.
-	var mp := get_local_mouse_position() + Vector2(34, 78)
-	var tname: String = TOOLS[tool]
-	var tw := font.get_string_size(tname, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
-	draw_rect(Rect2(mp - Vector2(6, 16), Vector2(tw + 12, 22)), Color(0.1, 0.08, 0.05, 0.85))
-	draw_string(font, mp, tname, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(1.0, 0.85, 0.35))
+	if hover != "":
+		_draw_hover(by_id[hover])
+	_draw_crosshair()
+
+
+## Marks the exact spot the tool is working: the big tool cursor hides it. A green ring means the
+## tool in your hand can do something there.
+func _draw_crosshair() -> void:
+	var m := get_local_mouse_position()
+	if m.y < HEAD or m.y > size.y - BAR:
+		return
+	var a := action(by_id[hover]) if hover != "" else {"verb": "", "tool": ""}
+	var ready: bool = a.verb != "" and a.tool == tool
+	var col: Color = Color(0.6, 0.9, 0.55) if ready else main.C_PAPER
+	for pass_ in [[Color(0, 0, 0, 0.7), 3.5], [col, 1.5]]:  # dark underneath, so it reads on bright paint too
+		for d in [Vector2.RIGHT, Vector2.LEFT, Vector2.UP, Vector2.DOWN]:
+			draw_line(m + d * 5.0, m + d * 13.0, pass_[0], pass_[1])
+		if ready:
+			draw_arc(m, 17.0, 0.0, TAU, 32, pass_[0], pass_[1])
 
 
 func _fill(r: Rect2, texname: String, tint: Color, shape := "rect") -> void:
@@ -539,12 +668,22 @@ func _draw_piece(e: Dictionary) -> void:
 			_draw_fastener(e, s)
 
 
+## Righty-tighty: a tight fastener backs out counter-clockwise, anything else is going in.
+## Positive rotation is clockwise on screen.
+static func spin_dir(state: String) -> float:
+	return -1.0 if state == "tight" else 1.0
+
+
 func _draw_fastener(e: Dictionary, s: String) -> void:
 	var p: Vector2 = e.pos
 	if s == "out":
 		draw_circle(p, 5, Color(0.05, 0.05, 0.05))  # empty hole
 		return
 	var lift := Vector2(-3, -3) if s == "loose" else Vector2.ZERO
+	if e.id == hover and hold > 0.0:  # turning under the tool
+		var spun := _origin() + (p + lift) * k
+		draw_set_transform(spun, hold * 9.0 * spin_dir(s), Vector2(k, k))
+		p = -lift
 	var r := 9.0 if e.kind == "screw" else 11.0
 	if s == "loose":
 		draw_circle(p + Vector2(2, 2), r, Color(0, 0, 0, 0.4))  # backed out: casts a shadow
@@ -564,6 +703,8 @@ func _draw_fastener(e: Dictionary, s: String) -> void:
 		draw_polyline(pts, Color(0.25, 0.25, 0.27), 1.5)
 	if s == "snug":  # tightened by hand tool, still needs the torque wrench
 		draw_arc(p, r + 3, 0, TAU, 20, Color(0.95, 0.75, 0.15), 2.0)
+	if e.id == hover and hold > 0.0:
+		draw_set_transform(_origin(), 0.0, Vector2(k, k))
 
 
 func _label(r: Rect2, t: String) -> void:
@@ -602,32 +743,40 @@ func _draw_bench() -> void:
 
 
 func _draw_hover(e: Dictionary) -> void:
+	draw_set_transform(_origin(), 0.0, Vector2(k, k))
 	if e.type == "fastener":
-		draw_arc(e.pos, 16, 0, TAU, 24, Color(1, 1, 0.6), 2.0)
+		draw_arc(e.pos, 16, 0, TAU, 24, main.C_BRASS, 2.0)
 	else:
-		draw_rect(e.rect, Color(1, 1, 0.6), false, 2.0)
+		draw_rect(e.rect, main.C_BRASS, false, 2.0)
 	var a := action(e)
+	if hold > 0.0 and a.hold > 0.0:
+		var c: Vector2 = e.pos if e.type == "fastener" else e.rect.get_center()
+		draw_arc(c, 22, -PI / 2, -PI / 2 + TAU * hold / a.hold, 32, Color(0.95, 0.75, 0.15), 4.0)
+	draw_set_transform(Vector2.ZERO)
 	var line: String = e.name if e.type != "fastener" else by_id[e.host].name + " " + e.kind
 	if e.type == "task":
 		line = e.label
 	var how := ""
+	var bad := false
 	if a.verb != "":
 		how = "%s  [%s%s]" % [_verb_text(e, a.verb), TOOLS[a.tool], ", hold" if a.hold > 0 else ""]
 		if a.tool != "hand" and not main.tools.has(a.tool):
 			how += "  - get it from the hangar toolbox"
+			bad = true
 	else:
 		how = a.why if a.why != "" else "Nothing to do here."
+		bad = a.why != ""
 	if note != "":
 		how = note
-	var m := get_local_mouse_position() - _origin() + Vector2(16, 18)
-	var w := maxf(font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x, font.get_string_size(how, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x) + 16
-	m.x = minf(m.x, W - w)
-	draw_rect(Rect2(m, Vector2(w, 42)), Color(0.98, 0.95, 0.85, 0.95))
-	draw_string(font, m + Vector2(8, 16), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.15, 0.1, 0.05))
-	draw_string(font, m + Vector2(8, 34), how, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.45, 0.1, 0.08))
-	if hold > 0.0 and a.hold > 0.0:
-		var c: Vector2 = e.pos if e.type == "fastener" else e.rect.get_center()
-		draw_arc(c, 22, -PI / 2, -PI / 2 + TAU * hold / a.hold, 32, Color(0.95, 0.75, 0.15), 4.0)
+		bad = true
+	var m := get_local_mouse_position() + Vector2(18, 20)
+	var w := maxf(font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x, font.get_string_size(how, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x) + 24
+	m.x = minf(m.x, size.x - w - 8)
+	m.y = minf(m.y, size.y - BAR - 58)
+	draw_rect(Rect2(m, Vector2(w, 50)), Color(main.C_EARTH, 0.94))
+	draw_rect(Rect2(m, Vector2(3, 50)), Color(0.85, 0.45, 0.2) if bad else main.C_BRASS)
+	draw_string(font, m + Vector2(12, 20), line, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, main.C_PAPER)
+	draw_string(font, m + Vector2(12, 39), how, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.95, 0.65, 0.4) if bad else main.C_BRASS)
 
 
 # ---------- the scenes ----------

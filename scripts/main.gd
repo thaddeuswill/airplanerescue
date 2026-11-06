@@ -9,6 +9,8 @@ const Ferry := preload("res://scripts/ferry.gd")
 const Sound := preload("res://scripts/sound.gd")
 const Terrain := preload("res://scripts/terrain.gd")
 const Work := preload("res://scripts/work.gd")
+const CatalogUI := preload("res://scripts/catalog.gd")
+const RadioUI := preload("res://scripts/radio.gd")
 const Gauge := preload("res://scripts/gauge.gd")
 const Updater := preload("res://scripts/updater.gd")
 const Chart := preload("res://scripts/chart.gd")
@@ -19,7 +21,7 @@ const START_CITY := "Wichita"
 const FUEL_PER_MILE := 0.9
 const NEAR_MILES := 650.0  # one radio call is always this close (under $600 to fly; Miami-Atlanta is 601 mi)
 
-# city: [lon, lat, region, map_x, map_y] — map_x/y are pixels on textures/us_map.png (2048x1280),
+# city: [lon, lat, region, map_x, map_y] â€” map_x/y are pixels on textures/us_map.png (2048x1280),
 # fitted from landmarks and checked by plotting.
 const CITIES := {
 	"Wichita": [-97.3, 37.7, "plains", 998, 672], "Omaha": [-96.0, 41.3, "plains", 1036, 533],
@@ -61,6 +63,24 @@ const FAULTS := {
 	"door_pin": {"name": "Door pin rusted solid", "part": "Door pin & cotter", "cost": 120, "zone": "cabin", "symptom": "can't even get the door open"},
 }
 const NEGLECT_FAULTS := ["stale_fuel", "pre_oil", "door_pin"]
+# What an unfound fault does on the ferry flight. roll: bites on the runway, not in the climb.
+# Faults found on the run-up are absent: the run-up is required, so they can't be missed.
+const TROUBLE := {
+	"tire": {"roll": true, "text": "The left tire lets go and the plane swings hard for the grass!"},
+	"brakes": {"roll": true, "text": "The right brake drags, then grabs. It won't hold a straight line!"},
+	"oil_leak": {"roll": false, "text": "Oil streaks up the windshield and the pressure needle drops to nothing!"},
+	"bird_nest": {"roll": false, "text": "Smoke pours out of the cowling. Something up there is on fire!"},
+	"fuel_line": {"roll": false, "text": "A sharp smell of avgas, and the engine starves and coughs!"},
+	"stale_fuel": {"roll": false, "text": "Years-old gas reaches the carburetor. The engine sputters and quits!"},
+	"windshield": {"roll": false, "text": "The windshield bursts in. You chop the power and can't see ahead!"},
+	"control_cables": {"roll": false, "text": "The rudder jams solid. You pull the power and head for the nearest field!"},
+	"propeller": {"roll": false, "text": "A violent shake through the whole airframe. You pull the power before the bent prop tears the engine off!"},
+}
+const CRASH_BILL := 1500  # your insurance excess
+# Southeast and Midwest: fields cut out of solid woods.
+const THICK_WOODS := ["Atlanta", "Nashville", "Miami", "Wichita", "Omaha", "Chicago", "Fargo", "Minneapolis"]
+const HERO_TREES := 150  # full-detail trees around a field in the woods
+const WOODS_TREES := 80000  # 100x the plains count. Canopies already touch at this density, so it's also the cap
 # How you find each fault. Seen on the walk-around (clue = what you notice at that spot), or only
 # heard/felt on the run-up from the cockpit.
 const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs"]
@@ -96,7 +116,11 @@ const ZONES := {
 const PLANE_TYPES := [["High-wing trainer", 1500], ["Rag-wing taildragger", 2000],
 	["Bush plane", 2500], ["Vintage tourer", 3000], ["Utility hauler", 3500]]
 
-var money := 3000
+var money := 3000:
+	set(v):
+		if is_node_ready() and v != money:
+			_money_pop(v - money)
+		money = v
 var day := 1.0  # travel, inspections and repairs take time; calls have deadlines
 var rescued := 0
 var location := START_CITY
@@ -116,7 +140,11 @@ var ui: CanvasLayer
 var hud: Control  # the pocket strip (wallet, clipboard, logbook keys)
 var prompt: Label
 var msg: Label
-var cross: Label
+var goal: Label
+var _banner_node: Control
+var _saved: Label
+var _saved_fade: Tween
+var cross: Reticle
 var panel: Control
 var panel_closable := true
 var msg_time := 0.0
@@ -132,17 +160,33 @@ var terrain  # Terrain for the current field
 func _ready() -> void:
 	assert(absf(miles("New York", "Los Angeles") - 2450.0) < 60.0, "miles() is off")
 	rng.randomize()
+	process_mode = Node.PROCESS_MODE_ALWAYS  # menus keep working while the game is paused
 	_setup_input()
 	_setup_environment()
 	_setup_ui()
 	player = Player.new()
+	player.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(player)
 	sound = Sound.new()
 	add_child(sound)
+	_load_settings()
+	sound.tune(clampi(settings.station, 0, Sound.STATIONS.size() - 1), true)
 	var args := OS.get_cmdline_user_args()
 	if "--self-test" in args:
 		save_path = "user://selftest.save"  # never touch the player's game
 		_delete_save()
+		test_seed = randi()
+		for a in args:
+			if a.begins_with("--seed="):  # replay a failed run's job and faults
+				test_seed = int(a.trim_prefix("--seed="))
+		rng.seed = test_seed
+		seed(test_seed)
+	elif "--monkey" in args:
+		save_path = "user://monkey.save"
+		if not get_tree().root.has_node("Monkey"):
+			var monkey: Node = load("res://scripts/monkey.gd").new()
+			monkey.name = "Monkey"
+			get_tree().root.add_child.call_deferred(monkey)
 	had_save = _load_game()
 	if had_save:
 		_load_field(location, current_job)
@@ -157,7 +201,8 @@ func _ready() -> void:
 		while jobs.size() < MAX_JOBS:
 			_spawn_job()
 		_load_field(START_CITY, null)
-		_say("Home base. You own a screwdriver and a rag; buy the rest. Use the hangar RADIO to take a rescue call.")
+		_say("Home base. You own a screwdriver and a rag; buy the rest. WASD walks, E uses things, Esc pauses.")
+	_warm_assets()
 	if not "--self-test" in args and not skip_menu:
 		_open_menu()
 	skip_menu = false
@@ -165,7 +210,7 @@ func _ready() -> void:
 		var test = load("res://scripts/selftest.gd").new()
 		add_child(test)
 		test.run(self, args)
-	else:
+	elif not "--monkey" in args:
 		updater = Updater.new()
 		add_child(updater)
 		updater.available.connect(_offer_update)
@@ -199,6 +244,7 @@ func _install_update() -> void:
 # ---------- save / load ----------
 
 var save_path := "user://airplane_rescue.save"
+var test_seed := 0  # printed with every self-test result
 const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics"]
 const SAVE_VERSION := 1  # bump when the layout changes, and teach _migrate the step
 var had_save := false  # a career was loaded at launch (so the title screen offers Continue)
@@ -217,13 +263,26 @@ func _save_game() -> void:
 	var tmp := save_path + ".tmp"
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if not f:
+		_say("Couldn't save your game. Check that the disk isn't full.")
 		return
 	f.store_var(data)
 	f.close()
+	if _commit_save(tmp):
+		_saved_mark()
+
+
+## Swaps the finished temp file in, but only if it reads back: on a full disk the write can
+## fail silently, and a bad file here would push the last good save out of .bak too.
+func _commit_save(tmp: String) -> bool:
+	if not _read_save(tmp) is Dictionary:
+		DirAccess.remove_absolute(tmp)
+		_say("Couldn't save your game. Check that the disk isn't full.")
+		return false
 	if FileAccess.file_exists(save_path):
 		DirAccess.remove_absolute(save_path + ".bak")
 		DirAccess.rename_absolute(save_path, save_path + ".bak")
 	DirAccess.rename_absolute(tmp, save_path)
+	return true
 
 
 ## Loads the save, falling back to the .bak copy. Older layouts are migrated; anything
@@ -347,32 +406,109 @@ func _spend(job: Dictionary, what: String, amount: int) -> void:
 	job.spent[what] = job.spent.get(what, 0) + amount
 
 
+const FLIGHT_SECONDS := 3.0
+const ARRIVAL_SECONDS := 0.7  # least time the arrival card stays up, so a fast load doesn't flash it
+
+
+## A trip is two scenes. The flight is pure show: nothing loads, so the plane on the chart never
+## stutters. Then a still card, with nothing on it to stutter, covers the real work.
 func _travel(job: Dictionary, cost: int) -> void:
+	if is_instance_valid(_loader):  # already on the way
+		return
 	money -= cost
 	_spend(job, "fuel", cost)
 	_close_panel()
 	var nm := roundi(miles(location, job.city) * 0.869)
 	var days := miles(location, job.city) / 700.0
-	_show_loading("Flying to %s" % job.city, "%d NM, about %.1f days on the road and in the air.\nThe owner: %s" % [nm, days, _symptoms(job)])
-	await get_tree().process_frame  # let the loading screen draw before the field builds
-	await get_tree().process_frame
+	_show_loading("Flying to %s" % job.city, "%d NM, about %.1f days on the road and in the air.\nThe owner: %s" % [nm, days, _symptoms(job)], location, job.city)
+	sound.cruise(true)
+	get_viewport().disable_3d = true  # the card hides the world, and drawing it cost more than building it
+	await _load_step(100, FLIGHT_SECONDS)
+	location = job.city  # before _advance saves: closing the game mid-trip must not lose the fare
+	current_job = job
 	_advance(days)
 	job.arrived = day
-	if not jobs.has(job):  # ran out of time on the way
-		_load_field(job.city, null)
-		_hide_loading()
-		return
-	_load_field(job.city, job)
-	await get_tree().create_timer(0.5).timeout  # a beat on arrival so it doesn't just flash
+	var alive := jobs.has(job)  # false: ran out of time on the way
+	_arrival_card(job.city)
+	await get_tree().process_frame  # two frames: the card is on screen before the freeze begins
+	await get_tree().process_frame
+	var card_up := Time.get_ticks_msec()
+	_load_field(job.city, job if alive else null)
+	get_viewport().disable_3d = false
+	await get_tree().process_frame  # the new field's first, slow render happens behind the card
+	await get_tree().process_frame
+	await get_tree().create_timer(maxf(ARRIVAL_SECONDS - (Time.get_ticks_msec() - card_up) / 1000.0, 0.05)).timeout
+	sound.cruise(false)
 	_hide_loading()
-	_say("Arrived in %s. Walk around the %s: the floating markers show each spot to inspect (E)." % [job.city, job.type])
+	if alive:
+		_say("Arrived in %s. Walk around the %s: the floating markers show each spot to inspect (E)." % [job.city, job.type])
+
+
+## The still scene that covers the field build: the logo and where you've landed.
+func _arrival_card(city: String) -> void:
+	var card := ColorRect.new()
+	card.color = C_EARTH
+	card.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_loader.add_child(card)
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BOTH
+	box.add_theme_constant_override("separation", 28)
+	card.add_child(box)
+	var logo := TextureRect.new()
+	logo.texture = load("res://textures/logo_title.png")
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.custom_minimum_size = Vector2(640, 171)
+	box.add_child(logo)
+	var where := Label.new()
+	where.text = "Arriving at %s, %s" % [city, STATE[city]]
+	where.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	where.add_theme_font_override("font", HEAD_FONT)
+	where.add_theme_font_size_override("font_size", 34)
+	where.add_theme_color_override("font_color", C_PAPER)
+	box.add_child(where)
+	_arrived = card
 
 
 var _loader: CanvasLayer
+var _bar: ProgressBar
+var _arrived: Control  # the arrival card, once the trip reaches it
+
+
+static var _walls := {}  # mesh -> collision shape: building one for the hangar took a third of a second
+static var _kept := {}  # path -> resource. Held so a trip never re-reads a model or texture from disk
+var _warming := PackedStringArray()
+
+
+## Starts loading every world model and texture on background threads, from the title screen on.
+func _warm_assets() -> void:
+	for dir in ["res://models/", "res://textures/"]:
+		for f in ResourceLoader.list_directory(dir):
+			if (f.ends_with(".glb") or f.ends_with(".png")) and not _kept.has(dir + f) and ResourceLoader.load_threaded_request(dir + f) == OK:
+				_warming.append(dir + f)
+
+
+## One finished load collected per frame.
+func _warm_step() -> void:
+	var path := _warming[-1]
+	var status := ResourceLoader.load_threaded_get_status(path)
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		_kept[path] = ResourceLoader.load_threaded_get(path)
+	if status != ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+		_warming.remove_at(_warming.size() - 1)
+
+
+## Glides the bar, and the plane on the chart with it.
+func _load_step(percent: float, seconds: float) -> void:
+	var glide := _bar.create_tween().set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	glide.tween_property(_bar, "value", percent, seconds)
+	await glide.finished
 
 
 ## Full-screen travel card over the chart while the next field builds.
-func _show_loading(title: String, detail: String) -> void:
+func _show_loading(title: String, detail: String, from: String, to: String) -> void:
 	_hide_loading()
 	_loader = CanvasLayer.new()
 	_loader.layer = 20
@@ -385,23 +521,39 @@ func _show_loading(title: String, detail: String) -> void:
 	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	map.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	map.modulate = Color(0.55, 0.55, 0.5, 0.5)
+	map.offset_bottom = -170.0  # the words sit under the chart, not over the route
+	map.modulate = Color(0.93, 1.0, 0.93)
 	_loader.add_child(map)
 	var box := VBoxContainer.new()
-	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	box.grow_vertical = Control.GROW_DIRECTION_BOTH
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	for t in [[title, 44, Color(1.0, 0.93, 0.78)], [detail, 18, Color(0.9, 0.85, 0.75)], ["Loading the field...", 15, Color(0.75, 0.7, 0.62)]]:
+	box.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	box.offset_left = 40.0
+	box.offset_right = -40.0
+	box.offset_bottom = -14.0
+	box.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	box.add_theme_constant_override("separation", 4)
+	for t in [[title, 32, Color(1.0, 0.93, 0.78)], [detail, 15, Color(0.9, 0.85, 0.75)], ["In the air", 13, Color(0.75, 0.7, 0.62)]]:
 		var l := Label.new()
+		l.add_theme_font_override("font", UI_FONT)
 		l.text = t[0]
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.add_theme_font_size_override("font_size", t[1])
 		l.add_theme_color_override("font_color", t[2])
 		l.add_theme_constant_override("outline_size", 6)
 		l.add_theme_color_override("font_outline_color", Color.BLACK)
 		box.add_child(l)
+	_bar = ProgressBar.new()
+	_bar.show_percentage = false
+	_bar.custom_minimum_size = Vector2(460, 12)
+	_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for part in [["background", Color(0.0, 0.0, 0.0, 0.6)], ["fill", C_BRASS]]:
+		var look := StyleBoxFlat.new()
+		look.bg_color = part[1]
+		_bar.add_theme_stylebox_override(part[0], look)
+	box.add_child(_bar)
 	_loader.add_child(box)
+	map.draw.connect(func(): chart.draw_trip(map, from, to, _bar.value / 100.0))
+	_bar.value_changed.connect(func(_v): map.queue_redraw())
 	add_child(_loader)
 	player.frozen = true  # no wandering off while the next field loads
 
@@ -411,6 +563,7 @@ func _hide_loading() -> void:
 		_loader.queue_free()
 		player.frozen = panel != null
 	_loader = null
+	_bar = null
 
 
 ## Walk-around inspection of one spot: reveals any faults there.
@@ -532,7 +685,9 @@ func _work_done(id: String) -> void:
 	visuals[id] = _part_visual(id, true)
 	_say("Fixed: " + FAULTS[id].name)
 	sound.pen()  # signed off on the work order
+	sound.done_tone()
 	_open_inspection(FAULTS[id].zone)
+	_banner("FIXED", FAULTS[id].name)
 
 
 func _buy(part: String, cost: int, mail := false) -> void:
@@ -550,17 +705,25 @@ func _buy(part: String, cost: int, mail := false) -> void:
 
 ## Climb in: the camera moves to the pilot's seat and ferry.gd runs the takeoff.
 func _start_ferry() -> void:
+	if not current_job.get("signed", false):
+		_say("The logbook isn't signed. Write it up before this plane goes anywhere.")
+		return
 	_close_panel()
 	player.frozen = true
+	env.sdfgi_enabled = false  # its light probes rebuild as the camera races along, which hitches the flight
 	for c in plane.get_children():
 		if c.has_meta("kind"):
 			c.queue_free()  # inspection spots
 	_build_gauges()
 	ferry = Ferry.new()
+	ferry.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(ferry)
 	ferry.finished.connect(_ferry_done)
+	ferry.failed.connect(_flight_failed)
+	var missed: Array = current_job.faults.filter(func(id): return not current_job.fixed.has(id) and TROUBLE.has(id))
+	ferry.trouble = missed[0] if missed.size() > 0 else ""
 	ferry.start(self, plane, visuals["propeller"].get_child(-1))
-	_say("Hold W to open the throttle. At 55 knots, hold S to lift off.")
+	_say("Run the checklist, then hold Space to start her up.")
 
 
 ## The Cub panel's four dial holes (probed: front face z=-0.202, y=1.382, r 0.044 m).
@@ -580,17 +743,17 @@ func _build_gauges() -> void:
 
 
 ## Ferry flight feeds the dials every frame.
-func update_gauges(speed_ms: float, alt_m: float, throttle: float) -> void:
+func update_gauges(speed_ms: float, alt_m: float, rpm: float) -> void:
 	if gauges.is_empty():
 		return
 	gauges.asi.value = speed_ms * 2.237
 	gauges.alt.value = alt_m * 3.281
-	var rpm := lerpf(gauges.tach.value, 600.0 + throttle * 1700.0 + speed_ms * 6.0, 0.08)
 	gauges.tach.value = rpm
-	gauges.oil.value = 25.0 + rpm / 2300.0 * 35.0
+	gauges.oil.value = 0.0 if rpm < 300.0 else 25.0 + rpm / 2300.0 * 35.0
 
 
 func _ferry_done() -> void:
+	_apply_graphics()
 	gauges.clear()
 	ferry.queue_free()
 	ferry = null
@@ -601,6 +764,77 @@ func _ferry_done() -> void:
 	plane.queue_free()  # flown off to its owner
 	plane = null
 	_after_flight()
+	_banner("RESCUED", "%d of %d planes back in the air" % [rescued, GOAL])
+
+
+## The aircraft logbook entry: what was done, in your words, over your signature.
+func _open_signoff() -> void:
+	var job: Dictionary = current_job
+	var work: PackedStringArray = []
+	for id in job.faults:
+		if job.fixed.has(id):
+			work.append(FAULTS[id].name)
+	_open_panel("Aircraft logbook", [["%s, at %s, day %d" % [job.type, job.city, floori(day)]],
+		["Work performed\n" + (", ".join(work) if work.size() > 0 else "Inspection only, no defects found.")],
+		["Inspection\nWalk-around: %d of %d spots checked. Engine run-up satisfactory." % [job.checked.size(), ZONES.size()]],
+		["Return to service\nI certify this aircraft has been inspected and is approved for return to service.", "Sign it", _sign_logbook, true]])
+
+
+func _sign_logbook() -> void:
+	current_job.signed = true
+	sound.pen()
+	_save_game()
+	_open_inspection()
+	_banner("SIGNED OFF", "Approved for return to service")
+
+
+## The fault you never found caught up with you. Down safely: it costs a day and a quarter of
+## the pay, and the job reopens. Crashed: the job and the excess are gone, and you walk away.
+func _flight_failed(result: String) -> void:
+	var id: String = ferry.trouble
+	var job: Dictionary = current_job
+	_apply_graphics()
+	gauges.clear()
+	ferry.queue_free()
+	ferry = null
+	prompt.text = ""
+	sound.engine = 0.0
+	player.cam.make_current()
+	player.frozen = false
+	var hill := id == ""  # nothing failed: you flew it into rising ground
+	var what: String = "Flew into rising ground" if hill else FAULTS[id].name
+	var missed := "What happened\nThe land climbs away from the strip, and you stayed too low to clear it." if hill \
+		else "What you missed\n%s, at the %s. You never looked there." % [what, ZONES[FAULTS[id].zone].name]
+	if result == "crash":
+		var bill := mini(money, CRASH_BILL)
+		money -= bill
+		var spent: Dictionary = job.get("spent", {})
+		logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": 0, "work": ["Crashed on the ferry flight: " + what],
+			"years": job.get("years", 0), "fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "days": day - job.get("arrived", day)})
+		jobs.erase(job)
+		_load_field(location, null)
+		while jobs.size() < MAX_JOBS:
+			_spawn_job()
+		_save_game()
+		sound.low_tone()
+		_open_panel("Crashed", [["You walked away. The %s didn't.\nHit too hard, or stalled on the way down." % job.type], [missed],
+			["What it cost\nThe job, and $%d insurance excess. It's in your logbook." % bill],
+			["Next time\n" + ("Hold the Down arrow after lift-off and keep climbing until you're clear." if hill
+				else "Check every spot before you sign. If the engine quits, Up arrow lowers the nose: keep above 45 kt, then Down arrow to flare.")]])
+		return
+	var was: int = job.reward
+	job.reward = int(job.reward * 0.75 / 50.0) * 50
+	job.found[id] = true
+	job.checked[FAULTS[id].zone] = true
+	job.signed = false
+	_load_field(location, job)
+	_advance(1.0)  # towing it back and explaining yourself to the owner
+	if not current_job:  # that day was the last of the owner's patience
+		return
+	_save_game()
+	_open_panel("Aborted take-off" if result == "abort" else "Forced landing", [["You got it down safely, and it's back at the field.\nA day lost getting it home."], [missed],
+		["What it cost\nThe owner knocked the pay from $%d to $%d." % [was, job.reward]],
+		["Next\nFix it, then sign the logbook again."]])
 
 
 ## Called when the ferry flight gets the plane airborne.
@@ -622,10 +856,38 @@ func _sign_off() -> void:
 
 
 func _after_flight() -> void:
-	if rescued >= GOAL:
-		_open_panel("You rescued %d planes!" % GOAL, [["Nice flying.", "Play again", _restart, true]], false)
+	if rescued == GOAL:
+		_open_ending()
 	else:
 		_open_travel()
+
+
+func _career_stats() -> Array:
+	var paid := 0
+	var costs := 0
+	var longest := 0
+	for e in logbook:
+		paid += e.pay
+		costs += e.get("fuel", 0) + e.get("parts", 0)
+		longest = maxi(longest, e.get("years", 0))
+	var rows := [["Days on the road\n%d" % floori(day)], ["Earned\n$%d, with $%d spent on fuel and parts" % [paid, costs]], ["Cash in hand\n$%d" % money]]
+	if longest > 0:
+		rows.append(["Longest neglected\nA plane that sat %d years" % longest])
+	return rows
+
+
+func _open_ending() -> void:
+	sound.done_tone()
+	_open_panel("All %d planes rescued" % GOAL, [["Every one of them flew out on your signature. Somewhere a hangar door stands open, and a field is a little less quiet."]]
+		+ _career_stats() + [["", "Keep flying", _open_travel, true], ["", "Main menu", _quit_to_title, true], ["", "Start a new career", _restart, true]], false)
+
+
+func _open_game_over(cheapest: int) -> void:
+	sound.low_tone()
+	_open_panel("Out of money and grounded. Game over.", [["You rescued %d of %d planes\nThat work still counts: every one is in your logbook." % [rescued, GOAL]],
+		["What happened\nYou have $%d. The cheapest flight to a call costs $%d, and you can't afford to finish the job here." % [money, cheapest]],
+		["Next time\nKeep enough cash back to fly to the next call, and check the parts bill before you take a job."]]
+		+ _career_stats() + [["", "Play again", _restart, true], ["", "Main menu", _quit_to_title, true]], false)
 
 
 func _can_finish_here() -> bool:
@@ -646,16 +908,20 @@ func _can_finish_here() -> bool:
 			mats_needed[m] = mats_needed.get(m, 0) + n[1][m]
 	for t in tools_needed:  # a missing tool blocks the repair as surely as a missing part
 		if not tools.has(t) and SUPPLIES.has(t):
-			need += SUPPLIES[t].cost
+			need += _supply_price(t)
 	for m in mats_needed:
 		var short: int = mats_needed[m] - inventory.get(m, 0)
 		if short > 0:
-			need += ceili(float(short) / SUPPLIES[m].qty) * SUPPLIES[m].cost
+			need += ceili(float(short) / SUPPLIES[m].qty) * _supply_price(m)
+	var refilled: bool = current_job.faults.has("stale_fuel") and not current_job.fixed.has("stale_fuel")  # that job fills the tanks
+	if current_job.get("fuel", 1.0) < 0.5 and not refilled:
+		need += _fuel_bill(current_job)
 	return money >= need
 
 
 func _restart() -> void:
-	_delete_save()  # "Play again" means a fresh career
+	if not save_locked:  # a save we couldn't read stays for recovery, whatever this session does
+		_delete_save()  # "Play again" means a fresh career
 	skip_menu = true  # straight into the new career, not back to the title screen
 	get_tree().reload_current_scene()
 
@@ -665,7 +931,8 @@ var _pending_update := []  # an update offer that arrived while the title screen
 
 
 ## Design-doc palette (MyAP GDD): dark earth, aged paper, hangar green, worn brass,
-## fault red, serviceable green, pending amber. Typewriter type throughout.
+## fault red, serviceable green, pending amber. Clean DIN-style type on screen; the typewriter
+## face is only for the paper shop log on the hangar wall.
 const C_EARTH := Color("1C1810")
 const C_PAPER := Color("F5F0E6")
 const C_GREEN := Color("2E5339")
@@ -674,6 +941,24 @@ const C_RED := Color("8B2020")
 const C_OK := Color("285A32")
 const C_AMBER := Color("8B6914")
 static var TYPE_FONT := _type_font()
+
+
+static var UI_FONT := _ui_font()
+static var HEAD_FONT := _head_font()
+
+
+static func _ui_font() -> SystemFont:
+	var f := SystemFont.new()
+	f.font_names = PackedStringArray(["Bahnschrift", "Segoe UI", "Arial", "sans-serif"])
+	return f
+
+
+static func _head_font() -> FontVariation:
+	var f := FontVariation.new()
+	f.base_font = UI_FONT
+	f.variation_embolden = 0.5
+	f.spacing_glyph = 1
+	return f
 
 
 static func _type_font() -> SystemFont:
@@ -703,7 +988,7 @@ func _open_menu() -> void:
 	var m := Control.new()
 	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var th := Theme.new()
-	th.default_font = TYPE_FONT
+	th.default_font = UI_FONT
 	m.theme = th
 	var fade := TextureRect.new()  # dark on the left for the text, clear over the scene
 	var g := GradientTexture2D.new()
@@ -717,9 +1002,14 @@ func _open_menu() -> void:
 	fade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	m.add_child(fade)
-	var title := _menu_text(m, "AIRPLANE RESCUE", 54, C_PAPER, Vector2(72, 64))
-	title.add_theme_constant_override("outline_size", 0)
-	_menu_text(m, "A traveling mechanic, a tool roll, and planes nobody else will save.", 16, C_BRASS, Vector2(76, 132))
+	var logo := TextureRect.new()
+	logo.texture = load("res://textures/logo_title.png")
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+	logo.position = Vector2(48, 20)
+	logo.size = Vector2(570, 152)
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(logo)
 	var has_save := had_save
 	var items := []
 	if _menu.confirm:
@@ -727,23 +1017,24 @@ func _open_menu() -> void:
 			["BACK", "", _menu_back]]
 	else:
 		if has_save:
-			items.append(["CONTINUE", "Day %d  -  %s  -  $%d" % [floori(day), location.to_upper(), money], _close_menu])
+			items.append(["CONTINUE", "Day %d  -  %s  -  $%d  -  %d of %d rescued" % [floori(day), location.to_upper(), money, rescued, GOAL], _close_menu])
 			items.append(["NEW CAREER", "", _menu_confirm])
 		else:
 			items.append(["START", "Home base: %s" % START_CITY.to_upper(), _close_menu])
-		items.append(["GRAPHICS: %s" % graphics.to_upper(), "Low drops haze, bounce light and dust for weaker PCs.", _menu_graphics])
-		items.append(["QUIT GAME", "", func(): get_tree().quit()])
+		items.append(["SETTINGS", "", _open_settings.bind(_open_menu)])
+		items.append(["CREDITS", "", _open_credits.bind(_open_menu)])
+		items.append(["QUIT GAME", "", _quit_game])
 	_menu.sel = clampi(_menu.sel, 0, items.size() - 1)
 	_menu.items = items
 	_menu.rows = []
 	for i in items.size():
-		var row := _menu_text(m, items[i][0], 30, C_PAPER, Vector2(104, 230 + i * 58))
+		var row := _menu_text(m, items[i][0], 26, C_PAPER, Vector2(104, 200 + i * 54))
 		row.mouse_filter = Control.MOUSE_FILTER_STOP
 		row.mouse_entered.connect(func(): _menu_select(i))
 		row.gui_input.connect(_menu_click)
-		var hint := _menu_text(m, items[i][1], 14, C_BRASS, Vector2(106, 268 + i * 58))
+		var hint := _menu_text(m, items[i][1], 13, C_BRASS, Vector2(106, 233 + i * 54))
 		_menu.rows.append([row, hint])
-	_menu.arrow = _menu_text(m, ">", 30, Color(0.78, 0.2, 0.17), Vector2(72, 230))
+	_menu.arrow = _menu_text(m, "\u25B8", 26, Color(0.78, 0.2, 0.17), Vector2(72, 200))
 	_menu.card_node = _motd_card(m)
 	var foot := _menu_text(m, "V  %s MESSAGE OF THE DAY      ENTER  SELECT" % ("HIDE" if _menu.card else "SHOW"), 14, C_BRASS, Vector2.ZERO)
 	foot.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -841,7 +1132,7 @@ func _menu_select(i: int) -> void:
 	for j in _menu.rows.size():
 		_menu.rows[j][0].add_theme_color_override("font_color", C_PAPER if j == i else Color(C_PAPER, 0.55))
 		_menu.rows[j][1].visible = j == i
-	_menu.arrow.position.y = 230 + i * 58
+	_menu.arrow.position.y = 200 + i * 54
 
 
 func _menu_activate() -> void:
@@ -912,11 +1203,6 @@ func _close_menu() -> void:
 		_pending_update = []
 
 
-func _menu_graphics() -> void:
-	_set_graphics("low" if graphics == "high" else "high")
-	_open_menu()
-
-
 # ---------- per-frame + input ----------
 
 func _setup_input() -> void:
@@ -925,6 +1211,9 @@ func _setup_input() -> void:
 		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "interact": [KEY_E],
 		"wallet": [KEY_TAB], "clipboard": [KEY_J], "logbook": [KEY_L],
+		"throttle_up": [KEY_W], "throttle_down": [KEY_S], "rudder_left": [KEY_A], "rudder_right": [KEY_D],
+		"stick_forward": [KEY_UP], "stick_back": [KEY_DOWN], "starter": [KEY_SPACE],
+		"fuel_valve": [KEY_F], "master": [KEY_M], "primer": [KEY_P], "mags": [KEY_I],
 	}
 	for action in keys:
 		if InputMap.has_action(action):
@@ -937,7 +1226,12 @@ func _setup_input() -> void:
 
 
 func _process(delta: float) -> void:
+	if not _warming.is_empty():
+		_warm_step()
 	_update_hud()
+	sound.set_mood("pause" if get_tree().paused else "menu" if is_instance_valid(_menu_cam) else "flight" if ferry or is_instance_valid(_loader) else "work" if panel is Work else "world")
+	if get_tree().paused:
+		return
 	_animate_birds()
 	if msg_time > 0.0:
 		msg_time -= delta
@@ -949,17 +1243,22 @@ func _process(delta: float) -> void:
 		return  # the ferry flight drives its own prompt
 	prompt.text = ""
 	if panel:
+		cross.set_live(false)
+		_light_marker("")
 		return
 	var t: Object = player.target()
 	var kind: String = t.get_meta("kind") if t and t.has_meta("kind") else ""
 	if kind == "zone" and current_job == null:
 		kind = ""
+	cross.set_live(kind != "")
+	_light_marker(t.get_meta("zone") if kind == "zone" else "")
 	match kind:
 		"zone":
 			var z: String = t.get_meta("zone")
 			prompt.text = ("E: Work order  (%s checked)" if current_job.checked.has(z) else "E: Inspect %s") % ZONES[z].name
 		"shop": prompt.text = "E: Parts shed"
-		"radio": prompt.text = "E: Radio - rescue calls"
+		"radio": prompt.text = "E: Radio"
+		"map": prompt.text = "E: Map - rescue calls"
 		"toolbox": prompt.text = "E: Toolbox"
 		"truck": prompt.text = "E: Fuel truck"
 		"parts_table": prompt.text = "E: Parts on hand"
@@ -967,13 +1266,16 @@ func _process(delta: float) -> void:
 		match kind:
 			"zone": _inspect_zone(t.get_meta("zone"))
 			"shop": _open_shop()
-			"radio": _open_travel()
+			"radio": _open_radio()
+			"map": _open_travel()
 			"toolbox": _open_toolbox()
 			"truck": _open_truck()
 			"parts_table": _open_parts_table()
 
 
 func _input(e: InputEvent) -> void:  # before the GUI, so Tab isn't eaten by focus navigation
+	if is_instance_valid(_loader):  # the field is half built: no panels until it's done
+		return
 	for kind in ["wallet", "clipboard", "logbook"]:
 		if e.is_action_pressed(kind):
 			_pocket(kind)
@@ -982,61 +1284,221 @@ func _input(e: InputEvent) -> void:  # before the GUI, so Tab isn't eaten by foc
 
 
 func _unhandled_input(e: InputEvent) -> void:
+	if is_instance_valid(_loader):
+		return
 	if panel_kind == "menu":
+		var view := get_viewport()  # a menu key can restart the game, which leaves the tree
 		if e is InputEventKey and e.pressed and not e.echo and _menu_key(e):
-			get_viewport().set_input_as_handled()
+			view.set_input_as_handled()
 		return
 	if e.is_action_pressed("interact") and panel and panel_closable:  # E toggles panels shut too
 		_close_panel()
 		close_frame = Engine.get_process_frames()
 		return
 	if e.is_action_pressed("ui_cancel"):
-		if panel:
+		if _sub_back.is_valid():
+			_sub_back.call()
+		elif panel:
 			if panel_closable:
 				_close_panel()
-		elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-		else:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		elif not is_instance_valid(_loader):
+			_open_pause()
 	elif e is InputEventMouseButton and e.pressed and not panel:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
 # ---------- 2D UI ----------
 
+## The gameplay cursor, in the same style as the repair crosshair: quiet ticks around a dot, and
+## a green ring whenever E will do something.
+class Reticle extends Control:
+	var live := false
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_preset(Control.PRESET_CENTER)
+		custom_minimum_size = Vector2(44, 44)
+		offset_left = -22.0
+		offset_top = -22.0
+		offset_right = 22.0
+		offset_bottom = 22.0
+
+	func set_live(on: bool) -> void:
+		if on != live:
+			live = on
+			queue_redraw()
+
+	func _draw() -> void:
+		var c := size / 2
+		var ink := Color(0.45, 0.95, 0.5) if live else Color(0.96, 0.94, 0.9, 0.8)
+		for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+			draw_line(c + d * 6.0, c + d * 12.0, Color(0, 0, 0, 0.55), 4.0)
+			draw_line(c + d * 6.0, c + d * 12.0, ink, 2.0)
+		draw_circle(c, 2.5, Color(0, 0, 0, 0.55))
+		draw_circle(c, 1.6, ink)
+		if live:
+			draw_arc(c, 16.0, 0, TAU, 40, Color(0, 0, 0, 0.5), 4.0, true)
+			draw_arc(c, 16.0, 0, TAU, 40, ink, 2.0, true)
+
+
 func _setup_ui() -> void:
 	ui = CanvasLayer.new()
 	add_child(ui)
 	_setup_pockets()
-	cross = _label(26, HORIZONTAL_ALIGNMENT_CENTER, VERTICAL_ALIGNMENT_CENTER)
-	cross.text = "+"
-	prompt = _label(22, HORIZONTAL_ALIGNMENT_CENTER, VERTICAL_ALIGNMENT_BOTTOM)
-	prompt.offset_bottom = -120
-	msg = _label(22, HORIZONTAL_ALIGNMENT_CENTER, VERTICAL_ALIGNMENT_TOP)
-	msg.offset_top = 70
-	msg.offset_left = 160  # long messages wrap instead of running off both edges
-	msg.offset_right = -160
-	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	cross = Reticle.new()
+	ui.add_child(cross)
+	prompt = _chip(17, 0.72, 0.8)
+	msg = _chip(16, 0.03, 0.2)
+	goal = _chip(14, 0.0, 0.0)
+	goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var strip: CenterContainer = goal.get_parent()
+	strip.anchor_right = 0.0  # top-left corner, the same spot all game
+	strip.offset_left = 20
+	strip.offset_top = 18
 
 
-func _label(size: int, h: HorizontalAlignment, v: VerticalAlignment) -> Label:
+## A small dark caption, centered in a band of the screen. Hidden while it has no text.
+func _chip(size: int, top: float, bottom: float) -> Label:
+	var box_ := CenterContainer.new()
+	box_.anchor_right = 1.0
+	box_.anchor_top = top
+	box_.anchor_bottom = bottom
+	box_.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var l := Label.new()
-	l.add_theme_font_override("font", TYPE_FONT)
-	l.set_anchors_preset(Control.PRESET_FULL_RECT)
-	l.horizontal_alignment = h
-	l.vertical_alignment = v
+	l.add_theme_font_override("font", UI_FONT)
 	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", C_PAPER)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(C_EARTH, 0.82)
+	sb.border_width_left = 3
+	sb.border_color = C_BRASS
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 7
+	sb.content_margin_bottom = 7
+	l.add_theme_stylebox_override("normal", sb)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box_.add_child(l)
+	ui.add_child(box_)
+	return l
+
+
+## A short moment for something finished, over the open part of the screen.
+func _banner(title: String, sub: String) -> void:
+	if is_instance_valid(_banner_node):
+		_banner_node.queue_free()
+	var box_ := CenterContainer.new()
+	box_.anchor_right = 1.0
+	box_.anchor_bottom = 0.5
+	box_.offset_left = SHEET_W if panel is PanelContainer else 0.0
+	box_.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vb := VBoxContainer.new()
+	vb.alignment = BoxContainer.ALIGNMENT_CENTER
+	box_.add_child(vb)
+	for t in [[title, HEAD_FONT, 44, C_BRASS], [sub, UI_FONT, 17, C_PAPER]]:
+		var l := Label.new()
+		l.text = t[0]
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.add_theme_font_override("font", t[1])
+		l.add_theme_font_size_override("font_size", t[2])
+		l.add_theme_color_override("font_color", t[3])
+		l.add_theme_constant_override("outline_size", 8)
+		l.add_theme_color_override("font_outline_color", Color(C_EARTH, 0.85))
+		vb.add_child(l)
+	ui.add_child(box_)
+	_banner_node = box_
+	box_.modulate.a = 0.0
+	var tw := box_.create_tween()
+	tw.tween_property(box_, "modulate:a", 1.0, 0.18)
+	tw.tween_interval(1.6)
+	tw.tween_property(box_, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(box_.queue_free)
+
+
+func _money_pop(change: int) -> void:
+	var l := Label.new()
+	l.text = "%s$%d" % ["+" if change > 0 else "-", absi(change)]
+	l.anchor_left = 1.0
+	l.anchor_right = 1.0
+	l.offset_left = -220
+	l.offset_right = -24
+	l.offset_top = 22
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	l.add_theme_font_override("font", HEAD_FONT)
+	l.add_theme_font_size_override("font_size", 24)
+	l.add_theme_color_override("font_color", Color(0.6, 0.85, 0.55) if change > 0 else Color(0.95, 0.6, 0.45))
 	l.add_theme_constant_override("outline_size", 6)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_color_override("font_outline_color", Color(C_EARTH, 0.85))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(l)
-	return l
+	var tw := l.create_tween().set_parallel()
+	tw.tween_property(l, "offset_top", 2.0, 1.4)
+	tw.tween_property(l, "modulate:a", 0.0, 1.4).set_delay(0.5)
+	tw.chain().tween_callback(l.queue_free)
+
+
+func _saved_mark() -> void:
+	if _saved == null:
+		_saved = Label.new()
+		_saved.text = "Saved"
+		_saved.anchor_left = 1.0
+		_saved.anchor_right = 1.0
+		_saved.anchor_top = 1.0
+		_saved.anchor_bottom = 1.0
+		_saved.offset_left = -100
+		_saved.offset_right = -20
+		_saved.offset_top = -34
+		_saved.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_saved.add_theme_font_override("font", UI_FONT)
+		_saved.add_theme_font_size_override("font_size", 13)
+		_saved.add_theme_color_override("font_color", C_BRASS)
+		_saved.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ui.add_child(_saved)
+	if _saved_fade:
+		_saved_fade.kill()
+	_saved.modulate.a = 1.0
+	_saved_fade = _saved.create_tween()
+	_saved_fade.tween_interval(0.8)
+	_saved_fade.tween_property(_saved, "modulate:a", 0.0, 0.5)
+
+
+## What to do next, spelled out one step at a time. This is the game's running tutorial.
+func _objective() -> String:
+	if current_job == null:
+		return "NEXT  Walk into the hangar and press E at the MAP on the workbench to take a rescue call"
+	var j: Dictionary = current_job
+	if j.checked.size() < ZONES.size():
+		return "NEXT  Walk around the plane, press E at each ? marker  (%d of %d)" % [j.checked.size(), ZONES.size()]
+	for id in j.faults:
+		if j.found.has(id) and not j.fixed.has(id):
+			return "NEXT  Fix: %s. Press E at the ! marker on the %s" % [FAULTS[id].name, ZONES[FAULTS[id].zone].name]
+	if j.get("runup", "") != "ran":
+		return "NEXT  Press E at the cabin and run the engine up"
+	if not j.get("signed", false):
+		return "NEXT  Press E at the plane and write up the logbook"
+	if j.get("fuel", 1.0) < 0.5:
+		return "NEXT  Fuel it at the truck by the hangar: at least half tanks"
+	if j.get("parked", "apron") == "hangar":
+		return "NEXT  Press E at the plane and roll it out of the hangar"
+	return "NEXT  Press E at the cabin, climb in and fly it to the owner"
 
 
 ## Almost no HUD (ART_DIRECTION.md): money, parts and career live in things you take out.
 func _update_hud() -> void:
 	hud.visible = panel == null and ferry == null
 	cross.visible = hud.visible
+	prompt.visible = prompt.text != ""
+	prompt.custom_minimum_size.x = 620.0 if ferry else 0.0  # flight numbers change every frame; a fixed box doesn't shake
+	msg.visible = msg.text != ""
+	var preflight: bool = ferry != null and ferry.state != "run" and panel == null
+	goal.visible = hud.visible or preflight
+	if preflight:
+		goal.text = ferry.checklist()
+	elif goal.visible:
+		goal.text = _objective()
+	# Toasts sit over the open half of the screen, never on top of a side sheet.
+	msg.get_parent().offset_left = SHEET_W if panel is PanelContainer else 0.0
 
 
 ## Bottom-left strip of key hints (icons from textures/ui/ when the art exists).
@@ -1073,7 +1535,7 @@ var panel_kind := ""  # which pocket panel is open, so its key closes it again
 
 
 func _pocket(kind: String) -> void:
-	if ferry or (panel and not panel_closable):
+	if ferry or get_tree().paused or panel_kind == "menu" or (panel and not panel_closable):
 		return
 	if panel and panel_kind == kind:
 		_close_panel()
@@ -1084,7 +1546,7 @@ func _pocket(kind: String) -> void:
 			if current_job:
 				_open_inspection("")  # read-only: work happens at the plane
 			else:
-				_open_panel("Clipboard", [["No plane at this field. Take a call on the hangar RADIO."]])
+				_open_panel("Clipboard", [["No plane at this field. Take a call from the MAP on the hangar workbench."]])
 		"logbook": _open_logbook()
 	panel_kind = kind
 
@@ -1101,16 +1563,8 @@ func _open_wallet() -> void:
 		have.append(Work.TOOLS[t])
 	rows.append(["Tool roll: " + (", ".join(have) if have.size() > 0 else "empty")])
 	rows.append(["Materials: " + ", ".join(["Safety wire", "Cotter pin", "Penetrant"].map(func(k): return "%s %d" % [k, inventory.get(k, 0)]))])
-	rows.append(["Graphics: %s" % graphics.capitalize(), "Switch to " + ("Low" if graphics == "high" else "High"),
-		_toggle_graphics, true])
 	rows.append(["", "Start a new career", _confirm_restart, true])
-	_open_panel("Wallet", rows, true, "paper_catalog")
-
-
-func _toggle_graphics() -> void:
-	_set_graphics("low" if graphics == "high" else "high")
-	_open_wallet()
-	panel_kind = "wallet"
+	_open_panel("Wallet", rows)
 
 
 func _set_graphics(level: String) -> void:
@@ -1146,112 +1600,454 @@ func _open_logbook() -> void:
 			"" if net >= 0 else "-", absi(net), e.get("days", 0.0)]])
 	if logbook.is_empty():
 		rows.append(["No entries yet. Your first rescue goes here."])
-	_open_panel("" if ResourceLoader.exists("res://textures/logbook_page.png") else "Logbook", rows, true, "logbook_page" if ResourceLoader.exists("res://textures/logbook_page.png") else "paper_catalog")
+	_open_panel("Logbook", rows)
 
 
 func _say(text: String) -> void:
 	msg.text = text
+	var long := text.length() > 70  # long messages wrap instead of running off both edges
+	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if long else TextServer.AUTOWRAP_OFF
+	msg.custom_minimum_size.x = 560.0 if long else 0.0
 	msg_time = 5.0
 
 
-## Vintage tool-catalog look: dark ink on paper, toolbox-red buttons.
-func _catalog_theme() -> Theme:
+const SHEET_W := 660.0
+var _list_title := ""
+var _pages := []
+var _page := 0
+var _list: VBoxContainer
+var _page_label: Label
+var _side: Control  # something shown beside the sheet, like the chart: goes when the sheet goes
+
+
+## One look for every screen: warm near-black enamel, paper-colored type, thin brass lines.
+func _ui_theme() -> Theme:
 	var t := Theme.new()
-	t.default_font = TYPE_FONT
-	t.set_color("font_color", "Label", C_EARTH)
-	var states := {"normal": C_GREEN, "hover": C_GREEN.lightened(0.15),
-		"pressed": C_GREEN.darkened(0.3), "disabled": Color(C_BRASS, 0.6)}
-	for state in states:
+	t.default_font = UI_FONT
+	t.default_font_size = 16
+	t.set_color("font_color", "Label", C_PAPER)
+	var fills := {"normal": Color(C_BRASS, 0.1), "hover": C_BRASS, "pressed": C_BRASS.darkened(0.2),
+		"hover_pressed": C_BRASS, "disabled": Color(C_BRASS, 0.04)}
+	for state in fills:
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = states[state]
-		sb.set_corner_radius_all(3)
-		sb.set_content_margin_all(6)
-		sb.content_margin_left = 12
-		sb.content_margin_right = 12
+		sb.bg_color = fills[state]
+		sb.set_border_width_all(1)
+		sb.border_color = Color(C_BRASS, 0.2 if state == "disabled" else 0.75)
+		sb.set_corner_radius_all(2)
+		sb.set_content_margin_all(7)
+		sb.content_margin_left = 14
+		sb.content_margin_right = 14
 		t.set_stylebox(state, "Button", sb)
-	for c in ["font_color", "font_hover_color", "font_pressed_color"]:
-		t.set_color(c, "Button", C_PAPER)
-	t.set_color("font_disabled_color", "Button", Color(0.95, 0.92, 0.85, 0.7))
+	t.set_color("font_color", "Button", C_PAPER)
+	for s in ["font_hover_color", "font_pressed_color", "font_hover_pressed_color"]:
+		t.set_color(s, "Button", C_EARTH)
+	t.set_color("font_disabled_color", "Button", Color(C_BRASS, 0.5))
+	var focus := StyleBoxFlat.new()
+	focus.draw_center = false
+	focus.set_border_width_all(2)
+	focus.border_color = C_PAPER
+	focus.set_corner_radius_all(2)
+	t.set_stylebox("focus", "Button", focus)
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(C_BRASS, 0.25)
+	track.content_margin_top = 2
+	track.content_margin_bottom = 2
+	t.set_stylebox("slider", "HSlider", track)
 	return t
 
 
 ## rows: [text] or [text, button_text, callable, enabled] with an optional 5th icon texture name.
-## Docked left so the plane stays visible. Returns the content box so callers can add more.
-func _open_panel(title: String, rows: Array, closable := true, paper := "paper_catalog", stamp := "") -> VBoxContainer:
+## A row's first line is its headline, the rest smaller detail. Opens as a full-height sheet on the
+## left so the plane stays in view. Returns the content box so callers can add more.
+func _open_panel(title: String, rows: Array, closable := true, stamp := "") -> VBoxContainer:
+	var fresh := panel == null
+	var same_list := not fresh and title == _list_title  # buying something keeps you on your page
 	_close_panel()
 	panel_closable = closable
-	panel = Control.new()
-	panel.position = Vector2(20, 70)
-	panel.theme = _catalog_theme()
-	var box_ := PanelContainer.new()
-	var sb := StyleBoxTexture.new()
-	sb.texture = load("res://textures/%s.png" % paper)
-	sb.set_content_margin_all(28)
-	box_.add_theme_stylebox_override("panel", sb)
-	panel.add_child(box_)
-	var scroll := ScrollContainer.new()  # long lists scroll instead of running off screen
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	box_.add_child(scroll)
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 8)
-	scroll.add_child(vb)
-	vb.minimum_size_changed.connect(func():
-		var want := vb.get_combined_minimum_size()
-		scroll.custom_minimum_size = Vector2(want.x, minf(want.y, 590)))
+	_list_title = title
+	var sheet := PanelContainer.new()
+	panel = sheet
+	sheet.anchor_bottom = 1.0
+	sheet.offset_right = SHEET_W
+	sheet.theme = _ui_theme()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(C_EARTH, 0.96)
+	sb.border_width_right = 1
+	sb.border_color = Color(C_BRASS, 0.6)
+	sb.content_margin_left = 32
+	sb.content_margin_right = 28
+	sb.content_margin_top = 26
+	sb.content_margin_bottom = 22
+	sheet.add_theme_stylebox_override("panel", sb)
+	var frame := VBoxContainer.new()
+	frame.add_theme_constant_override("separation", 12)
+	sheet.add_child(frame)
+	var top := HBoxContainer.new()
+	frame.add_child(top)
 	var head := Label.new()
-	head.text = title
-	head.add_theme_font_size_override("font_size", 26)
-	vb.add_child(head)
-	for r in rows:
-		var hb := HBoxContainer.new()
-		hb.add_theme_constant_override("separation", 10)
-		vb.add_child(hb)
-		if r.size() > 4 and r[4] != "":
-			var icon := TextureRect.new()
-			icon.texture = load("res://textures/%s.png" % r[4])
-			icon.custom_minimum_size = Vector2(36, 36)
-			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			hb.add_child(icon)
-		var l := Label.new()
-		l.text = r[0]
-		l.custom_minimum_size.x = 420
-		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		hb.add_child(l)
-		if r.size() > 1 and r[1] != "":
-			var b := Button.new()
-			b.text = r[1]
-			b.pressed.connect(r[2])
-			b.disabled = not r[3]
-			hb.add_child(b)
-	if closable:
-		var c := Button.new()
-		c.text = "Close (Esc)"
-		c.pressed.connect(_close_panel)
-		vb.add_child(c)
+	head.text = title.to_upper()
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	head.custom_minimum_size.x = 440
+	head.add_theme_font_override("font", HEAD_FONT)
+	head.add_theme_font_size_override("font_size", 24)
+	top.add_child(head)
 	if stamp != "":
+		var holder := Control.new()  # containers undo rotation, so the stamp sits in a plain holder
+		holder.custom_minimum_size = Vector2(130, 50)
+		top.add_child(holder)
 		var s := TextureRect.new()
 		s.texture = load("res://textures/%s.png" % stamp)
 		s.expand_mode = TextureRect.EXPAND_IGNORE_SIZE  # must come before size, or size snaps to the image
-		s.size = Vector2(170, 85)
-		s.rotation = -0.15
-		box_.resized.connect(func(): s.position = Vector2(box_.size.x - 130, -30))  # overhang the top-right corner
+		s.size = Vector2(130, 65)
+		s.rotation = -0.12
 		s.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		panel.add_child(s)
-	ui.add_child(panel)
+		holder.add_child(s)
+	var rule := ColorRect.new()
+	rule.color = C_BRASS
+	rule.custom_minimum_size.y = 2
+	frame.add_child(rule)
+	var vb := VBoxContainer.new()
+	vb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vb.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vb.add_theme_constant_override("separation", 10)
+	frame.add_child(vb)
+	var chrome := 48.0 + ceilf(title.length() * 17.0 / 540.0) * 32.0 + 50.0 + (40.0 if closable else 0.0) + 44.0
+	_pages = _paginate(rows, get_viewport().get_visible_rect().size.y - chrome)
+	_page = clampi(_page, 0, _pages.size() - 1) if same_list else 0
+	_list = vb
+	_show_page()
+	if _pages.size() > 1:
+		var pager := HBoxContainer.new()
+		pager.alignment = BoxContainer.ALIGNMENT_CENTER
+		pager.add_theme_constant_override("separation", 16)
+		frame.add_child(pager)
+		var prev := Button.new()
+		prev.text = "Previous"
+		prev.pressed.connect(_turn_page.bind(-1))
+		pager.add_child(prev)
+		_page_label = Label.new()
+		_page_label.custom_minimum_size.x = 110
+		_page_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_page_label.text = "Page %d of %d" % [_page + 1, _pages.size()]
+		pager.add_child(_page_label)
+		var next := Button.new()
+		next.text = "Next"
+		next.pressed.connect(_turn_page.bind(1))
+		pager.add_child(next)
+	if closable:
+		var close := Button.new()
+		close.text = "Close (Esc)"
+		close.pressed.connect(sound.sfx.bind("thread"))
+		close.pressed.connect(_close_panel)
+		frame.add_child(close)
+	ui.add_child(sheet)
+	if not closable:  # a screen you must answer: Enter takes the likeliest choice
+		var first: Array = sheet.find_children("*", "Button", true, false).filter(func(b): return not b.disabled)
+		if first.size() > 0:
+			first[0].grab_focus.call_deferred()
+	if fresh:  # slides out from the edge; a sheet replacing a sheet just swaps
+		sheet.modulate.a = 0.0
+		sheet.position.x = -30.0
+		var tw := sheet.create_tween().set_parallel().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tw.tween_property(sheet, "modulate:a", 1.0, 0.16)
+		tw.tween_property(sheet, "position:x", 0.0, 0.16)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	player.frozen = true
 	return vb
+
+
+## Roughly how tall a row will be once wrapped. Errs tall, so a page never overflows the screen.
+func _row_height(r: Array) -> float:
+	var w := _text_width(r)
+	var tall := 0.0
+	if r.size() > 4 and r[4] != "":
+		tall = 40.0
+	if r.size() > 1 and r[1] != "":
+		tall = 38.0
+	var lines: PackedStringArray = r[0].split("\n")
+	var h := 0.0
+	for i in lines.size():
+		h += ceilf(lines[i].length() * (8.6 if i == 0 else 7.0) / w) * (21.0 if i == 0 else 17.0)
+	return maxf(h, tall) + 21.0  # plus the rule and spacing under it
+
+
+## Room for a row's words beside its icon and button. Set up front: wrapped text with no width
+## yet lays out thousands of pixels tall.
+func _text_width(r: Array) -> float:
+	var w := SHEET_W - 62.0
+	if r.size() > 4 and r[4] != "":
+		w -= 54.0
+	if r.size() > 1 and r[1] != "":
+		w -= 44.0 + r[1].length() * 9.0
+	return w
+
+
+func _paginate(rows: Array, room: float) -> Array:
+	var pages := [[]]
+	var used := 0.0
+	for r in rows:
+		var h := _row_height(r)
+		if used + h > room and pages[-1].size() > 0:
+			pages.append([])
+			used = 0.0
+		pages[-1].append(r)
+		used += h
+	return pages
+
+
+func _show_page() -> void:
+	for n in _list.get_children():
+		n.queue_free()
+	for r in _pages[_page]:
+		_add_row(_list, r)
+
+
+func _turn_page(by: int) -> void:
+	sound.sfx("thread")
+	_page = posmod(_page + by, _pages.size())
+	_page_label.text = "Page %d of %d" % [_page + 1, _pages.size()]
+	_show_page()
+
+
+func _add_row(vb: VBoxContainer, r: Array) -> void:
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 14)
+	vb.add_child(hb)
+	if r.size() > 4 and r[4] != "":
+		var icon := TextureRect.new()
+		icon.texture = load("res://textures/%s.png" % r[4])
+		icon.custom_minimum_size = Vector2(40, 40)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		hb.add_child(icon)
+	var words := VBoxContainer.new()
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.add_theme_constant_override("separation", 1)
+	hb.add_child(words)
+	var parts: PackedStringArray = r[0].split("\n", true, 1)
+	for i in parts.size():
+		if parts[i] == "":
+			continue
+		var l := Label.new()
+		l.text = parts[i]
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size.x = _text_width(r)
+		l.add_theme_font_size_override("font_size", 16 if i == 0 else 14)
+		if i > 0:
+			l.add_theme_color_override("font_color", C_BRASS)
+		words.add_child(l)
+	if r.size() > 1 and r[1] != "":
+		var b := Button.new()
+		b.text = r[1]
+		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		b.mouse_entered.connect(sound.sfx.bind("deny"))
+		b.pressed.connect(sound.sfx.bind("thread"))
+		b.pressed.connect(r[2])
+		b.disabled = not r[3]
+		hb.add_child(b)
+		if b.disabled and "$" in r[1]:  # a greyed-out price says what's missing
+			var short := "Need $%d more" % (int(r[1].get_slice("$", 1)) - money)
+			b.tooltip_text = short
+			var why := Label.new()
+			why.text = short
+			why.custom_minimum_size.x = _text_width(r)
+			why.add_theme_font_size_override("font_size", 14)
+			why.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
+			words.add_child(why)
+	var line := ColorRect.new()
+	line.color = Color(C_BRASS, 0.14)
+	line.custom_minimum_size.y = 1
+	vb.add_child(line)
 
 
 func _close_panel() -> void:
 	if panel:
 		panel.queue_free()
 		panel = null
+	if is_instance_valid(_side):
+		_side.queue_free()
 	panel_kind = ""
-	player.frozen = false
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_sub_back = Callable()
+	get_tree().paused = false
+	player.frozen = ferry != null
+	_recapture.call_deferred()
+
+
+## Waits to see if a panel reopened this frame (buying, turning a page): capturing the mouse
+## and letting it go again would snap the cursor to the middle of the screen.
+func _recapture() -> void:
+	if panel == null:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+# ---------- pause, settings, credits ----------
+
+var _sub_back := Callable()  # where Esc goes from a screen opened off the title or pause menu
+var settings := {"master": 1.0, "music": 0.7, "sfx": 0.9, "sens": 1.0, "fullscreen": false, "invert": false, "shake": true, "station": 0}
+const SETTINGS_PATH := "user://settings.cfg"
+const CREDITS := [
+	["Game\nthaddeuswill. Built with Godot Engine 4.7 (MIT license)."],
+	["Plane model: Piper J-3 Cub for FlightGear\nDon Lavelle (model), David Megginson and Jim Wilson, GPLv3. Converted for this game. Source: github.com/wlbragg/J3Cub, and models_raw/j3cub_fg in this game's repository."],
+	["Fonts: Yellowtail (Apache 2.0), Big Shoulders Display (SIL Open Font License)\nThe full license texts are in the licenses folder where the game is installed."],
+	["Music: One Step at a Time, La Da Da Guitar\nFrom OpenGameArt.org, CC0 (public domain)."],
+	["Music: Apple Cider\nFrom OpenGameArt.org, CC0 (public domain)."],
+	["Tool and shop recordings: 68 Workshop Sounds\nFrom OpenGameArt.org, CC0 (public domain)."],
+	["100 CC0 Metal and Wood SFX\nFrom OpenGameArt.org, CC0 (public domain)."],
+	["Mechanical Sounds, by Brian MacIntosh\nFrom OpenGameArt.org, CC0 (public domain)."],
+	["Room tone: The Shop, by LEGIT Audio\nFrom OpenGameArt.org, CC0 (public domain)."],
+	["202 More Sound Effects, 100 CC0 SFX #2\nFrom OpenGameArt.org, CC0 (public domain)."],
+]
+
+
+func _load_settings() -> void:
+	var f := ConfigFile.new()
+	if f.load(SETTINGS_PATH) == OK:
+		for key in settings:
+			settings[key] = f.get_value("game", key, settings[key])
+	_apply_settings()
+
+
+func _apply_settings() -> void:
+	AudioServer.set_bus_volume_db(0, linear_to_db(settings.master))
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), linear_to_db(settings.music))
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("SFX"), linear_to_db(settings.sfx))
+	player.sens = Player.MOUSE_SENS * settings.sens
+	player.invert = settings.invert
+	if DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
+
+
+func _save_settings() -> void:
+	var testing: bool = "--monkey" in OS.get_cmdline_user_args() or "--self-test" in OS.get_cmdline_user_args()
+	if testing:  # random sliders and test stations must not reach the player's settings
+		_apply_settings()
+		return
+	var f := ConfigFile.new()
+	for key in settings:
+		f.set_value("game", key, settings[key])
+	f.save(SETTINGS_PATH)
+	_apply_settings()
+
+
+func _set_setting(value, key: String) -> void:
+	settings[key] = value
+	_save_settings()
+
+
+## A screen opened from the title or pause menu: `back` returns there, by button or by Esc.
+func _sub_panel(title: String, rows: Array, back: Callable) -> VBoxContainer:
+	var was_paused := get_tree().paused
+	var vb := _open_panel(title, rows + [["", "Back", back, true]], false)
+	get_tree().paused = was_paused
+	_sub_back = back
+	return vb
+
+
+## Once something has gone wrong in flight the outcome has to land, or quitting would dodge it.
+func _can_quit() -> bool:
+	return ferry == null or not (ferry.struck or ferry._result != "")
+
+
+func _open_pause() -> void:
+	var parked_in_cockpit: bool = ferry != null and ferry.alt <= 0.0 and ferry.speed < 1.0 and ferry._result == ""
+	_open_panel("Paused", [["Everything stops until you come back."], ["", "Resume", _close_panel, true]]
+		+ ([["", "Climb out of the plane", _leave_cockpit, true]] if parked_in_cockpit else []) + [
+		["", "Settings", _open_settings.bind(_open_pause), true], ["", "Controls", _open_controls, true],
+		["", "Credits", _open_credits.bind(_open_pause), true],
+		] + ([["Your game saves after every step.", "Quit to title", _quit_to_title, true], ["", "Quit to desktop", _quit_game, true]] if _can_quit()
+		else [["Finish the emergency first: what happens next counts."]]))
+	get_tree().paused = true
+
+
+func _notification(what: int) -> void:  # alt-tabbing away shouldn't leave a take-off running
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready() and panel == null and not is_instance_valid(_loader) and not "--self-test" in OS.get_cmdline_user_args() and not "--monkey" in OS.get_cmdline_user_args():
+		_open_pause()
+
+
+## Back out of the cockpit before take-off: nothing lost, the plane's where you left it.
+func _leave_cockpit() -> void:
+	_apply_graphics()
+	gauges.clear()
+	ferry.queue_free()
+	ferry = null
+	prompt.text = ""
+	sound.engine = 0.0
+	sound.stop_loop()
+	player.cam.make_current()
+	_close_panel()
+	_load_field(location, current_job)
+
+
+func _quit_game() -> void:
+	if "--monkey" in OS.get_cmdline_user_args():  # the monkey test keeps running past a quit button
+		_quit_to_title()
+	else:
+		get_tree().quit()
+
+
+func _quit_to_title() -> void:
+	_save_game()
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
+func _open_settings(back: Callable) -> void:
+	var vb := _sub_panel("Settings", [
+		["Graphics: %s\nLow drops haze, bounce light and dust for weaker PCs." % graphics.capitalize(), "Switch", _switch_graphics.bind(back), true],
+		["Display: %s" % ("Fullscreen" if settings.fullscreen else "Window"), "Switch", _switch_setting.bind("fullscreen", back), true],
+		["Invert mouse look: %s" % ("On" if settings.invert else "Off"), "Switch", _switch_setting.bind("invert", back), true],
+		["Screen shake: %s" % ("On" if settings.shake else "Off"), "Switch", _switch_setting.bind("shake", back), true]], back)
+	var at := 0
+	for s in [["Master volume", "master", 0.0, 1.0], ["Music volume", "music", 0.0, 1.0], ["Sound effects volume", "sfx", 0.0, 1.0], ["Mouse sensitivity", "sens", 0.3, 2.5]]:
+		var hb := HBoxContainer.new()
+		var l := Label.new()
+		l.text = s[0]
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hb.add_child(l)
+		var sl := HSlider.new()
+		sl.custom_minimum_size = Vector2(240, 24)
+		sl.min_value = s[2]
+		sl.max_value = s[3]
+		sl.step = 0.01
+		sl.value = settings[s[1]]
+		sl.value_changed.connect(_set_setting.bind(s[1]))
+		hb.add_child(sl)
+		var pct := Label.new()
+		pct.custom_minimum_size.x = 52
+		pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		pct.text = "%d%%" % roundi(sl.value * 100)
+		sl.value_changed.connect(func(v): pct.text = "%d%%" % roundi(v * 100))
+		sl.drag_ended.connect(func(_changed): sound.sfx("tray"))  # a sample to judge the new level by
+		hb.add_child(pct)
+		vb.add_child(hb)
+		vb.move_child(hb, at)
+		at += 1
+
+
+func _switch_graphics(back: Callable) -> void:
+	var was_paused := get_tree().paused
+	_set_graphics("low" if graphics == "high" else "high")
+	get_tree().paused = was_paused
+	_open_settings(back)
+
+
+func _switch_setting(key: String, back: Callable) -> void:
+	_set_setting(not settings[key], key)
+	_open_settings(back)
+
+
+func _open_controls() -> void:
+	_sub_panel("Controls", [["On foot\nW A S D walk, mouse looks, Space jumps, E uses what you're looking at."],
+		["Tab / J / L\nWallet, clipboard, logbook."], ["Esc\nPause. On a screen, closes it."],
+		["In a repair\nHold the left mouse to turn. Wheel or 1-6 switches tools."],
+		["Starting the engine\nF fuel, M master, P primer, I mags, W/S throttle, hold Space for the starter."],
+		["Flying\nW/S throttle, A/D rudder, Up arrow stick forward, Down arrow stick back."]], _open_pause)
+
+
+func _open_credits(back: Callable) -> void:
+	_sub_panel("Credits", CREDITS, back)
 
 
 var standing_at := ""  # the inspection spot you last pressed E at ("" = reading the clipboard)
@@ -1281,10 +2077,15 @@ func _move_plane(to: String) -> void:
 
 ## Fuel the plane to full from the truck (on the apron, never inside, no stale fuel in the
 ## tanks). Returns what it cost (0 if nothing was pumped).
+## Filling the tanks is the only choice the pump offers, so this is what fueling costs.
+func _fuel_bill(job: Dictionary) -> int:
+	return roundi(roundi((1.0 - job.get("fuel", 1.0)) * TANK_GAL) * AVGAS_PER_GAL)
+
+
 func _fuel_plane() -> int:
 	var job: Dictionary = current_job
 	var gal := roundi((1.0 - job.get("fuel", 1.0)) * TANK_GAL)
-	var cost := roundi(gal * AVGAS_PER_GAL)
+	var cost := _fuel_bill(job)
 	var blocked: bool = job.get("parked", "apron") == "hangar" or (job.faults.has("stale_fuel") and not job.fixed.has("stale_fuel"))
 	if gal <= 0 or money < cost or blocked:  # never indoors, never onto stale gas
 		return 0
@@ -1308,7 +2109,7 @@ func _open_truck() -> void:
 	var job = current_job
 	if job:
 		var gal := roundi((1.0 - job.get("fuel", 1.0)) * TANK_GAL)
-		var cost := roundi(gal * AVGAS_PER_GAL)
+		var cost := _fuel_bill(job)
 		if job.faults.has("stale_fuel") and not job.fixed.has("stale_fuel"):
 			rows.append(["The %s's tanks are full of stale fuel. Drain and sump them first (left wing)." % job.type])
 		elif job.get("parked", "apron") == "hangar":
@@ -1412,6 +2213,10 @@ func _refresh_markers() -> void:
 			m.pixel_size = 0.007  # readable from across the apron
 			m.outline_size = 18
 			m.position = ZONES[z].pos + Vector3(0, ZONES[z].size.y * 0.5 + 0.25, 0)
+			m.render_priority = 2
+			m.outline_render_priority = 1
+			m.add_child(_marker_sprite("glow", [[0.0, 0.8], [0.55, 0.45], [1.0, 0.0]], 0.012))
+			m.add_child(_marker_sprite("ring", [[0.0, 0.0], [0.83, 0.0], [0.86, 1.0], [0.93, 1.0], [0.96, 0.0], [1.0, 0.0]], 0.0065))
 			plane.add_child(m)
 		var open: bool = job.faults.any(func(id): return FAULTS[id].zone == z and job.found.has(id) and not job.fixed.has(id))
 		if z == "cabin" and job.get("runup", "") != "ran" and job.checked.has(z):
@@ -1423,8 +2228,60 @@ func _refresh_markers() -> void:
 			m.text = "!"
 			m.modulate = Color(1.0, 0.55, 0.15)
 		else:
-			m.text = "OK"
-			m.modulate = Color(0.45, 0.9, 0.45, 0.8)
+			m.text = ""
+		var ring: Sprite3D = m.get_node("ring")
+		ring.visible = m.text != ""
+		ring.modulate = m.modulate
+		ring.scale = Vector3.ONE
+		m.get_node("glow").visible = false
+		m.set_meta("tint", m.modulate)
+	_lit_zone = ""
+
+
+## One billboard behind a marker, drawn from a radial gradient: stops are [offset, alpha].
+func _marker_sprite(sprite_name: String, stops: Array, pixel: float) -> Sprite3D:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array(stops.map(func(s): return s[0]))
+	g.colors = PackedColorArray(stops.map(func(s): return Color(1, 1, 1, s[1])))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 128
+	tex.height = 128
+	var s := Sprite3D.new()
+	s.name = sprite_name
+	s.texture = tex
+	s.pixel_size = pixel
+	s.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	s.no_depth_test = true
+	s.shaded = false
+	s.visible = false
+	return s
+
+
+var _lit_zone := ""
+
+
+## Lights the marker you're aiming at, the moment E would select it.
+func _light_marker(zone: String) -> void:
+	if zone == _lit_zone or not plane:
+		return
+	for z in [_lit_zone, zone]:
+		var m: Label3D = plane.get_node_or_null("marker_" + z) if z != "" else null
+		if not m or m.text == "":
+			continue
+		var on: bool = z == zone
+		var tint: Color = m.get_meta("tint")
+		var ring: Sprite3D = m.get_node("ring")
+		var glow: Sprite3D = m.get_node("glow")
+		m.modulate = Color.WHITE if on else tint
+		ring.modulate = Color.WHITE if on else tint
+		ring.scale = Vector3.ONE * (1.25 if on else 1.0)
+		glow.modulate = tint
+		glow.visible = on
+	_lit_zone = zone
 
 
 ## The work order: what the owner reported, which spots you've checked, and what you found.
@@ -1463,16 +2320,23 @@ func _open_inspection(at := standing_at) -> void:
 	if at != "":
 		rows.append(["Parked %s." % ("in the hangar" if in_hangar else "on the apron"),
 			"Roll it out to the apron" if in_hangar else "Push it into the hangar", _toggle_parked, true])
-	var done: bool = all_checked and job.fixed.size() == job.faults.size()
-	var ready: bool = done and fuel >= 0.5 and not in_hangar
-	if ready and at == "cabin":
+	var open_item: bool = job.faults.any(func(id): return job.found.has(id) and not job.fixed.has(id))
+	var done: bool = ran and not open_item  # you can sign what you've seen; what you skipped is on you
+	var signed: bool = job.get("signed", false)
+	var ready: bool = done and signed and fuel >= 0.5 and not in_hangar
+	if done and not signed:
+		var skipped: int = ZONES.size() - job.checked.size()
+		rows.append(["Logbook not signed\n" + ("No plane leaves until the work is written up and signed for return to service." if skipped == 0
+			else "%d spot%s never checked. You can sign anyway, but anything you didn't look at will find you in the air." % [skipped, "" if skipped == 1 else "s"]),
+			"Write up the logbook" if at != "" else "", _open_signoff, at != ""])
+	elif ready and at == "cabin":
 		rows.append(["Airworthy! Fly it out to the owner.", "Climb in & take off (+$%d)" % job.reward, _start_ferry, true])
 	elif done:
 		rows.append(["Airworthy! " + ("Roll it out of the hangar, " if in_hangar else "") + ("fuel it at the truck, " if fuel < 0.5 else "") + "then climb in at the cabin to fly it out."])
 	elif not all_checked:
 		rows.append(["Check every spot and do a run-up before you sign it off."])
-	_open_panel(("Work order: " if at != "" else "Clipboard: ") + job.type + (("  (at the %s)" % ZONES[at].name) if at != "" else ""), rows, true, "paper_catalog",
-		"stamp_airworthy" if done else ("stamp_inspected" if all_checked else ""))
+	_open_panel(("Work order: " if at != "" else "Clipboard: ") + job.type + (("  (at the %s)" % ZONES[at].name) if at != "" else ""), rows, true,
+		"stamp_airworthy" if done and signed else ("stamp_inspected" if all_checked else ""))
 	_refresh_markers()
 
 
@@ -1500,6 +2364,18 @@ const SUPPLIES := {
 	"Penetrant": {"name": "Penetrant (can, 3 uses)", "cost": 12, "qty": 3},
 }
 const STARTER_TOOLS := {"screwdriver": true, "rag": true}
+
+
+## Each town's shed stocks a fixed part of the list.
+func _on_shelf(key: String) -> bool:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash(location + key)
+	return r.randf() < 0.55
+
+
+## What it costs to get this from where you stand: shelf price, or mail order at +25%.
+func _supply_price(key: String) -> int:
+	return int(SUPPLIES[key].cost) if _on_shelf(key) else int(SUPPLIES[key].cost * 1.25)
 
 
 func _supply_have(key: String) -> String:
@@ -1541,12 +2417,123 @@ func _buy_supply(key: String, cost: int, mail: bool) -> void:
 		_open_shop()
 
 
+## Catalog copy for each part and supply, in the voice of a 1950s parts book.
+const CATALOG_BLURB := {
+	"tire": "6.00-6 four-ply tire with a fresh inner tube. Mounts on the stock split wheel.",
+	"brakes": "Machined steel brake disc, ground dead flat. Ends the grinding on taxi.",
+	"battery": "12-volt, 25 amp-hour aircraft battery, charged and ready to fit.",
+	"spark_plugs": "Matched set of aviation plugs, gapped at the factory and ready to torque.",
+	"oil_leak": "Rocker cover gasket kit: cork gasket and fresh hardware.",
+	"fuel_line": "Aluminum fuel line, flared both ends, with brass B-nut fittings.",
+	"windshield": "Clear acrylic windshield, cut to fit. Retainer screws included.",
+	"starter": "Rebuilt 12-volt starter motor with a new drive gear.",
+	"control_cables": "Pre-swaged rudder cable set with turnbuckles. Safety wire sold separately.",
+	"magneto": "Overhauled magneto, timed on the bench, harness cap included.",
+	"avionics": "Panel radio with a new whip antenna and coax lead.",
+	"propeller": "Laminated wood propeller, balanced and varnished, yellow tips.",
+	"stale_fuel": "Fresh blue 100LL, enough to fill a trainer's tanks.",
+	"door_pin": "Steel hinge pin with a new cotter. Soak the old one first.",
+	"ratchet": "Quarter-inch drive with SAE sockets in a steel case.",
+	"torque": "Click type, 20 to 150 inch-pounds. Prop bolts need it.",
+	"pliers": "Twists safety wire tight in one pull, then cuts it clean.",
+	"Safety wire": ".032 stainless lockwire. Ten jobs to the spool.",
+	"Cotter pin": "Assorted cotter pins, a box of ten.",
+	"Penetrant": "Frees rusted pins and seized bolts. Three soaks to a can.",
+}
+const CATALOG_ICON := {
+	"stale_fuel": "work/stale_fuel_cap", "door_pin": "work/door_pin_pin_new",
+	"Safety wire": "work/propeller_wire", "Cotter pin": "work/tire_pin", "Penetrant": "work/door_pin_soak",
+}
+
+
+func _catalog_icon(key: String, fallback: String) -> String:
+	for name in [CATALOG_ICON.get(key, ""), fallback]:
+		if name != "" and ResourceLoader.exists("res://textures/%s.png" % name):
+			return "res://textures/%s.png" % name
+	return ""
+
+
+## A supply as a catalog listing. mail: ordered from the hangar (1 day, +25%).
+func _supply_entry(key: String, mail: bool) -> Dictionary:
+	var s: Dictionary = SUPPLIES[key]
+	var price := int(s.cost * 1.25) if mail else int(s.cost)
+	var tool: bool = s.get("tool", false)
+	return {"name": s.name, "no": "AR-T%02d" % (20 + SUPPLIES.keys().find(key)), "blurb": CATALOG_BLURB.get(key, ""),
+		"icon": _catalog_icon(key, "work/tool_" + key), "price": price, "mail": mail,
+		"have": "" if tool else str(inventory.get(key, 0)), "owned": tool and tools.has(key),
+		"can": money >= price, "buy": func(): _buy_supply(key, price, mail)}
+
+
+func _supply_sections(keys: Array, mail: bool) -> Array:
+	var t := []
+	var m := []
+	for key in keys:
+		(t if SUPPLIES[key].get("tool", false) else m).append(_supply_entry(key, mail))
+	return [{"id": "tools", "tab": "Tools", "head": "Section B: Hand tools", "items": t},
+		{"id": "materials", "tab": "Materials", "head": "Section C: Shop supplies", "items": m}]
+
+
+func _open_radio() -> void:
+	_close_panel()
+	var r := RadioUI.new()
+	r.setup(sound, _media_key, _tuned)
+	r.close_requested.connect(_close_panel)
+	ui.add_child(r)
+	panel = r
+	panel_closable = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
+
+
+func _tuned(i: int) -> void:
+	settings.station = i
+	_save_settings()
+
+
+var media_sent := []  # what tests pressed, in place of the real key
+
+
+## Presses a media key, the same as the play and skip keys on a keyboard, so it reaches whatever
+## music app is running without signing in to anything. Windows only, like the game.
+func _media_key(code: int) -> void:
+	var args := OS.get_cmdline_user_args()
+	if "--self-test" in args or "--monkey" in args:  # never touch the tester's own music
+		media_sent.append(code)
+		return
+	OS.create_process("powershell", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", "(New-Object -ComObject WScript.Shell).SendKeys([char]%d)" % code])
+
+
+## Opens the Field Service Catalog (scripts/catalog.gd) as the current sheet. Buying reopens it
+## on the same page, so it only fades in the first time.
+func _open_catalog(title: String, town: String, sections: Array, note := "") -> void:
+	var fresh := not (panel is CatalogUI)
+	_close_panel()
+	var c := CatalogUI.new()
+	c.setup(title, town, money, sections, note, sound.sfx.bind("thread"))
+	c.close_requested.connect(_close_panel)
+	ui.add_child(c)
+	panel = c
+	panel_closable = true
+	if fresh:
+		c.fade_in()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
+
+
 ## The hangar's TOOLS box: what you own, and a mail-order catalog for what you don't.
+const STATE := {"Wichita": "Kan.", "Omaha": "Neb.", "Dallas": "Tex.", "Chicago": "Ill.", "Billings": "Mont.", "Miami": "Fla.",
+	"New York": "N.Y.", "Seattle": "Wash.", "Portland": "Ore.", "Atlanta": "Ga.", "Nashville": "Tenn.", "Bangor": "Me.",
+	"Los Angeles": "Calif.", "Phoenix": "Ariz.", "Las Vegas": "Nev.", "Albuquerque": "N.M.", "Denver": "Colo.",
+	"Salt Lake City": "Utah", "Fargo": "N.D.", "Minneapolis": "Minn."}
+
+
+func _roll_note() -> String:
+	return "In your roll: " + ", ".join(tools.keys().map(func(t): return Work.TOOLS[t]))
+
+
 func _open_toolbox() -> void:
-	var rows := [["In your roll: " + ", ".join(tools.keys().map(func(t): return Work.TOOLS[t]))]]
-	for key in SUPPLIES:
-		rows.append(_supply_row(key, true))
-	_open_panel("Toolbox & mail-order catalog", rows)
+	_open_catalog("Mail-order catalog", "Mail order from the hangar: arrives in 1 day, 25% over shelf price",
+		_supply_sections(SUPPLIES.keys(), true), _roll_note())
 
 
 func _open_shop() -> void:
@@ -1555,27 +2542,24 @@ func _open_shop() -> void:
 		for id in current_job.found:
 			if not current_job.fixed.has(id):
 				needed[FAULTS[id].part] = true
-	var rows := []
+	var parts := []
+	var i := 0
 	for id in FAULTS:
 		var f: Dictionary = FAULTS[id]
+		i += 1
 		if f.part == "":
 			continue
-		var tag := "   << NEEDED" if needed.has(f.part) else ""
-		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
 		var price := _price(id)
-		if _stocked(id):
-			rows.append(["%s (have %d)%s" % [f.part, inventory.get(f.part, 0), tag],
-				"$%d" % price, func(): _buy(f.part, price), money >= price, icon])
-		else:
-			rows.append(["%s (have %d)%s\nNot in stock: mail order, 1 day" % [f.part, inventory.get(f.part, 0), tag],
-				"Order $%d" % price, func(): _buy(f.part, price, true), money >= price, icon])
-	rows.append(["Tools & materials:"])
-	for key in SUPPLIES:  # this town's shelf only; the rest is mail order from the hangar
-		var r := RandomNumberGenerator.new()
-		r.seed = hash(location + key)
-		if r.randf() < 0.55:
-			rows.append(_supply_row(key, false))
-	_open_panel("Parts & Supply  -  " + location, rows)
+		var mail := not _stocked(id)
+		var part: String = f.part
+		parts.append({"name": part, "no": "AR-%d" % (1100 + i * 7), "blurb": CATALOG_BLURB.get(id, f.name),
+			"icon": _catalog_icon(id, "icon_" + id), "price": price, "mail": mail,
+			"have": str(inventory.get(part, 0)), "needed": needed.has(part), "can": money >= price,
+			"buy": func(): _buy(part, price, mail)})
+	parts.sort_custom(func(a, b): return a.needed and not b.needed)  # what this job needs comes first
+	var shelf := SUPPLIES.keys().filter(_on_shelf)  # the rest is mail order from the hangar
+	var sections := [{"id": "parts", "tab": "Parts", "head": "Section A: Aircraft parts", "items": parts}]
+	_open_catalog("Parts counter", "Parts counter at %s, %s" % [location, STATE[location]], sections + _supply_sections(shelf, false), _roll_note())
 
 
 func _open_travel() -> void:
@@ -1591,21 +2575,21 @@ func _open_travel() -> void:
 			roundi(miles(location, job.city) * 0.869), trip, maxi(0, ceili(job.deadline - day)), _symptoms(job)],
 			"Fly ($%d)" % cost, func(): _travel(job, cost), money >= cost])
 	if not can_fly and not _can_finish_here():
-		_open_panel("Out of money and grounded. Game over.",
-			[["You rescued %d planes." % rescued, "Play again", _restart, true]], false)
+		var fares := jobs.filter(func(j): return j != current_job).map(func(j): return int(miles(location, j.city) * FUEL_PER_MILE))
+		_open_game_over(fares.min() if fares.size() > 0 else 0)
 		return
-	var vb := _open_panel("Rescue calls", rows)
+	_open_panel("Rescue calls", rows)
 	# Sectional-style nav chart: graticule, airport symbols, compass rose on your field and a
 	# magenta course line (true course + nautical miles) to each call. Click a field to fly.
 	var map := TextureRect.new()
 	map.texture = load("res://textures/us_map.png")
+	map.position = Vector2(SHEET_W + 22, 130)
 	map.custom_minimum_size = Vector2(576, 360)
-	map.mouse_filter = Control.MOUSE_FILTER_PASS  # let the wheel scroll the panel
 	map.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	map.stretch_mode = TextureRect.STRETCH_SCALE
 	map.modulate = Color(0.93, 1.0, 0.93)  # pale green cast of a sectional chart
-	vb.add_child(map)
-	vb.move_child(map, 1)
+	ui.add_child(map)
+	_side = map
 	var calls := jobs.filter(func(j): return j != current_job)
 	map.draw.connect(func(): chart.draw(map, calls))
 	for job in calls:
@@ -1674,6 +2658,8 @@ func _setup_environment() -> void:
 	add_child(we)
 	sun = DirectionalLight3D.new()
 	sun.shadow_enabled = true
+	sun.directional_shadow_max_distance = 90.0  # the tree shadow pass was the costliest part of the frame
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.light_energy = 1.35  # strong warm key against the blue fill = warm/cool contrast
 	add_child(sun)
 	var vignette := TextureRect.new()  # soft dark corners pull the eye to the middle
@@ -1799,6 +2785,7 @@ func _load_field(city: String, job) -> void:
 	if world:
 		world.queue_free()
 	world = Node3D.new()
+	world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(world)
 	plane = null
 	visuals.clear()
@@ -1859,6 +2846,31 @@ func _load_field(city: String, job) -> void:
 	_save_game()  # arriving somewhere is a checkpoint
 
 
+## The bench at the back of the hangar: the chart laid out for rescue calls, the shop radio beside it.
+func _build_workbench(at: Vector3) -> void:
+	box(world, Vector3(3.5, 0.08, 1.0), at + Vector3(0, 0.88, 0), tmat("workbench_top", Color.WHITE, 0.6))
+	box(world, Vector3(3.3, 0.05, 0.85), at + Vector3(0, 0.3, 0), tmat("wood_planks", Color(0.7, 0.6, 0.48), 1.2))  # shelf
+	var leg := tmat("wood_planks", Color(0.6, 0.48, 0.36), 1.2)
+	for sx in [-1, 1]:
+		for sz in [-1, 1]:
+			box(world, Vector3(0.1, 0.84, 0.1), at + Vector3(sx * 1.65, 0.42, sz * 0.42), leg)
+	var body := box(world, Vector3(3.5, 0.92, 1.0), at + Vector3(0, 0.46, 0), Color.WHITE, true)  # one block to walk into
+	body.visible = false
+	var chart_at := at + Vector3(-0.62, 0.925, 0)
+	decal(world, Vector2(1.76, 1.1) * 0.9, chart_at, "us_map", Vector3.UP).mesh.material.albedo_color = Color(0.62, 0.62, 0.55)  # the bench lamp washes it out
+	interactable(world, chart_at + Vector3(0, 0.15, 0.05), Vector3(1.8, 0.5, 1.2), "map")
+	_text3d("MAP", chart_at + Vector3(0, 0.75, 0), 48)
+	var set_at := at + Vector3(1.05, 1.1, -0.1)  # middle of the radio's case
+	box(world, Vector3(0.66, 0.36, 0.3), set_at, tmat("wood_planks", Color(0.36, 0.22, 0.13), 2.0))
+	box(world, Vector3(0.26, 0.26, 0.012), set_at + Vector3(-0.17, 0, 0.152), Color(0.16, 0.11, 0.08))  # speaker cloth
+	box(world, Vector3(0.3, 0.09, 0.012), set_at + Vector3(0.14, 0.07, 0.152), Color(0.94, 0.87, 0.68))  # dial
+	box(world, Vector3(0.012, 0.09, 0.016), set_at + Vector3(0.1, 0.07, 0.156), Color(0.66, 0.15, 0.12))  # needle
+	for x in [0.06, 0.22]:
+		box(world, Vector3(0.06, 0.06, 0.03), set_at + Vector3(x, -0.08, 0.16), Color(0.82, 0.74, 0.55))  # knobs
+	interactable(world, set_at + Vector3(0, 0.05, 0.3), Vector3(1.0, 0.8, 0.9), "radio")
+	_text3d("RADIO", set_at + Vector3(0, 0.6, 0), 48)
+
+
 func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	# Quonset-hut model: open end faces +Z (the runway). Longest side is its depth;
 	# 15.8 m deep makes it 14 m wide and 7 m tall. Back wall sits near at.z - 7.2.
@@ -1868,26 +2880,24 @@ func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	slab.visible = false
 	const BACK := -7.0
 	box(world, Vector3(5, 2.4, 0.05), at + Vector3(-1.5, 2.0, BACK + 0.1), tmat("pegboard", Color.WHITE, 0.5))
+	decal(world, Vector2(4.2, 2.9), at + Vector3(0, 4.75, BACK + 0.08), "logo_ghost", Vector3.BACK)  # old paint above the pegboard
 	prop("toolbox", at + Vector3(-4.5, 0, BACK + 0.6), 1.1, tmat("toolbox_red", Color.WHITE, 1.5))  # drawers face +Z
 	interactable(world, at + Vector3(-4.5, 0.6, BACK + 1.0), Vector3(1.4, 1.2, 1.2), "toolbox")
 	_text3d("TOOLS", at + Vector3(-4.5, 1.6, BACK + 0.6), 40)
 	_lamp(at + Vector3(-4.5, 2.6, BACK + 1.2))  # over the toolbox
-	decal(world, Vector2(0.5, 0.5), at + Vector3(-4.03, 0.75, BACK + 0.6), "sticker_sheet", Vector3.RIGHT)
+	decal(world, Vector2(0.62, 0.44), at + Vector3(-4.03, 0.75, BACK + 0.6), "logo_decal", Vector3.RIGHT)
 	var drum_paint := [Color(0.45, 0.6, 0.85), Color(0.8, 0.35, 0.3), Color(0.5, 0.6, 0.45)]
 	for p in [Vector3(8.3, 0, -4), Vector3(9.0, 0, -3.2), Vector3(8.4, 0, -2.4), Vector3(-5.0, 0, 3)]:
 		prop("barrel_a", at + p, 0.9, tmat("galvanized_metal", drum_paint[r.randi() % 3], 2.0), r.randf() * TAU)
 	for p in [Vector3(-8.7, 0, 4), Vector3(-8.8, 0, 5.2)]:
 		prop("crate_a", at + p, 1.0, tmat("wood_planks", Color(0.9, 0.8, 0.65), 1.5), r.randf_range(-0.3, 0.3))
-	box(world, Vector3(2, 1, 0.8), at + Vector3(3, 0.5, BACK + 0.6), tmat("workbench_top", Color.WHITE, 0.6), true)  # desk
-	box(world, Vector3(0.7, 0.4, 0.4), at + Vector3(3, 1.2, BACK + 0.6), _trim(Color(0.35, 0.45, 0.35)))  # radio
-	interactable(world, at + Vector3(3, 1.2, BACK + 0.9), Vector3(1.4, 0.9, 1.2), "radio")
-	_text3d("RADIO", at + Vector3(3, 2.2, BACK + 0.6), 48)
-	_lamp(at + Vector3(3, 2.9, BACK + 1.2))  # over the radio desk
+	_build_workbench(at + Vector3(3, 0, BACK + 0.65))
+	_lamp(at + Vector3(3, 2.9, BACK + 1.2))  # over the workbench
 	_build_shop_log(at + Vector3(5.3, 1.8, BACK + 0.08))
 	# A framed photo of an old rescue, sepia, over the desk.
 	box(world, Vector3(0.62, 0.5, 0.03), at + Vector3(1.1, 2.1, BACK + 0.07), tmat("wood_planks", Color(0.35, 0.22, 0.12), 2.0))
 	var photo := StandardMaterial3D.new()
-	photo.albedo_texture = load("res://icon.png")
+	photo.albedo_texture = load("res://textures/rescue_photo.png")
 	photo.albedo_color = Color(0.95, 0.78, 0.55)  # faded to sepia
 	photo.roughness = 0.9
 	box(world, Vector3(0.5, 0.38, 0.01), at + Vector3(1.1, 2.1, BACK + 0.09), photo)
@@ -1964,7 +2974,11 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 	world.add_child(trunks)
 	var cones: Array[Transform3D] = []  # forest pines, drawn as two MultiMeshes below
 	var placed := 0
-	while placed < region.count + rows.size():
+	# The woods fill the distance, so detailed trees are only worth drawing near the field.
+	var thick: bool = location in THICK_WOODS
+	var hero_count: int = mini(region.count, HERO_TREES) if thick else region.count
+	var hero_reach := 150.0 if thick else 400.0
+	while placed < hero_count + rows.size():
 		var pos: Vector3
 		if placed < rows.size():
 			pos = rows[placed]
@@ -1972,7 +2986,7 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 			if terrain.in_water(pos.x, pos.z):
 				continue
 		else:
-			pos = Vector3(r.randf_range(-400, 400), 0, r.randf_range(-400, 400))
+			pos = Vector3(r.randf_range(-hero_reach, hero_reach), 0, r.randf_range(-hero_reach, hero_reach))
 			# same lot/runway rule as the grass, plus extra room so canopies clear the wingtips
 			if _kept_clear(pos) or pos.length() < 32 or absf(pos.z - 14) < 16:
 				continue
@@ -1988,12 +3002,14 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 				var tree := prop(kind, pos, r.randf_range(5.5, 9.0), null, r.randf() * TAU, "trunk")
 				tree.set_meta("tree", true)
 				_paint_tree(tree, TREE_SPLIT[kind], Color.WHITE.darkened(r.randf() * 0.25))
+				_near_only(tree, 240.0 if thick else 420.0)
 			"pine":  # shortcut: code-built cones until a plain (snowless) pine model exists
 				cones.append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * h), pos))
 				_trunk(pos)
 			"snowpine":
 				var pine := prop("tree_pine_snow_a", pos, r.randf_range(6.0, 11.0), null, r.randf() * TAU, "trunk")
 				pine.set_meta("tree", true)
+				_near_only(pine, 240.0 if thick else 420.0)
 			"cactus":
 				var roll := r.randf()
 				if roll < 0.7:  # tall saguaros, one or two arms
@@ -2025,6 +3041,8 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 		crown.surface_set_material(0, tmat("foliage", Color(0.38, 0.55, 0.42)))
 		_multi(trunk, cones.map(func(t): return t.translated_local(Vector3(0, 0.6 / 4.5, 0))))
 		_multi(crown, cones)
+	if location in THICK_WOODS:
+		_woods(region, r)
 	var rocks := 0  # outcrops half-buried in hillsides (the hills and mountains themselves are terrain)
 	var tries := 0
 	while rocks < (0 if region.prop == "tree" else 18) and tries < 2000:
@@ -2035,6 +3053,82 @@ func _scatter(region: Dictionary, r: RandomNumberGenerator) -> void:
 		rocks += 1
 		var s := r.randf_range(2.0, 6.0)
 		_crag(p + Vector3(0, terrain.height(p.x, p.z) - s * 0.35, 0), s, s * 0.7, region.ground.lerp(Color(0.55, 0.5, 0.48), 0.7), r)
+
+
+## Stops drawing a detailed model past this distance. The fog hides the edge.
+func _near_only(m: Node3D, reach: float) -> void:
+	for mi: MeshInstance3D in m.find_children("*", "MeshInstance3D", true, false):
+		mi.visibility_range_end = reach
+
+
+## The woods behind the hero trees: low-poly crowns in 100 m blocks, so off-screen blocks cost
+## nothing, and none cast shadows (they cost more than the trees). shortcut: no collision, you can walk through them;
+## add trunks if players start exploring the woods on foot.
+func _woods(region: Dictionary, r: RandomNumberGenerator) -> void:
+	var want: int = WOODS_TREES / (8 if graphics == "low" or "--low" in OS.get_cmdline_user_args() else 1)
+	var blocks := {}
+	var placed := 0
+	var tries := 0
+	while placed < want and tries < want * 3:
+		tries += 1
+		var pos := Vector3(r.randf_range(-400, 400), 0, r.randf_range(-400, 400))
+		if _kept_clear(pos) or pos.length() < 45 or absf(pos.z - 14) < 18 or terrain.in_water(pos.x, pos.z) or terrain.slope(pos.x, pos.z) > 0.45:
+			continue
+		pos.y = terrain.height(pos.x, pos.z) - 0.1
+		var key := Vector2i(floori(pos.x / 100.0), floori(pos.z / 100.0))
+		if not blocks.has(key):
+			blocks[key] = []
+		blocks[key].append(Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(5.0, 9.0)), pos))
+		placed += 1
+	var conifer: bool = region.prop != "tree"
+	var look := tmat("foliage", Color.WHITE)
+	look.vertex_color_use_as_albedo = true
+	look.uv1_scale = Vector3(4, 4, 4)  # at tree size the leaf texture was stretching into big plates
+	var st := SurfaceTool.new()
+	if conifer:
+		for tier in [[0.3, 0.55, 0.5], [0.23, 0.5, 0.85], [0.14, 0.42, 1.18]]:  # radius, height, center y
+			var cone := CylinderMesh.new()
+			cone.top_radius = 0.0
+			cone.bottom_radius = tier[0]
+			cone.height = tier[1]
+			cone.radial_segments = 6
+			cone.rings = 1
+			st.append_from(cone, 0, Transform3D(Basis(), Vector3(0, tier[2], 0)))
+	else:  # three uneven lobes read as a canopy; one ball read as a lollipop
+		for lobe in [[0.3, Vector3(-0.14, 0.62, 0.05)], [0.27, Vector3(0.17, 0.68, -0.1)], [0.22, Vector3(0.02, 0.86, 0.12)]]:
+			var ball_ := SphereMesh.new()
+			ball_.radius = lobe[0]
+			ball_.height = lobe[0] * 1.6
+			ball_.radial_segments = 6
+			ball_.rings = 3
+			st.append_from(ball_, 0, Transform3D(Basis(), lobe[1]))
+	var mesh: ArrayMesh = st.commit()
+	mesh.surface_set_material(0, look)
+	var wood := SurfaceTool.new()
+	var stem := CylinderMesh.new()
+	stem.top_radius = 0.012
+	stem.bottom_radius = 0.028
+	stem.height = 0.6
+	stem.radial_segments = 4
+	stem.rings = 1
+	wood.append_from(stem, 0, Transform3D(Basis(), Vector3(0, 0.3, 0)))
+	wood.commit(mesh)
+	mesh.surface_set_material(1, tmat("bark"))
+	var base := Color(0.36, 0.48, 0.38) if conifer else Color(0.5, 0.56, 0.32)
+	for key in blocks:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = mesh
+		mm.instance_count = blocks[key].size()
+		for i in blocks[key].size():
+			mm.set_instance_transform(i, blocks[key][i])
+			mm.set_instance_color(i, base.darkened(r.randf() * 0.3))
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.visibility_range_end = 380.0
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		world.add_child(mmi)
 
 
 ## Faceted, jagged rock: 3 jittered rings tapering to an off-center peak, flat-shaded.
@@ -2094,8 +3188,8 @@ func _build_plane(job: Dictionary) -> void:
 	world.add_child(plane)
 	# FlightGear J-3 Cub (GPL, real scale: 10.65 m span). Model faces -X with wings along Z;
 	# turned so the nose is -Z. Plane origin = between the main tires on the ground.
-	# Probed parts (plane space): tyres x=±0.9 z=0, nose z=-1.33, cowl z -1.16..-0.69,
-	# windshield y 1.37..1.96 z -0.53..0.09, wing y≈1.95, rudder hinge z=4.44, tailwheel z=5.2.
+	# Probed parts (plane space): tyres x=Â±0.9 z=0, nose z=-1.33, cowl z -1.16..-0.69,
+	# windshield y 1.37..1.96 z -0.53..0.09, wing yâ‰ˆ1.95, rudder hinge z=4.44, tailwheel z=5.2.
 	cub = model(plane, "plane_cub", Vector3(-0.005, 1.37, 2.025), 10.65, Vector3(0, -PI / 2, 0))
 	var hull := StaticBody3D.new()  # keeps the player from walking through the plane
 	var hs := CollisionShape3D.new()
@@ -2142,14 +3236,8 @@ func _part_visual(id: String, ok: bool) -> Node3D:
 			cub.find_child("tyre_l", true, false).visible = ok
 			if not ok:
 				model(level, "tire_broken", Vector3(-0.9, 0.2, 0), 0.5, axle_x)
-		"brakes":  # disc on the outboard hub so it shows on the walk-around
-			model(n, "brakes_ok" if ok else "brakes_broken", Vector3(1.04, 0.25, 0), 0.22, axle_x)
-		"battery":  # access hatch on the right side of the turtle deck
-			var hatch := box(n, Vector3(0.03, 0.35, 0.5), Vector3(0.36, 1.45, 1.7), tmat("plane_body_worn", Color(0.95, 0.8, 0.3)))
-			if not ok:  # hatch hanging open, corroded battery pulled half out
-				hatch.position = Vector3(0.55, 1.45, 1.98)
-				hatch.rotation.y = -1.2
-				model(n, "battery_broken", Vector3(0.45, 1.45, 1.7), 0.35)
+		"brakes":  # disc on the inboard side of the wheel, where it really sits
+			model(n, "brakes_ok" if ok else "brakes_broken", Vector3(0.77, 0.25, 0), 0.22, axle_x)
 		"spark_plugs":
 			if not ok:
 				decal(n, Vector2(0.5, 0.3), Vector3(0.35, 1.1, -0.92), "decal_soot", Vector3.RIGHT)
@@ -2170,9 +3258,6 @@ func _part_visual(id: String, ok: bool) -> Node3D:
 				var glass := decal(n, Vector2(0.72, 0.82), Vector3(0, 1.68, -0.24), "", face)
 				glass.mesh.material.albedo_color = Color(0.45, 0.47, 0.48, 0.85)
 				decal(n, Vector2(0.65, 0.7), Vector3(0, 1.685, -0.245), "windshield_cracked", face)
-		"starter":
-			model(n, "starter_ok", Vector3(-0.42, 1.0, -0.85), 0.3, Vector3.ZERO,
-				null if ok else tmat("metal_rust", Color.WHITE, 3.0))
 		"magneto":
 			model(n, "magneto_ok" if ok else "magneto_broken", Vector3(0.4, 1.3, -0.72), 0.25, Vector3(0, PI / 2, 0))
 		"control_cables":  # slack cables let the rudder flop hard over
@@ -2283,7 +3368,13 @@ func prop(name: String, at: Vector3, size: float, look: Material, yaw := 0.0, co
 			hit.visible = false
 		"mesh":
 			for mi: MeshInstance3D in m.find_children("*", "MeshInstance3D", true, false):
-				mi.create_trimesh_collision()
+				var body := StaticBody3D.new()
+				var wall := CollisionShape3D.new()
+				if not _walls.has(mi.mesh):
+					_walls[mi.mesh] = mi.mesh.create_trimesh_shape()
+				wall.shape = _walls[mi.mesh]
+				body.add_child(wall)
+				mi.add_child(body)
 		"trunk":
 			_trunk(at)
 	return m

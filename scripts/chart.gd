@@ -95,6 +95,30 @@ func draw(map: Control, calls: Array) -> void:
 	map.draw_string(font, home + Vector2(-hw / 2, rose + 13), game.location.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.1, 0.45, 0.2))
 
 
+## The trip under way: flown leg solid, the rest dashed, the plane at fraction t of the way.
+## The map keeps its aspect, so chart pixels are scaled and centered to whatever size it has now.
+func draw_trip(map: Control, from: String, to: String, t: float) -> void:
+	var s := minf(map.size.x / 576.0, map.size.y / 360.0)
+	var off := (map.size - Vector2(576, 360) * s) / 2.0
+	var a := off + px(from) * s
+	var b := off + px(to) * s
+	var at := a.lerp(b, t)
+	map.draw_line(a, at, MAGENTA, 4.0)
+	map.draw_dashed_line(at, b, MAGENTA, 3.0, 10.0)
+	_airport(map, a, Color(0.1, 0.45, 0.2))
+	_airport(map, b, MAGENTA)
+	for field in [[from, a], [to, b]]:
+		var spot: Vector2 = field[1] + Vector2(12, -10)
+		map.draw_string_outline(game.UI_FONT, spot, field[0].to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 17, 5, Color(1, 1, 0.94))
+		map.draw_string(game.UI_FONT, spot, field[0].to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 17, BLUE)
+	map.draw_set_transform(at, a.angle_to_point(b) + PI / 2.0, Vector2.ONE * 1.1)
+	var ink := Color(0.11, 0.09, 0.06)
+	map.draw_colored_polygon(PackedVector2Array([Vector2(0, -13), Vector2(2.5, -8), Vector2(1.5, 11), Vector2(-1.5, 11), Vector2(-2.5, -8)]), ink)
+	map.draw_rect(Rect2(-14, -6, 28, 5), ink)
+	map.draw_rect(Rect2(-6, 8, 12, 3), ink)
+	map.draw_set_transform(Vector2.ZERO)
+
+
 ## Sectional airport symbol: ring with four ticks and a runway bar.
 func _airport(map: Control, p: Vector2, c: Color) -> void:
 	map.draw_circle(p, 5.5, Color(1, 1, 0.94))

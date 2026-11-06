@@ -18,6 +18,7 @@ var _http: HTTPRequest
 func check() -> void:
 	if OS.has_feature("editor"):
 		return  # running from the project, not an installed build
+	clean()
 	_http = HTTPRequest.new()
 	add_child(_http)
 	_http.request_completed.connect(_on_latest)
@@ -41,6 +42,13 @@ func _on_latest(result: int, code: int, _headers: PackedStringArray, body: Packe
 			setup_name = str(a.get("name", "AirplaneRescue-setup.exe")).get_file()
 			available.emit(tag, str(data.get("body", "")))
 			return
+
+
+## The setup that brought us here has done its job: about 90 MB each, and every version has a new name.
+static func clean() -> void:
+	if DirAccess.dir_exists_absolute("user://update"):
+		for f in DirAccess.get_files_at("user://update"):
+			DirAccess.remove_absolute("user://update/" + f)
 
 
 ## True if version a is newer than b ("1.10.0" > "1.9.3"). Missing parts count as 0.

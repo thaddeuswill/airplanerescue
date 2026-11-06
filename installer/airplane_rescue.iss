@@ -22,6 +22,7 @@ OutputBaseFilename=AirplaneRescue-{#AppVersion}-setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=icon.ico
 UninstallDisplayIcon={app}\AirplaneRescue.exe
 CloseApplications=yes
 RestartApplications=no
@@ -33,6 +34,10 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Files]
 Source: "..\build\AirplaneRescue.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\fonts\LICENSE-Yellowtail.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "..\fonts\OFL-BigShouldersDisplay.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "..\models_raw\j3cub_fg\COPYING.txt"; DestDir: "{app}\licenses"; DestName: "GPLv3-J3Cub-model.txt"; Flags: ignoreversion
+Source: "licenses\Godot.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Airplane Rescue"; Filename: "{app}\AirplaneRescue.exe"

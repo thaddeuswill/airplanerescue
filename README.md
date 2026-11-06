@@ -19,7 +19,7 @@ Open the folder in Godot 4.7 (Import → select `project.godot`) and press F5.
   3. Create a GitHub release tagged `v<version>` and attach the setup .exe.
 
 ## Loop
-1. **Take a call.** The **RADIO** in the hangar shows rescue calls on a map, with the owner's symptoms ("runs rough, oil spots under the nose"), the pay, the distance, and how many days the owner will wait. Flying there costs fuel and days.
+1. **Take a call.** The **MAP** on the hangar workbench shows rescue calls, with the owner's symptoms ("runs rough, oil spots under the nose"), the pay, the distance, and how many days the owner will wait. Flying there costs fuel and days.
 2. **Walk around the plane.** Some planes just sat a few weeks; others sat out in the weather for years (it's on the radio call, and they pay more). Those are caked in grime, so **wash it down** first or you can't tell damage from dirt, and expect stale fuel to sump, an engine to pre-oil before its first start, maybe a door pin rusted shut.
     There are 8 spots to check: propeller, engine, cabin, both main gears, left wing, battery bay and tail. Press E on each to inspect it. You notice what's visible there (oil dripping, a flat tire, straw in the cowl). Then **sit in and run it up** from the work order: a dead battery, a clicking starter, a dead radio, a mag drop or rough plugs only show up there, and a dead battery or starter stops the run-up until it's fixed.
 3. **Get tools, materials and parts.** You start with a screwdriver and a rag. The ratchet set, torque wrench and safety-wire pliers must be bought: at a town's **PARTS** shed if it stocks them, or mail-ordered from the hangar **TOOLS** box (1 day, +25%). Repairs use up materials (safety wire, cotter pins, penetrant), so keep them stocked. Each town's **PARTS** shed stocks only some parts. The rest come by mail order, which costs 25% more and takes a day.
@@ -28,14 +28,20 @@ Open the folder in Godot 4.7 (Import → select `project.godot`) and press F5.
 
 Rescue 10 planes to win. Owners scrap their planes if you're too late. One call on the radio is always within 650 miles. Run out of money while grounded (can't afford a flight, or the parts, tools and materials to finish the plane here) and the game's over.
 
-**Look and sound** (from the MyAP design doc): its palette (dark earth, aged paper, hangar green, worn brass) and typewriter type, a shop log and framed photo on the hangar wall, wheel chocks, a chime for a new call, a pen scratch on each sign-off and a tone at rotation speed.
+**Look and sound:** the MyAP design doc's palette (dark earth, aged paper, hangar green, worn brass), a shop log and framed photo on the hangar wall, wheel chocks, a chime for a new call and a pen scratch on each sign-off. Repairs use recorded tool sounds per action, with guitar music and hangar room tone behind them (sources in CREDITS.md).
+
+**Flying it out** starts in the cockpit: run the checklist (F fuel, M master, P primer, W/S throttle, I mags, hold Space for the starter). Skip a step and it won't start: no fuel, no spark, flooded, or a hung start that dies unless you ease in throttle. Then W/S throttle, A/D rudder against the left swing, Down arrow to rotate at 55 kt.
+
+**Before take-off** you write up and sign the aircraft logbook; the plane can't leave until it's signed. You can sign with spots unchecked, but a fault you never found will strike on the runway or in the climb: land it and you lose a day and a quarter of the pay, crash it and you lose the job and $1500. Esc pauses, with settings, controls and credits there and on the title screen.
 
 ## Layout
 - `scripts/main.gd`: game state, world and plane building, panels
 - `scripts/work.gd`: the 2D work scenes (rules, drawing, and all 13 jobs as data)
 - `scripts/gauge.gd`: round cockpit dials drawn into the Cub's panel
 - `scripts/updater.gd`: checks GitHub Releases and installs newer versions
-- `scripts/chart.gd`: the radio's navigation chart overlay
+- `scripts/chart.gd`: the rescue map's navigation chart overlay
+- `scripts/radio.gd`: the shop radio on the workbench (stations, and media keys for the player's own music)
+- `scripts/catalog.gd`: the Field Service Catalog parts book
 - `scripts/selftest.gd`: the self-test (plays a whole rescue through the real code)
 - `installer/airplane_rescue.iss`, `tools/build_release.ps1`: the Windows installer and its build
 - `scripts/player.gd`: first-person controller
@@ -50,4 +56,6 @@ Rescue 10 planes to win. Owners scrap their planes if you're too late. One call 
 - `ART_DIRECTION.md`, `TEXTURES.md`, `MODELS.md`: art direction and asset lists
 - `prototype/index.html`: the original 2D browser prototype
 
-Self-test (`scripts/selftest.gd`): `godot --headless --path . -- --self-test [--all-faults] [--city=Omaha] [--shot=prefix]`
+Self-test (`scripts/selftest.gd`): `godot --headless --path . -- --self-test [--all-faults] [--city=Omaha] [--seed=N] [--shot=prefix]`. Each result prints its city and seed, so a failure can be replayed.
+
+Before a release, also run `godot --headless --path . -- --self-test --all-fields`: it flies a forced landing at every field.

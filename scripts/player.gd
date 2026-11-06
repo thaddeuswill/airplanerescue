@@ -4,6 +4,8 @@ extends CharacterBody3D
 const SPEED := 5.0
 const JUMP_VELOCITY := 4.5
 const MOUSE_SENS := 0.0025
+var sens := MOUSE_SENS  # scaled by the Settings slider
+var invert := false
 
 var frozen := false  # true while a 2D panel is open
 var cam: Camera3D
@@ -35,8 +37,8 @@ func _unhandled_input(e: InputEvent) -> void:
 	if frozen or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		return
 	if e is InputEventMouseMotion:
-		rotate_y(-e.relative.x * MOUSE_SENS)
-		cam.rotate_x(-e.relative.y * MOUSE_SENS)
+		rotate_y(-e.relative.x * sens)
+		cam.rotate_x(e.relative.y * sens * (1.0 if invert else -1.0))
 		cam.rotation.x = clampf(cam.rotation.x, -1.4, 1.4)
 
 

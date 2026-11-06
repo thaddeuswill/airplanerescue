@@ -53,8 +53,18 @@ func run(main, args: PackedStringArray) -> void:
 	g._light_marker("cabin")  # aiming at a spot lights its ring; looking away puts it out
 	var cabin_mark: Label3D = g.plane.get_node("marker_cabin")
 	var marks_ok: bool = cabin_mark.get_node("ring").visible and cabin_mark.get_node("glow").visible
+	for icon in ["map", "question", "wrench", "runup", "sign", "fuel", "hangar", "fly", "inspect", "saved", "wallet", "clipboard", "logbook"] + g.ACT_ICONS.values():
+		marks_ok = marks_ok and ResourceLoader.exists("res://textures/hud/%s.svg" % icon)
 	g._light_marker("")
 	marks_ok = marks_ok and cabin_mark.get_node("ring").visible and not cabin_mark.get_node("glow").visible
+	g.log_clear()  # the engine log never shows more than two messages, live line included
+	for line in ["one", "two", "three"]:
+		g.log_line(line)
+	var shown := func() -> int: return g._log_list.get_children().filter(func(l): return l.visible).size() + (1 if g._log_now.visible else 0)
+	marks_ok = marks_ok and shown.call() == 2
+	g.log_live("Cranking...")
+	marks_ok = marks_ok and shown.call() == 2
+	g.log_clear()
 	if shot != "":
 		var spot: Vector3 = g.plane.to_global(g.ZONES.prop.pos)  # the prop stands clear of the hull
 		var stand: Vector3 = g.plane.to_global(g.ZONES.prop.pos + Vector3(0, 0, -2.0))
@@ -171,6 +181,14 @@ func run(main, args: PackedStringArray) -> void:
 		await get_tree().process_frame
 		ok = ok and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	g._open_shop()
+	var tab := InputEventKey.new()  # Tab turns to the next section and stays in the catalog
+	tab.keycode = KEY_TAB
+	tab.physical_keycode = KEY_TAB
+	tab.pressed = true
+	var was_section: int = g.panel._sec
+	g._input(tab)
+	ok = ok and g.panel.has_method("next_section") and g.panel._sec != was_section
+	g.panel._tab(0)
 	ok = ok and g.panel.get_child(0).size == g.get_viewport().get_visible_rect().size  # the backdrop covers the world
 	await _snap(shot, "shop")
 	if shot != "":
@@ -342,6 +360,7 @@ func run(main, args: PackedStringArray) -> void:
 	g._start_ferry()
 	await _snap(shot, "checklist", 0.3)
 	ok = await _start_failures() and ok
+	await _snap(shot, "engine_log", 0.1)
 	await _fly(true, shot)
 	ok = ok and g.ferry == null and g.rescued == 1 and g.money == start + job.reward and g.jobs.size() == g.MAX_JOBS
 	# The ending and game-over screens both leave a way out and can't be closed by accident.
@@ -464,6 +483,7 @@ func _trouble_tests(shot: String) -> bool:
 	hit.plane.position.x = -800.0
 	hit.alt = 2.0
 	hit.speed = 35.0
+	hit.trouble = "oil_leak"  # not struck yet: the hill still takes the blame
 	var t0 = Time.get_ticks_msec()
 	while g.ferry and Time.get_ticks_msec() - t0 < 6000:
 		await get_tree().process_frame
@@ -478,6 +498,7 @@ func _start_failures() -> bool:
 	var f = g.ferry
 	await _crank(2.2)
 	var ok: bool = f.state == "off"  # master off: dead silence
+	ok = ok and g._log.visible and g._log_list.get_children().any(func(l): return l.text.contains("master switch"))
 	f.toggle_master()
 	await _crank(2.2)
 	ok = ok and f.state == "off"  # no fuel

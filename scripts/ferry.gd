@@ -161,7 +161,7 @@ func _starting(delta: float) -> void:
 		_crank_t = 0.0
 		_crank_total = maxf(0.0, _crank_total - delta * 0.5)
 		_judged = false
-		main.prompt.text = "Starter hot: give it %d more seconds" % ceili(_cool) if _cool > 0.0 else ""
+		main.log_live("Starter hot: give it %d more seconds" % ceili(_cool) if _cool > 0.0 else "")
 		return
 	if _cool > 0.0:
 		return
@@ -169,19 +169,19 @@ func _starting(delta: float) -> void:
 		if not _judged:
 			_judged = true
 			main.sound.sfx("deny")
-			main._say("Nothing. The master switch is off.")
+			main.log_line("Nothing. The master switch is off.")
 		return
 	main.sound.loop("crank")
 	main.sound.engine = 0.12
 	rpm = 180.0
 	_crank_t += delta
 	_crank_total += delta
-	main.prompt.text = "Cranking..."
+	main.log_live("Cranking...")
 	if _crank_total >= STARTER_LIMIT:
 		_cool = 6.0
 		_crank_total = 0.0
 		main.sound.stop_loop()
-		main._say("That's enough cranking. Let the starter cool before you burn it out.")
+		main.log_line("That's enough cranking. Let the starter cool before you burn it out.")
 		return
 	if flood > 0.0:
 		if throttle >= 0.7:
@@ -189,7 +189,7 @@ func _starting(delta: float) -> void:
 			if flood <= 0.0:
 				primes = 2
 				_judged = true  # let go of the starter before the next try
-				main._say("That's cleared it. Close the throttle back down and try again.")
+				main.log_line("That's cleared it. Close the throttle back down and try again.")
 		return
 	if _crank_t >= CATCH_AFTER and not _judged:
 		_judged = true
@@ -199,18 +199,18 @@ func _starting(delta: float) -> void:
 ## What happens when the engine has turned over long enough to fire.
 func _attempt() -> void:
 	if not fuel_on:
-		main._say("It turns over but never fires. No fuel getting to the carburetor.")
+		main.log_line("It turns over but never fires. No fuel getting to the carburetor.")
 	elif mags == 0:
-		main._say("It turns over but never fires. No spark: check the mags.")
+		main.log_line("It turns over but never fires. No spark: check the mags.")
 	elif primes >= 6:
 		flood = 3.0
-		main._say("Wet and heavy, a strong smell of gas. It's flooded. Throttle wide open and crank to clear it.")
+		main.log_line("Wet and heavy, a strong smell of gas. It's flooded. Throttle wide open and crank to clear it.")
 	elif primes < 2 or throttle < 0.05:
 		state = "hung"
 		_hang_t = 0.0
 		main.sound.stop_loop()
 		main.sound.sfx("crank")
-		main._say("It catches, then hangs at 350 rpm and won't come up. Ease in some throttle!")
+		main.log_line("It catches, then hangs at 350 rpm and won't come up. Ease in some throttle!")
 	else:
 		_run("It fires and settles into a lumpy idle." if throttle <= 0.4 else "It catches and roars straight up. Way too much throttle: ease it back!")
 
@@ -220,7 +220,7 @@ func _hung(delta: float) -> void:
 	_hang_t += delta
 	rpm = 350.0 + sin(_hang_t * 11.0) * 60.0
 	main.sound.engine = 0.14
-	main.prompt.text = "HUNG START     %d rpm\nThrottle to 12-35%%   (now %d%%)" % [rpm, throttle * 100]
+	main.log_live("HUNG START  %d rpm\nThrottle to 12-35%%  (now %d%%)" % [rpm, throttle * 100])
 	if throttle >= 0.12 and throttle <= 0.35 and _hang_t >= 1.0:
 		_run("It picks up and runs. Nicely caught.")
 	elif throttle > 0.5 or _hang_t >= 5.0:
@@ -231,7 +231,8 @@ func _run(text: String) -> void:
 	state = "run"
 	main.sound.stop_loop()
 	main.sound.sfx("jack")
-	main._say(text)
+	main.log_live("")
+	main.log_line(text)
 	_judged = false
 
 
@@ -241,8 +242,8 @@ func _die(text: String) -> void:
 	primes = 0
 	main.sound.engine = 0.0
 	main.sound.sfx("deny")
-	main.prompt.text = ""
-	main._say(text)
+	main.log_live("")
+	main.log_line(text)
 
 
 func _fly(delta: float) -> void:
@@ -280,6 +281,7 @@ func _fly(delta: float) -> void:
 	main.update_gauges(speed, alt, rpm)
 	if not on_ground and alt <= main.terrain.height(plane.position.x, plane.position.z):
 		main._say("The ground came up faster than you did!")
+		trouble = ""  # the report blames the hill, not a fault that hadn't struck yet
 		_end("crash")
 		return
 	var kt := speed * 1.94

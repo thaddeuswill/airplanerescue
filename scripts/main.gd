@@ -142,7 +142,7 @@ var prompt: Label
 var msg: Label
 var goal: Label
 var _banner_node: Control
-var _saved: Label
+var _saved: TextureRect
 var _saved_fade: Tween
 var cross: Reticle
 var panel: Control
@@ -190,21 +190,24 @@ func _ready() -> void:
 	had_save = _load_game()
 	if had_save:
 		_load_field(location, current_job)
-		_say("Welcome back. Day %d in %s." % [floori(day), location])
+		_greeting = "Welcome back. Day %d in %s." % [floori(day), location]
 	elif save_locked:
 		while jobs.size() < MAX_JOBS:
 			_spawn_job()
 		_load_field(START_CITY, null)
-		_say("Couldn't read your saved game, so it was left untouched. This session won't be saved over it.")
+		_greeting = "Couldn't read your saved game, so it was left untouched. This session won't be saved over it."
 	else:
 		tools = STARTER_TOOLS.duplicate()  # a new career starts with a screwdriver and a rag
 		while jobs.size() < MAX_JOBS:
 			_spawn_job()
 		_load_field(START_CITY, null)
-		_say("Home base. You own a screwdriver and a rag; buy the rest. WASD walks, E uses things, Esc pauses.")
+		_greeting = "Home base. Take a rescue call from the map on the hangar workbench. WASD walks, E uses things, Esc pauses."
 	_warm_assets()
 	if not "--self-test" in args and not skip_menu:
-		_open_menu()
+		_open_menu()  # it clears messages, so the greeting waits for it to close
+	else:
+		_say(_greeting)
+		_greeting = ""
 	skip_menu = false
 	if "--self-test" in args:
 		var test = load("res://scripts/selftest.gd").new()
@@ -247,6 +250,7 @@ var save_path := "user://airplane_rescue.save"
 var test_seed := 0  # printed with every self-test result
 const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics"]
 const SAVE_VERSION := 1  # bump when the layout changes, and teach _migrate the step
+var _greeting := ""  # the first message of this session
 var had_save := false  # a career was loaded at launch (so the title screen offers Continue)
 var save_locked := false  # a save we couldn't read is never overwritten (it might be newer, or fixable)
 
@@ -649,7 +653,8 @@ func _run_up() -> void:
 			if heard.is_empty():
 				heard.append("Fires right up, smooth on both mags, oil pressure in the green")
 			job.runup = "ran"
-	_say(". ".join(heard) + ("." if job.runup == "ran" else ". Can't run it up until that's fixed."))
+	log_clear()
+	log_line(". ".join(heard) + ("." if job.runup == "ran" else ". Can't run it up until that's fixed."))
 	_save_game()
 	_open_inspection("cabin")
 
@@ -723,7 +728,8 @@ func _start_ferry() -> void:
 	var missed: Array = current_job.faults.filter(func(id): return not current_job.fixed.has(id) and TROUBLE.has(id))
 	ferry.trouble = missed[0] if missed.size() > 0 else ""
 	ferry.start(self, plane, visuals["propeller"].get_child(-1))
-	_say("Run the checklist, then hold Space to start her up.")
+	log_clear()
+	log_line("Run the checklist, then hold Space to start her up.")
 
 
 ## The Cub panel's four dial holes (probed: front face z=-0.202, y=1.382, r 0.044 m).
@@ -1198,6 +1204,9 @@ func _close_menu() -> void:
 	if is_instance_valid(_menu_cam):
 		_menu_cam.queue_free()
 	player.cam.make_current()
+	if _greeting != "":
+		_say(_greeting)
+		_greeting = ""
 	if not _pending_update.is_empty():
 		_offer_update(_pending_update[0], _pending_update[1])
 		_pending_update = []
@@ -1239,6 +1248,7 @@ func _process(delta: float) -> void:
 			msg.text = ""
 	if is_instance_valid(_menu_cam) and panel_kind == "menu":
 		_menu_drift(delta)
+	act.visible = false
 	if ferry:
 		return  # the ferry flight drives its own prompt
 	prompt.text = ""
@@ -1252,16 +1262,12 @@ func _process(delta: float) -> void:
 		kind = ""
 	cross.set_live(kind != "")
 	_light_marker(t.get_meta("zone") if kind == "zone" else "")
-	match kind:
-		"zone":
-			var z: String = t.get_meta("zone")
-			prompt.text = ("E: Work order  (%s checked)" if current_job.checked.has(z) else "E: Inspect %s") % ZONES[z].name
-		"shop": prompt.text = "E: Parts shed"
-		"radio": prompt.text = "E: Radio"
-		"map": prompt.text = "E: Map - rescue calls"
-		"toolbox": prompt.text = "E: Toolbox"
-		"truck": prompt.text = "E: Fuel truck"
-		"parts_table": prompt.text = "E: Parts on hand"
+	if kind != "":
+		var icon: String = ACT_ICONS.get(kind, "")
+		if kind == "zone":
+			icon = "wrench" if current_job.checked.has(t.get_meta("zone")) else "inspect"
+		_act_icon.texture = load("res://textures/hud/%s.svg" % icon)
+		act.visible = true
 	if kind != "" and Input.is_action_just_pressed("interact") and close_frame != Engine.get_process_frames():
 		match kind:
 			"zone": _inspect_zone(t.get_meta("zone"))
@@ -1275,6 +1281,11 @@ func _process(delta: float) -> void:
 
 func _input(e: InputEvent) -> void:  # before the GUI, so Tab isn't eaten by focus navigation
 	if is_instance_valid(_loader):  # the field is half built: no panels until it's done
+		return
+	if panel is CatalogUI or panel is RadioUI:  # full-screen sets: the pocket keys don't reach through them
+		if panel is CatalogUI and e.is_action_pressed("wallet"):
+			panel.next_section(e.shift_pressed)
+			get_viewport().set_input_as_handled()
 		return
 	for kind in ["wallet", "clipboard", "logbook"]:
 		if e.is_action_pressed(kind):
@@ -1348,6 +1359,9 @@ func _setup_ui() -> void:
 	cross = Reticle.new()
 	ui.add_child(cross)
 	prompt = _chip(17, 0.72, 0.8)
+	_setup_act()
+	_setup_quest()
+	_setup_log()
 	msg = _chip(16, 0.03, 0.2)
 	goal = _chip(14, 0.0, 0.0)
 	goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -1355,6 +1369,136 @@ func _setup_ui() -> void:
 	strip.anchor_right = 0.0  # top-left corner, the same spot all game
 	strip.offset_left = 20
 	strip.offset_top = 18
+
+
+const ACT_ICONS := {"shop": "shop", "radio": "radio", "map": "map", "toolbox": "toolbox", "truck": "fuel", "parts_table": "parts"}
+var act: Control  # what E will do here, under the cursor
+var _act_icon: TextureRect
+var quest: Control  # what to do next, top left
+var _quest_icon: TextureRect
+var _quest_count: Label
+
+
+const LOG_LINES := 2
+const LOG_SECONDS := 8.0
+var _log: Control  # the engine log, top right: everything the start-up and run-up tell you
+var _log_list: VBoxContainer
+var _log_now: Label  # what's happening this second: cranking, a hung start
+var _log_until := 0
+
+
+func _setup_log() -> void:
+	var sheet := PanelContainer.new()
+	sheet.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	sheet.offset_left = -376
+	sheet.offset_right = -16
+	sheet.offset_top = 16
+	sheet.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	sheet.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sheet.z_index = 5
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(C_EARTH, 0.8)
+	sb.border_width_left = 3
+	sb.border_color = C_BRASS
+	sb.set_content_margin_all(10)
+	sheet.add_theme_stylebox_override("panel", sb)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 5)
+	sheet.add_child(column)
+	_log_list = VBoxContainer.new()
+	_log_list.add_theme_constant_override("separation", 5)
+	column.add_child(_log_list)
+	_log_now = _log_label("")
+	_log_now.add_theme_color_override("font_color", Color(CatalogUI.MUSTARD))
+	column.add_child(_log_now)
+	ui.add_child(sheet)
+	_log = sheet
+	_log.visible = false
+
+
+func _log_label(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.custom_minimum_size.x = 340
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.add_theme_font_override("font", UI_FONT)
+	l.add_theme_font_size_override("font_size", 14)
+	l.add_theme_color_override("font_color", C_PAPER)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+
+## Adds a line to the engine log. Older lines dim, and the oldest drops off.
+func log_line(text: String) -> void:
+	_log_list.add_child(_log_label(text))
+	if _log_list.get_child_count() > LOG_LINES:
+		var oldest := _log_list.get_child(0)
+		_log_list.remove_child(oldest)
+		oldest.queue_free()
+	_log_tidy()
+	_log_until = Time.get_ticks_msec() + int(LOG_SECONDS * 1000.0)
+
+
+func log_live(text: String) -> void:
+	_log_now.text = text
+	if _log_now.visible != (text != ""):
+		_log_now.visible = text != ""
+		_log_tidy()
+
+
+## Never more than LOG_LINES on show: the live line takes one of the places.
+func _log_tidy() -> void:
+	var lines := _log_list.get_children()
+	var room: int = LOG_LINES - (1 if _log_now.visible else 0)
+	for i in lines.size():
+		lines[i].visible = i >= lines.size() - room
+		lines[i].modulate.a = 1.0 if i == lines.size() - 1 else 0.6
+
+
+func log_clear() -> void:
+	for l in _log_list.get_children():
+		_log_list.remove_child(l)
+		l.queue_free()
+	log_live("")
+
+
+func _setup_act() -> void:
+	var box_ := CenterContainer.new()
+	box_.anchor_right = 1.0
+	box_.anchor_top = 0.68
+	box_.anchor_bottom = 0.8
+	box_.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var key := _keycap("E", 18)
+	key.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(key)
+	_act_icon = _hud_icon("inspect", 44)
+	row.add_child(_act_icon)
+	box_.add_child(row)
+	ui.add_child(box_)
+	act = box_
+	act.visible = false
+
+
+func _setup_quest() -> void:
+	var row := HBoxContainer.new()
+	row.position = Vector2(16, 14)
+	row.add_theme_constant_override("separation", 8)
+	row.modulate.a = 0.8
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quest_icon = _hud_icon("map", 40)
+	row.add_child(_quest_icon)
+	_quest_count = Label.new()
+	_quest_count.add_theme_font_override("font", CatalogUI.BLACK)
+	_quest_count.add_theme_font_size_override("font_size", 22)
+	_quest_count.add_theme_color_override("font_color", C_PAPER)
+	_quest_count.add_theme_constant_override("outline_size", 8)
+	_quest_count.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
+	row.add_child(_quest_count)
+	ui.add_child(row)
+	quest = row
 
 
 ## A small dark caption, centered in a band of the screen. Hidden while it has no text.
@@ -1440,20 +1584,12 @@ func _money_pop(change: int) -> void:
 
 func _saved_mark() -> void:
 	if _saved == null:
-		_saved = Label.new()
-		_saved.text = "Saved"
-		_saved.anchor_left = 1.0
-		_saved.anchor_right = 1.0
-		_saved.anchor_top = 1.0
-		_saved.anchor_bottom = 1.0
-		_saved.offset_left = -100
-		_saved.offset_right = -20
-		_saved.offset_top = -34
-		_saved.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		_saved.add_theme_font_override("font", UI_FONT)
-		_saved.add_theme_font_size_override("font_size", 13)
-		_saved.add_theme_color_override("font_color", C_BRASS)
-		_saved.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_saved = _hud_icon("saved", 24)
+		_saved.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+		_saved.offset_left = -40
+		_saved.offset_top = -40
+		_saved.offset_right = -16
+		_saved.offset_bottom = -16
 		ui.add_child(_saved)
 	if _saved_fade:
 		_saved_fade.kill()
@@ -1464,24 +1600,24 @@ func _saved_mark() -> void:
 
 
 ## What to do next, spelled out one step at a time. This is the game's running tutorial.
-func _objective() -> String:
+## What to do next as [icon, count]: the markers on the plane say where.
+func _objective() -> Array:
 	if current_job == null:
-		return "NEXT  Walk into the hangar and press E at the MAP on the workbench to take a rescue call"
+		return ["map", ""]
 	var j: Dictionary = current_job
 	if j.checked.size() < ZONES.size():
-		return "NEXT  Walk around the plane, press E at each ? marker  (%d of %d)" % [j.checked.size(), ZONES.size()]
-	for id in j.faults:
-		if j.found.has(id) and not j.fixed.has(id):
-			return "NEXT  Fix: %s. Press E at the ! marker on the %s" % [FAULTS[id].name, ZONES[FAULTS[id].zone].name]
+		return ["question", "%d/%d" % [j.checked.size(), ZONES.size()]]
+	if j.faults.any(func(id): return j.found.has(id) and not j.fixed.has(id)):
+		return ["wrench", ""]
 	if j.get("runup", "") != "ran":
-		return "NEXT  Press E at the cabin and run the engine up"
+		return ["runup", ""]
 	if not j.get("signed", false):
-		return "NEXT  Press E at the plane and write up the logbook"
+		return ["sign", ""]
 	if j.get("fuel", 1.0) < 0.5:
-		return "NEXT  Fuel it at the truck by the hangar: at least half tanks"
+		return ["fuel", ""]
 	if j.get("parked", "apron") == "hangar":
-		return "NEXT  Press E at the plane and roll it out of the hangar"
-	return "NEXT  Press E at the cabin, climb in and fly it to the owner"
+		return ["hangar", ""]
+	return ["fly", ""]
 
 
 ## Almost no HUD (ART_DIRECTION.md): money, parts and career live in things you take out.
@@ -1492,43 +1628,67 @@ func _update_hud() -> void:
 	prompt.custom_minimum_size.x = 620.0 if ferry else 0.0  # flight numbers change every frame; a fixed box doesn't shake
 	msg.visible = msg.text != ""
 	var preflight: bool = ferry != null and ferry.state != "run" and panel == null
-	goal.visible = hud.visible or preflight
+	goal.visible = preflight
 	if preflight:
 		goal.text = ferry.checklist()
-	elif goal.visible:
-		goal.text = _objective()
+	var has_lines: bool = _log_list.get_child_count() > 0 or _log_now.visible
+	_log.visible = has_lines and (preflight or Time.get_ticks_msec() < _log_until)
+	quest.visible = hud.visible
+	if quest.visible:
+		var next := _objective()
+		_quest_icon.texture = load("res://textures/hud/%s.svg" % next[0])
+		_quest_count.text = next[1]
 	# Toasts sit over the open half of the screen, never on top of a side sheet.
 	msg.get_parent().offset_left = SHEET_W if panel is PanelContainer else 0.0
 
 
-## Bottom-left strip of key hints (icons from textures/ui/ when the art exists).
+## Bottom-left: what you carry, as icons, each with the key that opens it.
 func _setup_pockets() -> void:
 	var strip := HBoxContainer.new()
 	strip.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	strip.offset_left = 16
-	strip.offset_top = -48
-	strip.offset_bottom = -12
-	strip.add_theme_constant_override("separation", 18)
-	for p in [["wallet", "Tab", "Wallet"], ["clipboard", "J", "Clipboard"], ["logbook", "L", "Logbook"]]:
-		var tex := "res://textures/ui/%s.png" % p[0]
-		if ResourceLoader.exists(tex):
-			var icon := TextureRect.new()
-			icon.texture = load(tex)
-			icon.custom_minimum_size = Vector2(40, 40)
-			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			icon.modulate = Color(1, 1, 1, 0.8)
-			strip.add_child(icon)
-		var l := Label.new()
-		l.text = "%s  %s" % [p[1], p[2]]
-		l.add_theme_font_size_override("font_size", 14)
-		l.add_theme_constant_override("outline_size", 5)
-		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-		l.modulate = Color(1, 1, 1, 0.75)
-		strip.add_child(l)
+	strip.offset_top = -54
+	strip.offset_bottom = -14
+	strip.add_theme_constant_override("separation", 8)
+	strip.modulate.a = 0.55  # always there, never asking for attention
+	for p in [["wallet", "Tab"], ["clipboard", "J"], ["logbook", "L"]]:
+		var icon := _hud_icon(p[0], 40)
+		var key := _keycap(p[1], 10)
+		key.position = Vector2(20 if p[1] == "Tab" else 28, 27)
+		icon.add_child(key)
+		strip.add_child(icon)
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud = strip
 	ui.add_child(hud)
+
+
+func _hud_icon(icon: String, px: int) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = load("res://textures/hud/%s.svg" % icon)
+	t.custom_minimum_size = Vector2(px, px)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
+
+
+## A little key, so an icon still says how to use it.
+func _keycap(key: String, px: int) -> Label:
+	var l := Label.new()
+	l.text = key
+	l.add_theme_font_override("font", CatalogUI.BLOCK)
+	l.add_theme_font_size_override("font_size", px)
+	l.add_theme_color_override("font_color", C_EARTH)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = C_PAPER
+	sb.set_corner_radius_all(3)
+	sb.content_margin_left = px * 0.4
+	sb.content_margin_right = px * 0.4
+	sb.content_margin_top = 1
+	sb.content_margin_bottom = 1
+	l.add_theme_stylebox_override("normal", sb)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
 
 
 var panel_kind := ""  # which pocket panel is open, so its key closes it again
@@ -2150,7 +2310,7 @@ func _build_parts_table() -> void:
 		for sz in [-1, 1]:
 			box(world, Vector3(0.08, 0.82, 0.08), at + Vector3(sx * 1.45, 0.41, sz * 0.45), tmat("bark", Color(0.55, 0.45, 0.35)))
 	interactable(world, at + Vector3(0, 1.1, 0), Vector3(3.4, 1.0, 1.3), "parts_table")
-	_text3d("PARTS ON HAND", at + Vector3(0, 2.0, 0), 36)
+	_icon3d("parts", at + Vector3(0, 2.0, 0))
 	_parts_table = Node3D.new()
 	_parts_table.position = at + Vector3(0, 0.9, 0)
 	world.add_child(_parts_table)
@@ -2210,13 +2370,14 @@ func _refresh_markers() -> void:
 			m.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 			m.no_depth_test = true
 			m.font_size = 72
-			m.pixel_size = 0.007  # readable from across the apron
+			m.fixed_size = true  # the same size at any distance: up close they used to fill the view
+			m.pixel_size = 0.00085
 			m.outline_size = 18
 			m.position = ZONES[z].pos + Vector3(0, ZONES[z].size.y * 0.5 + 0.25, 0)
 			m.render_priority = 2
 			m.outline_render_priority = 1
-			m.add_child(_marker_sprite("glow", [[0.0, 0.8], [0.55, 0.45], [1.0, 0.0]], 0.012))
-			m.add_child(_marker_sprite("ring", [[0.0, 0.0], [0.83, 0.0], [0.86, 1.0], [0.93, 1.0], [0.96, 0.0], [1.0, 0.0]], 0.0065))
+			m.add_child(_marker_sprite("glow", [[0.0, 0.8], [0.55, 0.45], [1.0, 0.0]], 0.0012))
+			m.add_child(_marker_sprite("ring", [[0.0, 0.0], [0.83, 0.0], [0.86, 1.0], [0.93, 1.0], [0.96, 0.0], [1.0, 0.0]], 0.00075))
 			plane.add_child(m)
 		var open: bool = job.faults.any(func(id): return FAULTS[id].zone == z and job.found.has(id) and not job.fixed.has(id))
 		if z == "cabin" and job.get("runup", "") != "ran" and job.checked.has(z):
@@ -2256,6 +2417,7 @@ func _marker_sprite(sprite_name: String, stops: Array, pixel: float) -> Sprite3D
 	s.pixel_size = pixel
 	s.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	s.no_depth_test = true
+	s.fixed_size = true
 	s.shaded = false
 	s.visible = false
 	return s
@@ -2859,7 +3021,7 @@ func _build_workbench(at: Vector3) -> void:
 	var chart_at := at + Vector3(-0.62, 0.925, 0)
 	decal(world, Vector2(1.76, 1.1) * 0.9, chart_at, "us_map", Vector3.UP).mesh.material.albedo_color = Color(0.62, 0.62, 0.55)  # the bench lamp washes it out
 	interactable(world, chart_at + Vector3(0, 0.15, 0.05), Vector3(1.8, 0.5, 1.2), "map")
-	_text3d("MAP", chart_at + Vector3(0, 0.75, 0), 48)
+	_icon3d("map", chart_at + Vector3(0, 0.75, 0))
 	var set_at := at + Vector3(1.05, 1.1, -0.1)  # middle of the radio's case
 	box(world, Vector3(0.66, 0.36, 0.3), set_at, tmat("wood_planks", Color(0.36, 0.22, 0.13), 2.0))
 	box(world, Vector3(0.26, 0.26, 0.012), set_at + Vector3(-0.17, 0, 0.152), Color(0.16, 0.11, 0.08))  # speaker cloth
@@ -2868,7 +3030,7 @@ func _build_workbench(at: Vector3) -> void:
 	for x in [0.06, 0.22]:
 		box(world, Vector3(0.06, 0.06, 0.03), set_at + Vector3(x, -0.08, 0.16), Color(0.82, 0.74, 0.55))  # knobs
 	interactable(world, set_at + Vector3(0, 0.05, 0.3), Vector3(1.0, 0.8, 0.9), "radio")
-	_text3d("RADIO", set_at + Vector3(0, 0.6, 0), 48)
+	_icon3d("radio", set_at + Vector3(0, 0.6, 0))
 
 
 func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
@@ -2883,7 +3045,7 @@ func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	decal(world, Vector2(4.2, 2.9), at + Vector3(0, 4.75, BACK + 0.08), "logo_ghost", Vector3.BACK)  # old paint above the pegboard
 	prop("toolbox", at + Vector3(-4.5, 0, BACK + 0.6), 1.1, tmat("toolbox_red", Color.WHITE, 1.5))  # drawers face +Z
 	interactable(world, at + Vector3(-4.5, 0.6, BACK + 1.0), Vector3(1.4, 1.2, 1.2), "toolbox")
-	_text3d("TOOLS", at + Vector3(-4.5, 1.6, BACK + 0.6), 40)
+	_icon3d("toolbox", at + Vector3(-4.5, 1.7, BACK + 0.6))
 	_lamp(at + Vector3(-4.5, 2.6, BACK + 1.2))  # over the toolbox
 	decal(world, Vector2(0.62, 0.44), at + Vector3(-4.03, 0.75, BACK + 0.6), "logo_decal", Vector3.RIGHT)
 	var drum_paint := [Color(0.45, 0.6, 0.85), Color(0.8, 0.35, 0.3), Color(0.5, 0.6, 0.45)]
@@ -3706,11 +3868,14 @@ func interactable(parent: Node, pos: Vector3, size: Vector3, kind: String) -> St
 	return b
 
 
-func _text3d(text: String, pos: Vector3, size: int) -> void:
-	var l := Label3D.new()
-	l.text = text
-	l.font_size = size
-	l.outline_size = 16
-	l.position = pos
-	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	world.add_child(l)
+func _icon3d(icon: String, pos: Vector3) -> void:
+	var s3 := Sprite3D.new()
+	s3.texture = load("res://textures/hud/%s.svg" % icon)
+	s3.pixel_size = 0.0026
+	s3.shaded = false
+	s3.visibility_range_end = 6.0  # only near enough to matter
+	s3.visibility_range_end_margin = 1.5
+	s3.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+	s3.position = pos
+	s3.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	world.add_child(s3)

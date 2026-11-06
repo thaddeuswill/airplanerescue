@@ -117,11 +117,14 @@ func _unhandled_key_input(e: InputEvent) -> void:
 			_turn(-1)
 		KEY_D, KEY_RIGHT, KEY_PAGEDOWN:
 			_turn(1)
-		KEY_TAB:
-			_tab((_sec + (-1 if e.shift_pressed else 1) + _sections.size()) % maxi(1, _sections.size()))
 		_:
 			return
 	get_viewport().set_input_as_handled()
+
+
+## Tab, handed over by main.gd: the buy button holding focus would take it for itself.
+func next_section(back: bool) -> void:
+	_tab((_sec + (-1 if back else 1) + _sections.size()) % maxi(1, _sections.size()))
 
 
 func _turn(d: int) -> void:

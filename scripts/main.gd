@@ -135,7 +135,7 @@ const TESTS := {
 	"compression": {"name": "Compression test", "zone": "engine", "symptom": "",
 		"clue": "",
 		"ask": "Where's the air getting out?",
-		"options": [["Hiss at the exhaust: an exhaust valve", "exhaust"], ["Hiss at the air filter: an intake valve", "intake"],
+		"options": [["Hiss at the tailpipe: an exhaust valve", "exhaust"], ["Hiss at the carb air scoop: an intake valve", "intake"],
 			["Hiss at the oil filler: the rings", "rings"]]},
 	"oil_screen": {"name": "Oil screen check", "zone": "engine", "symptom": "oil pressure sags once it's warm",
 		"clue": "Oil pressure sags to 20 once it's warm; the manual wants 30. Pull the oil screen",
@@ -906,17 +906,17 @@ func reading(scene: String, eid: String) -> String:
 			if eid == "turn1":
 				var dead := range(4).filter(func(i): return not fire[i])
 				return "All four plugs spark." if dead.is_empty() else ("Not one plug sparks." if dead.size() == 4
-					else "Plug %s doesn't spark; the rest do." % ", ".join(dead.map(func(i): return str(i + 1))))
+					else "The %s plug doesn't spark; the rest do." % ", ".join(dead.map(func(i): return Work.SPARK_PLUGS[i])))
 			return "Good plug on that lead: it sparks." if fire.all(func(f): return f) else "Good plug on that lead: still nothing."
 		"cold_cylinder":
 			if cause == "":
 				return "Every mark melted: all four are firing."
-			return "Marks melted on every stack but %d. Cylinder %d isn't firing." % [cyl + 1, cyl + 1]
+			return "Every riser's mark melted but cylinder %d's. Cylinder %d isn't firing." % [cyl + 1, cyl + 1]
 		"compression":
 			var i := int(eid.substr(1))
 			if cause == "" or i != cyl:
 				return "Cylinder %d: 76/80. Healthy." % (i + 1)
-			var place: String = {"exhaust": "the exhaust", "intake": "the air filter", "rings": "the oil filler"}[_answer(cause, "compression")]
+			var place: String = {"exhaust": "the tailpipe", "intake": "the carb air scoop", "rings": "the oil filler"}[_answer(cause, "compression")]
 			return "Cylinder %d: 48/80, and air hissing out at %s." % [i + 1, place]
 		"reading_plugs":
 			var c := int(eid.substr(1))
@@ -995,7 +995,7 @@ func view_art(scene: String, eid: String) -> String:
 		"cold_cylinder":
 			if w.get("pencil") != "done":
 				return ""
-			var melted: bool = w.get("run") == "done" and (cause == "" or int(eid.substr(4)) != cyl)
+			var melted: bool = w.get("run") == "done" and (cause == "" or Work.RISERS[int(eid.substr(4))][0] - 1 != cyl)
 			return "work/cold_cylinder_" + ("melted" if melted else "mark")
 		"compression":
 			var last: String = w.get("_last", "")

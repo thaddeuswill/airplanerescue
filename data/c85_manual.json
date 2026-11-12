@@ -203,10 +203,11 @@
    "ata": "24",
    "title": "Starter",
    "job": "starter",
-   "summary": "Just clicks: the starter or its drive is seized.",
+   "summary": "Just clicks: the starter or its drive is seized. On the C85-12 it bolts to a pad on the accessory case; there's no ring gear on the prop end.",
    "steps": [
-    "Battery off. Leads off the starter.",
-    "Starter out, new one in, leads on. Test it."
+    "Battery off. Cable nut off the starter terminal.",
+    "Two mount bolts out, starter off the pad.",
+    "New starter on the pad, bolts torqued, cable on. Test it."
    ],
    "tools": [
     "Wrenches"
@@ -284,7 +285,8 @@
    ],
    "parts": [
     "trim_cable",
-    "turnbuckle"
+    "turnbuckle",
+    "stab_screw"
    ],
    "specs": {
     "Tension (game)": "12 to 18 lb"
@@ -378,7 +380,9 @@
    "tools": [
     "Safety wire"
    ],
-   "parts": [],
+   "parts": [
+    "fuel_cap"
+   ],
    "specs": {},
    "caution": "",
    "figure": "",
@@ -401,7 +405,8 @@
    ],
    "parts": [
     "avgas",
-    "gasc_gasket"
+    "gasc_gasket",
+    "fuel_cap"
    ],
    "specs": {},
    "caution": "",
@@ -440,7 +445,8 @@
    "steps": [
     "Read the two colored threads in the cover: year and quarter of manufacture.",
     "Over five years old, a cracked cover, or the plane sits low: replace both sides.",
-    "Jack the fuselage so the gear hangs. Stretch the old rings off with the bungee tool.",
+    "Unlace the leather cover if the plane has one. Jack the axle so the gear hangs.",
+    "Stretch the old rings off with the bungee tool.",
     "Stretch new rings over both spools. Jack down and check the stance."
    ],
    "tools": [
@@ -448,7 +454,8 @@
     "Jack"
    ],
    "parts": [
-    "bungee"
+    "bungee",
+    "bungee_boot"
    ],
    "specs": {},
    "caution": "A bungee under tension can take a finger off. Never put your hand between the spools.",
@@ -499,12 +506,40 @@
    ],
    "parts": [
     "brake_fluid",
-    "expander_tube"
+    "expander_tube",
+    "bleeder"
    ],
    "specs": {},
    "caution": "",
    "figure": "",
    "picture": "res://textures/manual/ref_brake_bleed.png"
+  },
+  {
+   "id": "brakes",
+   "ata": "32",
+   "title": "Brake shoes",
+   "job": "brakes",
+   "summary": "J-3 brakes are drums: blocks round a rubber expander tube inside the wheel. Grinding on taxi means worn blocks.",
+   "steps": [
+    "Jack the axle. Cotter pin and axle nut off, wheel off: the drum comes with it.",
+    "Disconnect the brake line at its bracket.",
+    "Four bolts off, shoe assembly off the axle flange.",
+    "New shoes on, line back on, wheel on. Then bleed the brake."
+   ],
+   "tools": [
+    "Jack",
+    "Ratchet & sockets",
+    "Pliers"
+   ],
+   "parts": [
+    "brake_disc",
+    "expander_tube",
+    "bleeder"
+   ],
+   "specs": {},
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_brakes.png"
   },
   {
    "id": "tire",
@@ -513,7 +548,8 @@
    "job": "tire",
    "summary": "Low-pressure 8.00-4 tires: the Cub's big soft tires are what let it land on grass.",
    "steps": [
-    "Jack the axle. Deflate fully before you split the wheel.",
+    "Jack under the axle with the axle adapter. Hub cap off, cotter pin and axle nut off.",
+    "Deflate fully before you split the wheel.",
     "New tube, a little talc, line the valve up with the slot.",
     "Inflate to seat the bead, deflate, then inflate to pressure."
    ],
@@ -522,7 +558,9 @@
     "Tire irons"
    ],
    "parts": [
-    "tire"
+    "tire",
+    "tube_tire",
+    "hub_cap"
    ],
    "specs": {},
    "caution": "",
@@ -601,18 +639,21 @@
   {
    "id": "brace_wires",
    "ata": "57",
-   "title": "Tail brace wires",
+   "title": "Tail tie rods",
    "job": "brace_wires",
-   "summary": "Wires brace the fin and stabilizer against each other.",
+   "summary": "Solid tie rods with clevis ends brace the fin and stabilizer. They're rods, not cables.",
    "steps": [
-    "Check for rust, bends, and bowing in flight-loaded positions.",
-    "Replace in pairs. Tighten until the wires are taut with no flutter, both sides equal."
+    "Look for rust, bends and loose clevis pins at both ends.",
+    "A bent rod is replaced, never straightened.",
+    "Pin the clevises, then check the stabilizer sits square with no play."
    ],
    "tools": [
-    "Wrenches"
+    "Wrenches",
+    "Pliers"
    ],
    "parts": [
-    "brace_wires"
+    "brace_wires",
+    "tie_rod_lower"
    ],
    "specs": {},
    "caution": "",
@@ -1206,14 +1247,14 @@
     {
      "index": 6,
      "part": "oil_screen",
-     "no": "A3568",
+     "no": "AR-4312",
      "name": "Screen, oil suction",
      "qty": 1
     },
     {
      "index": 7,
      "part": "screen_gasket",
-     "no": "22350",
+     "no": "AR-4313",
      "name": "Gasket, suction screen",
      "qty": 1
     },

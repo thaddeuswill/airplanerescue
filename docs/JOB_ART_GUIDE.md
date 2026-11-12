@@ -57,15 +57,15 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/spark_test_bg.png` | 1000 x 560 | fills the scene | Engine left side, cowling off, the four top plug holes empty and the leads hanging down to the crankcase |
-| `spark_test_plug0.png` | 138 x 48 | 181, 320 | Plug 1 out of its hole, lead still on, laid on the crankcase so it's grounded |
-| `spark_test_plug1.png` | 138 x 48 | 351, 320 | Plug 2 out of its hole, lead still on, laid on the crankcase so it's grounded |
-| `spark_test_plug2.png` | 138 x 48 | 521, 320 | Plug 3 out of its hole, lead still on, laid on the crankcase so it's grounded |
-| `spark_test_plug3.png` | 138 x 48 | 691, 320 | Plug 4 out of its hole, lead still on, laid on the crankcase so it's grounded |
-| `spark_test_spark.png` | 50 x 50 | 247, 320 | Spark at plug 1's electrodes (shown only on the ones that fire) |
-| `spark_test_spark.png` | 50 x 50 | 417, 320 | Spark at plug 2's electrodes (shown only on the ones that fire) |
-| `spark_test_spark.png` | 50 x 50 | 587, 320 | Spark at plug 3's electrodes (shown only on the ones that fire) |
-| `spark_test_spark.png` | 50 x 50 | 757, 320 | Spark at plug 4's electrodes (shown only on the ones that fire) |
+| `backgrounds/spark_test_bg.png` | 1000 x 560 | fills the scene | Engine left side, cowling off: cylinders 4 and 2 end-on, top and bottom plug holes empty, leads run down to the case rail |
+| `spark_test_plug0.png` | 138 x 48 | 181, 326 | Cyl 4 top plug out, lead still on, laid on the case rail so it's grounded |
+| `spark_test_plug1.png` | 138 x 48 | 341, 326 | Cyl 4 bottom plug out, lead still on, laid on the case rail so it's grounded |
+| `spark_test_plug2.png` | 138 x 48 | 501, 326 | Cyl 2 top plug out, lead still on, laid on the case rail so it's grounded |
+| `spark_test_plug3.png` | 138 x 48 | 661, 326 | Cyl 2 bottom plug out, lead still on, laid on the case rail so it's grounded |
+| `spark_test_spark.png` | 50 x 50 | 247, 326 | Spark at the cyl 4 top plug's electrodes (shown only if it fires) |
+| `spark_test_spark.png` | 50 x 50 | 407, 326 | Spark at the cyl 4 bottom plug's electrodes (shown only if it fires) |
+| `spark_test_spark.png` | 50 x 50 | 567, 326 | Spark at the cyl 2 top plug's electrodes (shown only if it fires) |
+| `spark_test_spark.png` | 50 x 50 | 727, 326 | Spark at the cyl 2 bottom plug's electrodes (shown only if it fires) |
 | `spark_test_cowl.png` | 756 x 296 | 420, 190 | Cowling (same as the other engine scenes) |
 
 ## Cold cylinder check
@@ -74,24 +74,23 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 **Flow**
 
 1. Cowl off.
-2. Pick up the grease pencil, mark each exhaust stack (`mark`).
+2. Pick up the grease pencil, mark each exhaust riser from below (`mark`).
 3. Short engine run, then swap each mark to `melted` except the cold cylinder.
 
 **Pieces** (suggested center on the 1000 x 560 scene; a file listed twice is placed twice)
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/cold_cylinder_bg.png` | 1000 x 560 | fills the scene | Engine left side with the four exhaust stacks running down through the lower cowl |
-| `cold_cylinder_mark.png` | 53 x 24 | 180, 416 | Grease-pencil mark on stack 1 (before the run) |
-| `cold_cylinder_melted.png` | 53 x 24 | 180, 416 | Same mark melted (after the run; the cold cylinder keeps its _mark) |
-| `cold_cylinder_mark.png` | 53 x 24 | 350, 416 | Grease-pencil mark on stack 2 (before the run) |
-| `cold_cylinder_melted.png` | 53 x 24 | 350, 416 | Same mark melted (after the run; the cold cylinder keeps its _mark) |
-| `cold_cylinder_mark.png` | 53 x 24 | 520, 416 | Grease-pencil mark on stack 3 (before the run) |
-| `cold_cylinder_melted.png` | 53 x 24 | 520, 416 | Same mark melted (after the run; the cold cylinder keeps its _mark) |
-| `cold_cylinder_mark.png` | 53 x 24 | 690, 416 | Grease-pencil mark on stack 4 (before the run) |
-| `cold_cylinder_melted.png` | 53 x 24 | 690, 416 | Same mark melted (after the run; the cold cylinder keeps its _mark) |
-| `cold_cylinder_pencil.png` | 125 x 14 | 664, 515 | Grease pencil lying on the lower cowl, picked up to mark the stacks |
-| `cold_cylinder_cowl.png` | 756 x 296 | 420, 190 | Cowling |
+| `backgrounds/cold_cylinder_bg.png` | 1000 x 560 | fills the scene | Engine from below, cowl off: each cylinder's exhaust riser into the two U-stacks and the muffler |
+| `cold_cylinder_mark.png` | 53 x 24 | 300, 120 | Grease-pencil mark on the riser of cylinder 4 (left front) (before the run) |
+| `cold_cylinder_melted.png` | 53 x 24 | 300, 120 | Same mark melted (after the run; the cold cylinder keeps its _mark) |
+| `cold_cylinder_mark.png` | 53 x 24 | 570, 120 | Grease-pencil mark on the riser of cylinder 2 (left rear) (before the run) |
+| `cold_cylinder_melted.png` | 53 x 24 | 570, 120 | Same mark melted (after the run; the cold cylinder keeps its _mark) |
+| `cold_cylinder_mark.png` | 53 x 24 | 360, 368 | Grease-pencil mark on the riser of cylinder 3 (right front) (before the run) |
+| `cold_cylinder_melted.png` | 53 x 24 | 360, 368 | Same mark melted (after the run; the cold cylinder keeps its _mark) |
+| `cold_cylinder_mark.png` | 53 x 24 | 630, 368 | Grease-pencil mark on the riser of cylinder 1 (right rear) (before the run) |
+| `cold_cylinder_melted.png` | 53 x 24 | 630, 368 | Same mark melted (after the run; the cold cylinder keeps its _mark) |
+| `cold_cylinder_pencil.png` | 117 x 14 | 668, 515 | Grease pencil lying on the hangar floor, picked up to mark the risers |
 
 ## Compression test
 `jobs/compression/` · mockups: `reference/compression_start.png`, `reference/compression_end.png`
@@ -106,13 +105,13 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/compression_bg.png` | 1000 x 560 | fills the scene | Engine left side with the air filter, exhaust outlet and oil filler showing, top plug of cylinder 1 out |
-| `compression_tester_good.png` | 216 x 142 | 692, 449 | Differential compression tester, 80 in / 76 held (healthy cylinder) |
-| `compression_tester_low.png` | 216 x 142 | 692, 449 | Differential compression tester, 80 in / 48 held (leaking cylinder) |
-| `compression_hose.png` | 404 x 124 | 374, 318 | Tester hose from cylinder 1's plug hole to the tester (comes off between cylinders) |
-| `compression_hiss.png` | 50 x 60 | 777, 482 | Air you hear at the exhaust: exhaust valve |
-| `compression_hiss.png` | 50 x 60 | 249, 430 | Air you hear at the air filter: intake valve |
-| `compression_hiss.png` | 50 x 60 | 485, 96 | Air you hear at the oil filler: rings |
+| `backgrounds/compression_bg.png` | 1000 x 560 | fills the scene | Engine left side: carb air scoop, tailpipe and oil filler showing; cylinder 4's top plug out |
+| `compression_tester_good.png` | 216 x 142 | 532, 449 | Differential compression tester, 80 in / 76 held (healthy cylinder) |
+| `compression_tester_low.png` | 216 x 142 | 532, 449 | Differential compression tester, 80 in / 48 held (leaking cylinder) |
+| `compression_hose.png` | 284 x 226 | 322, 277 | Tester hose from the plug hole to the tester (moves to the next cylinder between tests) |
+| `compression_hiss.png` | 50 x 60 | 777, 482 | Air you hear at the tailpipe: exhaust valve |
+| `compression_hiss.png` | 50 x 60 | 249, 430 | Air you hear at the carb air scoop: intake valve |
+| `compression_hiss.png` | 50 x 60 | 485, 76 | Air you hear at the oil filler: rings |
 | `compression_cowl.png` | 756 x 296 | 420, 190 | Cowling |
 
 ## Reading plugs
@@ -195,7 +194,7 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/hot_mag_bg.png` | 1000 x 560 | fills the scene | Rear accessory case with the left magneto installed; its P-lead terminal (the switch ground) is empty |
+| `backgrounds/hot_mag_bg.png` | 1000 x 560 | fills the scene | Rear accessory case with both magnetos; the left one's P-lead terminal (the switch ground) is empty |
 | `hot_mag_plead_old.png` | 294 x 47 | 657, 200 | P-lead from the mag to the ignition switch: chafed through and broken off |
 | `hot_mag_plead_new.png` | 294 x 47 | 657, 200 | P-lead from the mag to the ignition switch: new, nut on the terminal |
 | `hot_mag_tag.png` | 110 x 150 | 145, 195 | Red DANGER tag: hang it on the prop as soon as the mag check shows no drop |
@@ -246,16 +245,17 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/oil_change_bg.png` | 1000 x 560 | fills the scene | Engine bay with the lower cowl off: sump, drain boss, suction screen housing and the oil filler; concrete floor below |
-| `oil_change_plug.png` | 44 x 42 | 427, 414 | Drain plug, safety-wired (cut the wire, then out) |
-| `oil_change_stream.png` | 9 x 70 | 420, 460 | Old black oil pouring out (shows while it drains) |
-| `oil_change_pan.png` | 280 x 80 | 420, 516 | Drain pan slid under the engine |
-| `oil_change_screen_old.png` | 234 x 66 | 681, 340 | Oil suction screen as it comes out (send it to the oil screen check) |
-| `oil_change_screen_new.png` | 234 x 66 | 681, 340 | Oil suction screen back in, cleaned |
-| `oil_change_quart.png` | 69 x 100 | 76, 410 | Quart 1 of aviation oil, poured in at the filler |
-| `oil_change_quart.png` | 69 x 100 | 140, 410 | Quart 2 of aviation oil, poured in at the filler |
-| `oil_change_quart.png` | 69 x 100 | 204, 410 | Quart 3 of aviation oil, poured in at the filler |
-| `oil_change_quart.png` | 69 x 100 | 268, 410 | Quart 4 of aviation oil, poured in at the filler |
+| `backgrounds/oil_change_bg.png` | 1000 x 560 | fills the scene | Engine from below, cowl off: sump with its drain plug boss, suction screen boss at the back of the case, U-stacks and muffler |
+| `oil_change_plug.png` | 44 x 42 | 452, 304 | Drain plug, safety-wired (cut the wire, then out) |
+| `oil_change_stream.png` | 9 x 70 | 446, 345 | Old black oil pouring out (shows while it drains) |
+| `oil_change_pan.png` | 280 x 80 | 445, 516 | Drain pan slid under the engine |
+| `oil_change_screen_old.png` | 234 x 66 | 641, 355 | Oil suction screen pulled out of its boss (send it to the oil screen check) |
+| `oil_change_screen_new.png` | 234 x 66 | 641, 355 | Oil suction screen pulled out of its boss (cleaned, going back in) |
+| `oil_change_quart.png` | 69 x 100 | 76, 508 | Quart 1 of aviation oil (the C85 takes 4-1/2; the fifth is half poured) |
+| `oil_change_quart.png` | 69 x 100 | 140, 508 | Quart 2 of aviation oil (the C85 takes 4-1/2; the fifth is half poured) |
+| `oil_change_quart.png` | 69 x 100 | 204, 508 | Quart 3 of aviation oil (the C85 takes 4-1/2; the fifth is half poured) |
+| `oil_change_quart.png` | 69 x 100 | 268, 508 | Quart 4 of aviation oil (the C85 takes 4-1/2; the fifth is half poured) |
+| `oil_change_quart.png` | 69 x 100 | 332, 508 | Quart 5 of aviation oil (the C85 takes 4-1/2; the fifth is half poured) |
 
 ## Fuel strainer (gascolator)
 `jobs/fuel_strainer/` · mockups: `reference/fuel_strainer_start.png`, `reference/fuel_strainer_end.png`
@@ -314,6 +314,7 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 | `bungee_cord_old.png` | 73 x 136 | 408, 195 | Bungee cord rings around both spools (old: faded red-and-green threads, cracked cover, broken strands) |
 | `bungee_cord_new.png` | 73 x 136 | 408, 195 | Bungee cord rings around both spools (new: blue-and-yellow threads, tight) |
 | `bungee_tool.png` | 219 x 57 | 190, 502 | Bungee stretching tool lying on the gravel (needed to get new rings over the spools) |
+| `bungee_boot.png` | 156 x 190 | 410, 195 | Leather shock-cord cover laced over the rings (unlace it first; optional on many Cubs) |
 
 ## Tailwheel service
 `jobs/tailwheel/` · mockups: `reference/tailwheel_start.png`, `reference/tailwheel_end.png`
@@ -340,31 +341,31 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 
 **Flow**
 
-1. Plate off. Clamp the tensiometer: reads `tensio_slack`.
+1. Take the framed inspection `window` off (eight small screws). Clamp the tensiometer: reads `tensio_slack`.
 2. Cut the turnbuckle `wire_a/_b`, turn the `tb_a/_b` until it reads `tensio_set`.
-3. New safety wire, plate on. Swap `cable_old` for `cable_new` if it's frayed.
+3. New safety wire, window back on. Swap `cable_old` for `cable_new` if it's frayed.
 
 **Pieces** (suggested center on the 1000 x 560 scene; a file listed twice is placed twice)
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/aileron_rigging_bg.png` | 1000 x 560 | fills the scene | Underside of the left wing root with the inspection plate off: spruce ribs, pulleys, aileron cable run |
-| `aileron_rigging_plate.png` | 658 x 318 | 410, 270 | Inspection plate (same as the rudder cable job) |
-| `aileron_rigging_cable_old.png` | 620 x 14 | 410, 262 | Aileron cable slack and frayed |
-| `aileron_rigging_cable_new.png` | 620 x 14 | 410, 262 | Aileron cable new |
+| `backgrounds/aileron_rigging_bg.png` | 1000 x 560 | fills the scene | Fabric underside of the left wing, inboard bay: spruce ribs, wing pulley housings and the aileron cable run behind the framed inspection window |
+| `aileron_rigging_window.png` | 660 x 200 | 420, 260 | Aluminium-framed pyralin inspection window, eight small screws; the cables show through it (Piper Fig. 1, items 30 and 93) |
+| `aileron_rigging_cable_old.png` | 620 x 14 | 420, 262 | Aileron cable (slack and frayed) |
+| `aileron_rigging_cable_new.png` | 620 x 14 | 420, 262 | Aileron cable (new) |
 | `aileron_rigging_tb_a.png` | 120 x 34 | 240, 264 | Turnbuckle (turn to set tension) |
 | `aileron_rigging_wire_a.png` | 102 x 24 | 246, 261 | Turnbuckle safety wire |
 | `aileron_rigging_tb_b.png` | 120 x 34 | 580, 264 | Turnbuckle (turn to set tension) |
 | `aileron_rigging_wire_b.png` | 102 x 24 | 586, 261 | Turnbuckle safety wire |
-| `aileron_rigging_tensio_slack.png` | 196 x 98 | 432, 255 | Tensiometer clamped on the cable reading 12 lb (too slack) |
-| `aileron_rigging_tensio_set.png` | 196 x 98 | 432, 255 | Tensiometer clamped on the cable reading 30 lb (in range) |
+| `aileron_rigging_tensio_slack.png` | 196 x 98 | 432, 260 | Tensiometer clamped on the cable reading 12 lb (too slack) |
+| `aileron_rigging_tensio_set.png` | 196 x 98 | 432, 260 | Tensiometer clamped on the cable reading 30 lb (in range) |
 
 ## Trim cable tension
 `jobs/trim_cable/` · mockups: `reference/trim_cable_start.png`, `reference/trim_cable_end.png`
 
 **Flow**
 
-1. Plate off. The cable is `cable_old` (someone oiled it): clean it to `cable_new`.
+1. Tail inspection panel (`plate`) off. The cable is `cable_old` (someone oiled it): clean it to `cable_new`.
 2. The `oilcan` is the trap: using it fails the job.
 3. Set tension on the turnbuckles, check with the `tensio`.
 
@@ -372,14 +373,14 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/trim_cable_bg.png` | 1000 x 560 | fills the scene | Tail cone with the inspection plate off: the stabilizer trim jackscrew drum, pulleys and cable run |
-| `trim_cable_plate.png` | 658 x 318 | 410, 270 | Inspection plate |
-| `trim_cable_cable_old.png` | 620 x 8 | 410, 262 | Trim cable someone oiled it: gummed with grit, slipping on the drum |
-| `trim_cable_cable_new.png` | 620 x 8 | 410, 262 | Trim cable clean and dry |
-| `trim_cable_tb_a.png` | 120 x 34 | 240, 264 | Turnbuckle |
-| `trim_cable_tb_b.png` | 120 x 34 | 580, 264 | Turnbuckle |
-| `trim_cable_oilcan.png` | 105 x 99 | 682, 456 | Oil can with a NO sign: the trap. Trim cables stay dry |
-| `trim_cable_tensio.png` | 196 x 98 | 432, 355 | Tensiometer on the trim cable |
+| `backgrounds/trim_cable_bg.png` | 1000 x 560 | fills the scene | Tail cone with the left tail inspection panel off: steel tube truss, tail post, stabilizer screw drum and the trim cable |
+| `trim_cable_plate.png` | 658 x 318 | 410, 270 | Tail inspection panel, painted aluminium, four screws (Piper Fig. 4, items 46 and 47) |
+| `trim_cable_cable_old.png` | 620 x 8 | 410, 300 | Trim cable (someone oiled it: gummed with grit, slipping on the drum) |
+| `trim_cable_cable_new.png` | 620 x 8 | 410, 300 | Trim cable (clean and dry) |
+| `trim_cable_tb_a.png` | 120 x 34 | 240, 302 | Turnbuckle |
+| `trim_cable_tb_b.png` | 120 x 34 | 580, 302 | Turnbuckle |
+| `trim_cable_oilcan.png` | 105 x 99 | 682, 476 | Oil can with a NO sign: the trap. Trim cables stay dry |
+| `trim_cable_tensio.png` | 196 x 98 | 402, 355 | Tensiometer on the trim cable |
 
 ## Exhaust and heat shroud check
 `jobs/exhaust_check/` · mockups: `reference/exhaust_check_start.png`, `reference/exhaust_check_end.png`
@@ -393,11 +394,11 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/exhaust_check_bg.png` | 1000 x 560 | fills the scene | Engine bay from below: both exhaust risers into the muffler, cabin heat box on the right; shroud off |
-| `exhaust_check_muffler_old.png` | 280 x 70 | 420, 420 | Muffler cracked, gray exhaust stain around the crack |
-| `exhaust_check_muffler_new.png` | 280 x 70 | 420, 420 | Muffler new |
-| `exhaust_check_shroud.png` | 316 x 129 | 422, 424 | Cabin heat shroud wrapped around the muffler (comes off to look) |
-| `exhaust_check_scat.png` | 220 x 45 | 630, 378 | SCAT hose from the shroud to the cabin heat box |
+| `backgrounds/exhaust_check_bg.png` | 1000 x 560 | fills the scene | Engine from below: both U-stacks end at the empty muffler mounts, tailpipe out the back, cabin heat box near the firewall |
+| `exhaust_check_muffler_old.png` | 70 x 280 | 730, 245 | Muffler, mounted across the engine (cracked, gray exhaust stain around the crack) |
+| `exhaust_check_muffler_new.png` | 70 x 280 | 730, 245 | Muffler, mounted across the engine (new) |
+| `exhaust_check_shroud.png` | 129 x 316 | 734, 243 | Heat muff shroud around the muffler (comes off to look) |
+| `exhaust_check_scat.png` | 113 x 109 | 724, 96 | SCAT hose from the top of the shroud to the cabin heat box |
 
 ## Air filter and carb heat box
 `jobs/air_filter/` · mockups: `reference/air_filter_start.png`, `reference/air_filter_end.png`
@@ -411,12 +412,12 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/air_filter_bg.png` | 1000 x 560 | fills the scene | Carb heat box below the engine: filter opening on the left, valve chamber on the right, duct to the carb |
-| `air_filter_filter_old.png` | 202 x 92 | 375, 400 | Air filter clogged with dirt and bugs |
-| `air_filter_filter_new.png` | 202 x 92 | 375, 400 | Air filter new |
-| `air_filter_cover.png` | 240 x 140 | 375, 400 | Filter cover grille, four screws |
-| `air_filter_flapper_old.png` | 92 x 73 | 559, 402 | Carb heat valve flapper worn and loose, corner gone |
-| `air_filter_flapper_new.png` | 92 x 73 | 559, 402 | Carb heat valve flapper new |
+| `backgrounds/air_filter_bg.png` | 1000 x 560 | fills the scene | Engine from below: the carb air box at the front, filter opening and heat valve chamber, duct from the heat muff |
+| `air_filter_filter_old.png` | 92 x 202 | 117, 250 | Air filter (clogged with dirt and bugs) |
+| `air_filter_filter_new.png` | 92 x 202 | 117, 250 | Air filter (new) |
+| `air_filter_cover.png` | 140 x 240 | 117, 250 | Filter grille, four screws |
+| `air_filter_flapper_old.png` | 70 x 90 | 232, 250 | Carb heat valve flapper (worn and loose, corner gone) |
+| `air_filter_flapper_new.png` | 70 x 90 | 232, 250 | Carb heat valve flapper (new) |
 
 ## Magneto timing
 `jobs/mag_timing/` · mockups: `reference/mag_timing_start.png`, `reference/mag_timing_end.png`
@@ -435,7 +436,7 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 | `mag_timing_light_off.png` | 150 x 100 | 195, 160 | Timing light, lamps dark |
 | `mag_timing_light_on.png` | 150 x 100 | 195, 160 | Timing light, left lamp lit: points just opened |
 | `mag_timing_leads.png` | 320 x 52 | 428, 190 | Timing light clips: one to the magneto P-lead, one to ground |
-| `mag_timing_marks.png` | 260 x 40 | 260, 280 | Degree marks; bring the pointer to 28° BTC (C-85) while turning the prop |
+| `mag_timing_marks.png` | 260 x 40 | 260, 280 | Degree marks with the 28° line in red; bring the pointer to it while turning the prop |
 | `mag_timing_cowl.png` | 756 x 296 | 420, 190 | Cowling |
 
 ## Dressing a prop nick (metal props only)
@@ -509,11 +510,11 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/brace_wires_bg.png` | 1000 x 560 | fills the scene | Cub tail from the left: the fin, stabilizer and fuselage fittings where the brace wires attach |
-| `brace_wires_upper_old.png` | 153 x 183 | 630, 176 | Upper brace wire bowed, loose and rusty |
-| `brace_wires_lower_old.png` | 233 x 83 | 590, 296 | Lower brace wire bowed, loose and rusty |
-| `brace_wires_upper_new.png` | 153 x 183 | 630, 176 | Upper brace wire new, tight |
-| `brace_wires_lower_new.png` | 233 x 83 | 590, 296 | Lower brace wire new, tight |
+| `backgrounds/brace_wires_bg.png` | 1000 x 560 | fills the scene | Cub tail from the left: fin, stabilizer and fuselage fittings where the tie rods attach |
+| `brace_wires_upper_old.png` | 148 x 178 | 630, 175 | Upper tail tie rod with clevis ends (bent and rusty) |
+| `brace_wires_lower_old.png` | 228 x 78 | 590, 295 | Lower tail tie rod with clevis ends (bent and rusty) |
+| `brace_wires_upper_new.png` | 148 x 178 | 630, 175 | Upper tail tie rod with clevis ends (new, straight) |
+| `brace_wires_lower_new.png` | 228 x 78 | 590, 295 | Lower tail tie rod with clevis ends (new, straight) |
 
 ## Cooling baffles and fins
 `jobs/baffles/` · mockups: `reference/baffles_start.png`, `reference/baffles_end.png`
@@ -560,20 +561,20 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 **Flow**
 
 1. Read the yellow `tag`. Pull the `bag_intake` and `bag_exhaust` desiccant bags.
-2. Cowl off, pull the four `dehy` plugs, wipe the preservative `oil`.
+2. Cowl off, pull the `dehy` plugs (four this side, four on the right), wipe the preservative `oil`.
 3. Then hand off to the pre_oil job before first start.
 
 **Pieces** (suggested center on the 1000 x 560 scene; a file listed twice is placed twice)
 
 | File | Size | Suggested center (x, y) | What it is |
 |---|---|---|---|
-| `backgrounds/storage_bg.png` | 1000 x 560 | fills the scene | Engine left side, cowling off, harness leads hanging, intake and exhaust openings at the bottom |
-| `storage_dehy.png` | 50 x 72 | 180, 244 | Blue dehydrator plug in cylinder 1 (pull all four) |
-| `storage_dehy.png` | 50 x 72 | 350, 244 | Blue dehydrator plug in cylinder 2 (pull all four) |
-| `storage_dehy.png` | 50 x 72 | 520, 244 | Blue dehydrator plug in cylinder 3 (pull all four) |
-| `storage_dehy.png` | 50 x 72 | 690, 244 | Blue dehydrator plug in cylinder 4 (pull all four) |
-| `storage_bag_intake.png` | 160 x 100 | 140, 420 | Desiccant bag taped into the intake, red REMOVE BEFORE FLIGHT streamer |
-| `storage_bag_exhaust.png` | 130 x 100 | 721, 470 | Desiccant bag taped into the exhaust, red REMOVE BEFORE FLIGHT streamer |
+| `backgrounds/storage_bg.png` | 1000 x 560 | fills the scene | Engine left side, cowl off, harness leads off, all four plug holes on this side with dehydrator plugs; air scoop and tailpipe below |
+| `storage_dehy.png` | 50 x 72 | 190, 150 | Blue dehydrator plug, cyl 4 top hole (the right side has four more) |
+| `storage_dehy.png` | 50 x 72 | 330, 250 | Blue dehydrator plug, cyl 4 bottom hole (the right side has four more) |
+| `storage_dehy.png` | 50 x 72 | 490, 150 | Blue dehydrator plug, cyl 2 top hole (the right side has four more) |
+| `storage_dehy.png` | 50 x 72 | 630, 250 | Blue dehydrator plug, cyl 2 bottom hole (the right side has four more) |
+| `storage_bag_intake.png` | 160 x 100 | 140, 430 | Desiccant bag taped into the carb air scoop, red REMOVE BEFORE FLIGHT streamer |
+| `storage_bag_exhaust.png` | 130 x 100 | 721, 470 | Desiccant bag taped into the tailpipe, red REMOVE BEFORE FLIGHT streamer |
 | `storage_tag.png` | 110 x 144 | 495, 458 | Yellow preservation tag hung on the engine (read it first) |
-| `storage_oil.png` | 500 x 33 | 410, 312 | Sticky preservative oil weeping down the crankcase, to wipe off |
+| `storage_oil.png` | 500 x 33 | 410, 326 | Sticky preservative oil weeping along the case rail, to wipe off |
 | `storage_cowl.png` | 756 x 296 | 420, 190 | Cowling |

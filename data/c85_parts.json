@@ -14,7 +14,7 @@
   "fuel": "80/87 avgas (100LL is fine)",
   "oil": "4-1/2 qt; SAE 40 above 40 F, SAE 20 below",
   "starter": "12 V starter and generator (the -12 has both; the -8 has neither)",
-  "sources": "FAA TCDS E-233; Continental C75/C85/C90/O-200 Illustrated Parts Catalog X-30017A (1979); part numbers rechecked against the 1979 catalog text"
+  "sources": "FAA TCDS E-233; Continental C75/C85/C90/O-200 Illustrated Parts Catalog X-30017A (1979)"
  },
  "sections": [
   {
@@ -347,6 +347,7 @@
    ],
    "fault": "magneto",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/icon_magneto.png"
   },
   {
@@ -364,6 +365,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
@@ -381,6 +383,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
@@ -398,6 +401,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
@@ -415,6 +419,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/hot_mag_plead_new.png"
   },
   {
@@ -432,8 +437,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "lead_42",
@@ -450,8 +455,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "plug",
@@ -469,6 +474,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/reading_plugs_tan.png"
   },
   {
@@ -486,6 +492,7 @@
    ],
    "fault": "spark_plugs",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/reading_plugs_tan.png"
   },
   {
@@ -504,6 +511,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
@@ -521,8 +529,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "base_packing",
@@ -537,8 +545,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "nut_38",
@@ -553,8 +561,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "nut_716",
@@ -569,8 +577,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "piston",
@@ -587,8 +595,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "ring_top",
@@ -605,8 +613,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "rocker_gasket",
@@ -623,12 +631,13 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
    "id": "gasket_set",
-   "no": "24890A2",
-   "name": "Gasket and rubber connector set (-12 models)",
+   "no": "24890A4",
+   "name": "Gasket and connector set",
    "section": "engine",
    "price": 150,
    "blurb": "Engine gasket set with rubber intake connectors: rocker covers, sump, accessory case.",
@@ -638,8 +647,8 @@
    "jobs": [],
    "fault": "oil_leak",
    "verified": true,
-   "icon": "res://textures/icon_oil_leak.png",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": "res://textures/icon_oil_leak.png"
   },
   {
    "id": "lifter",
@@ -657,8 +666,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "pushrod_seal",
@@ -673,6 +682,7 @@
    "jobs": [],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
@@ -690,8 +700,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "sump_nut",
@@ -706,8 +716,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "washer",
@@ -722,8 +732,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "drain_plug",
@@ -740,8 +750,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "res://textures/work/oil_change_plug.png",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": "res://textures/work/oil_change_plug.png"
   },
   {
    "id": "drain_gasket",
@@ -758,13 +768,13 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "oil_screen",
-   "no": "A3568",
-   "name": "Screen assembly, oil",
+   "no": "AR-4312",
+   "name": "Screen, oil suction",
    "section": "engine",
    "price": 24,
    "blurb": "Pull it every oil change and look for metal before it goes back in.",
@@ -776,14 +786,14 @@
     "oil_screen"
    ],
    "fault": "",
-   "verified": true,
-   "icon": "res://textures/work/oil_change_screen_new.png",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/oil_change_screen_new.png"
   },
   {
    "id": "screen_gasket",
-   "no": "22350",
-   "name": "Gasket, oil screen housing",
+   "no": "AR-4313",
+   "name": "Gasket, suction screen",
    "section": "engine",
    "price": 2,
    "blurb": "Under the suction screen's hex head.",
@@ -795,9 +805,9 @@
     "oil_screen"
    ],
    "fault": "",
-   "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "verified": false,
+   "source": "game",
+   "icon": ""
   },
   {
    "id": "dipstick",
@@ -814,6 +824,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
@@ -829,8 +840,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "case_cover_gasket",
@@ -847,8 +858,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "oil_qt",
@@ -866,6 +877,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/oil_change_quart.png"
   },
   {
@@ -881,8 +893,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "carb_gasket",
@@ -899,8 +911,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "air_box",
@@ -917,8 +929,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "air_box_gasket",
@@ -935,8 +947,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "intake_pipe",
@@ -951,8 +963,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "hose_15",
@@ -969,8 +981,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "hose_175",
@@ -987,8 +999,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "hose_clamp",
@@ -1005,8 +1017,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "primer_jet",
@@ -1021,8 +1033,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "air_filter",
@@ -1039,6 +1051,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/air_filter_filter_new.png"
   },
   {
@@ -1056,12 +1069,13 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/air_filter_flapper_new.png"
   },
   {
    "id": "gasc_bowl",
-   "no": "AR-2812",
-   "name": "Gascolator glass bowl",
+   "no": "750 262",
+   "name": "Bowl, fuel strainer (Tillotson)",
    "section": "induction",
    "price": 14,
    "blurb": "Sediment bowl. You should be able to see the water in it.",
@@ -1073,13 +1087,14 @@
     "water_fuel"
    ],
    "fault": "",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": "res://textures/work/fuel_strainer_bowl_new.png"
   },
   {
    "id": "gasc_screen",
-   "no": "AR-2811",
-   "name": "Gascolator screen",
+   "no": "750 263",
+   "name": "Screen, fuel strainer",
    "section": "induction",
    "price": 9,
    "blurb": "Fine brass screen above the bowl.",
@@ -1090,13 +1105,14 @@
     "fuel_strainer"
    ],
    "fault": "",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": "res://textures/work/fuel_strainer_screen_new.png"
   },
   {
    "id": "gasc_gasket",
-   "no": "AR-2810",
-   "name": "Gascolator bowl gasket",
+   "no": "750 261",
+   "name": "Gasket, fuel strainer",
    "section": "induction",
    "price": 3,
    "blurb": "Cork gasket that seals the bowl to the head. Always new.",
@@ -1107,7 +1123,8 @@
     "fuel_strainer"
    ],
    "fault": "",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": ""
   },
   {
@@ -1125,6 +1142,7 @@
    ],
    "fault": "fuel_line",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/icon_fuel_line.png"
   },
   {
@@ -1142,12 +1160,13 @@
    ],
    "fault": "stale_fuel",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/stale_fuel_cap.png"
   },
   {
    "id": "muffler",
-   "no": "AR-7810",
-   "name": "Muffler",
+   "no": "70893-03",
+   "name": "Muffler assembly, complete",
    "section": "engine",
    "price": 240,
    "blurb": "Cracked mufflers leak carbon monoxide into the cabin heat. No welding: replace.",
@@ -1158,7 +1177,8 @@
     "exhaust_check"
    ],
    "fault": "",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": "res://textures/work/exhaust_check_muffler_new.png"
   },
   {
@@ -1176,6 +1196,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/exhaust_check_shroud.png"
   },
   {
@@ -1193,6 +1214,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
@@ -1211,6 +1233,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/exhaust_check_scat.png"
   },
   {
@@ -1226,8 +1249,8 @@
    "jobs": [],
    "fault": "starter",
    "verified": true,
-   "icon": "res://textures/icon_starter.png",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": "res://textures/icon_starter.png"
   },
   {
    "id": "generator",
@@ -1242,8 +1265,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "regulator",
@@ -1258,8 +1281,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": "",
-   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
+   "source": "continental",
+   "icon": ""
   },
   {
    "id": "battery",
@@ -1274,6 +1297,7 @@
    "jobs": [],
    "fault": "battery",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/icon_battery.png"
   },
   {
@@ -1291,6 +1315,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
@@ -1308,7 +1333,8 @@
    ],
    "fault": "",
    "verified": false,
-   "icon": "res://textures/work/wire_chafe_clamp.png"
+   "source": "game",
+   "icon": ""
   },
   {
    "id": "radio",
@@ -1323,12 +1349,13 @@
    "jobs": [],
    "fault": "avionics",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/icon_avionics.png"
   },
   {
    "id": "tire",
-   "no": "AR-3201",
-   "name": "Tire and tube, 8.00-4",
+   "no": "451 722",
+   "name": "Tire, Cub 8.00 x 4, 4 ply",
    "section": "airframe",
    "price": 180,
    "blurb": "Cub-size low-pressure tire with a fresh tube.",
@@ -1337,28 +1364,32 @@
    "qty": 1,
    "jobs": [],
    "fault": "tire",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": "res://textures/icon_tire.png"
   },
   {
    "id": "brake_disc",
-   "no": "AR-3222",
-   "name": "Brake disc",
+   "no": "451 702",
+   "name": "Brake shoe assembly",
    "section": "airframe",
    "price": 260,
-   "blurb": "Steel disc for the converted brakes.",
+   "blurb": "Brake blocks, expander tube and retracting springs for one wheel. Ends the grinding on taxi.",
    "figure": "",
    "index": 0,
    "qty": 1,
-   "jobs": [],
+   "jobs": [
+    "brake_bleed"
+   ],
    "fault": "brakes",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": "res://textures/icon_brakes.png"
   },
   {
    "id": "expander_tube",
-   "no": "AR-3220",
-   "name": "Brake expander tube",
+   "no": "750 031",
+   "name": "Tube assembly, rubber (brake expander)",
    "section": "airframe",
    "price": 95,
    "blurb": "Rubber tube that swells against the blocks. Leaky, and you're pumping air.",
@@ -1369,7 +1400,8 @@
     "brake_bleed"
    ],
    "fault": "",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": ""
   },
   {
@@ -1387,15 +1419,16 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/brake_bleed_can.png"
   },
   {
    "id": "bungee",
-   "no": "AR-3210",
-   "name": "Bungee cord rings (pair)",
+   "no": "30562-00",
+   "name": "Rings, shock cord (set of 4)",
    "section": "airframe",
    "price": 70,
-   "blurb": "Shock cord rings for both main gear. Replace in pairs.",
+   "blurb": "Shock cord rings for the main gear (four). Replace both sides together.",
    "figure": "",
    "index": 0,
    "qty": 1,
@@ -1403,13 +1436,14 @@
     "bungee"
    ],
    "fault": "",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": "res://textures/work/bungee_cord_new.png"
   },
   {
    "id": "tw_spring",
-   "no": "AR-3310",
-   "name": "Tailwheel leaf spring",
+   "no": "30512-04",
+   "name": "Spring, tailwheel, long leaf",
    "section": "airframe",
    "price": 55,
    "blurb": "Leaf spring, sternpost to tailwheel.",
@@ -1420,13 +1454,14 @@
     "tailwheel"
    ],
    "fault": "",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": "res://textures/work/tailwheel_leaf_new.png"
   },
   {
    "id": "steer_springs",
-   "no": "AR-3312",
-   "name": "Tailwheel steering springs and chains",
+   "no": "487 255",
+   "name": "Spring, pair connector (tailwheel steering)",
    "section": "airframe",
    "price": 24,
    "blurb": "Pair of springs with chain, rudder horn to tailwheel arms.",
@@ -1437,13 +1472,14 @@
     "tailwheel"
    ],
    "fault": "",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": "res://textures/work/tailwheel_steer_new.png"
   },
   {
    "id": "cable_set",
-   "no": "AR-3410",
-   "name": "Control cable set",
+   "no": "40123-02",
+   "name": "Cable assembly, rudder, long",
    "section": "airframe",
    "price": 650,
    "blurb": "Pre-swaged rudder and elevator cables with turnbuckles.",
@@ -1455,7 +1491,8 @@
     "aileron_rigging"
    ],
    "fault": "control_cables",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": "res://textures/icon_control_cables.png"
   },
   {
@@ -1474,12 +1511,13 @@
    ],
    "fault": "",
    "verified": false,
-   "icon": "res://textures/work/control_cables_tb_a.png"
+   "source": "game",
+   "icon": ""
   },
   {
    "id": "trim_cable",
-   "no": "AR-3414",
-   "name": "Trim cable",
+   "no": "41671-02",
+   "name": "Cable assembly, stabilizer adjustment",
    "section": "airframe",
    "price": 28,
    "blurb": "Stabilizer trim cable. Runs dry: never oil it.",
@@ -1490,16 +1528,17 @@
     "trim_cable"
    ],
    "fault": "",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": ""
   },
   {
    "id": "brace_wires",
-   "no": "AR-3510",
-   "name": "Tail brace wires (pair)",
+   "no": "41031-02",
+   "name": "Rod, tail tie, upper (10-32 x 41-3/4 in)",
    "section": "airframe",
-   "price": 85,
-   "blurb": "Streamlined wires bracing the fin and stabilizer.",
+   "price": 45,
+   "blurb": "Upper tail tie rod with clevis ends, fin to stabilizer.",
    "figure": "",
    "index": 0,
    "qty": 1,
@@ -1507,7 +1546,8 @@
     "brace_wires"
    ],
    "fault": "",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": ""
   },
   {
@@ -1525,12 +1565,13 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/wing_rig_fork_new.png"
   },
   {
    "id": "windshield",
-   "no": "AR-5610",
-   "name": "Windshield",
+   "no": "10009-00",
+   "name": "Windshield, one-piece Plexiglas",
    "section": "airframe",
    "price": 900,
    "blurb": "Clear acrylic windshield, cut to fit.",
@@ -1539,7 +1580,8 @@
    "qty": 1,
    "jobs": [],
    "fault": "windshield",
-   "verified": false,
+   "verified": true,
+   "source": "piper",
    "icon": "res://textures/icon_windshield.png"
   },
   {
@@ -1557,6 +1599,7 @@
    ],
    "fault": "door_pin",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/door_pin_pin_new.png"
   },
   {
@@ -1575,6 +1618,7 @@
    ],
    "fault": "propeller",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/icon_propeller.png"
   },
   {
@@ -1592,6 +1636,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
@@ -1609,6 +1654,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/storage_dehy.png"
   },
   {
@@ -1626,6 +1672,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": "res://textures/work/storage_bag_intake.png"
   },
   {
@@ -1643,6 +1690,7 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
    "icon": ""
   },
   {
@@ -1660,6 +1708,170 @@
    ],
    "fault": "",
    "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "bleeder",
+   "no": "451 770",
+   "name": "Fitting, brake bleeder",
+   "section": "airframe",
+   "price": 6,
+   "blurb": "Bleeder screw at the brake. Crack it a half turn to let the air out.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brake_bleed"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "hub_cap",
+   "no": "451 762",
+   "name": "Cap, hub",
+   "section": "airframe",
+   "price": 12,
+   "blurb": "Small domed cap over the wheel bearing and axle nut.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "tire"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/tire_hubcap.png"
+  },
+  {
+   "id": "tube_tire",
+   "no": "451 740",
+   "name": "Tube, Cub 8.00 x 4",
+   "section": "airframe",
+   "price": 40,
+   "blurb": "Inner tube for the 8.00-4 tire.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "tire"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "bungee_boot",
+   "no": "31073-00",
+   "name": "Cover, shock cord (leather)",
+   "section": "airframe",
+   "price": 30,
+   "blurb": "Laced leather cover over the shock cord rings.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "bungee"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/bungee_boot.png"
+  },
+  {
+   "id": "stab_screw",
+   "no": "42961-00",
+   "name": "Screw, stabilizer adjustment",
+   "section": "airframe",
+   "price": 64,
+   "blurb": "The trim jackscrew at the tail post.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "trim_cable"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "prop_wood",
+   "no": "450 900",
+   "name": "Propeller, wood, Sensenich 72C42",
+   "section": "airframe",
+   "price": 1400,
+   "blurb": "The stock J-3 prop for 65 hp. Varnished birch with tipping.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "prop_track"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/icon_propeller.png"
+  },
+  {
+   "id": "fuel_tank",
+   "no": "70723-00",
+   "name": "Tank, fuel, 12 gallon",
+   "section": "induction",
+   "price": 420,
+   "blurb": "The nose tank behind the firewall, with its gauge-and-cap fitting.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "stale_fuel"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "fuel_cap",
+   "no": "71041-00",
+   "name": "Gauge and cap assembly, fuel tank",
+   "section": "induction",
+   "price": 22,
+   "blurb": "Cork float on a wire through the cap: the J-3's fuel gauge. Vent included.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "fuel_vent",
+    "stale_fuel"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/stale_fuel_cap.png"
+  },
+  {
+   "id": "tie_rod_lower",
+   "no": "41031-03",
+   "name": "Rod, tail tie, lower (10-32 x 35 in)",
+   "section": "airframe",
+   "price": 40,
+   "blurb": "Lower tail tie rod, stabilizer to fuselage.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brace_wires"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
    "icon": ""
   }
  ]

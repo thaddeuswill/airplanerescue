@@ -40,6 +40,7 @@ var fault: String  # the scene id: a fault, a troubleshooting test, or "hand_pro
 var job: Dictionary
 var title_name := ""
 var part_name: String
+var art := ""  # texture prefix: the scene id, or another scene whose art it borrows
 var def: Dictionary
 var els: Array = []
 var by_id := {}
@@ -65,6 +66,7 @@ func setup(m, scene_id: String, j: Dictionary) -> void:
 	part_name = info.part
 	title_name = info.name
 	def = scenes()[scene_id]
+	art = def.get("art", scene_id)
 	els = def.els.duplicate()
 	if not job.work.has(scene_id):
 		job.work[scene_id] = {"_paid": false}
@@ -126,6 +128,10 @@ func _origin() -> Vector2:
 
 func done() -> bool:
 	return els.all(func(e): return _complete(e))
+
+
+func _initial(e: Dictionary) -> String:
+	return {"fastener": "tight", "cover": e.get("start", "on"), "part": "old", "task": "todo"}[e.type]
 
 
 func _complete(e: Dictionary) -> bool:
@@ -226,6 +232,9 @@ func action(e: Dictionary) -> Dictionary:
 				if req != "":
 					a.why = req
 					return a
+				if e.get("free", false):  # cleaned and refitted: nothing to buy, nothing to pick up
+					a.merge({"verb": "install", "tool": t, "hold": hold_s}, true)
+					return a
 				if not st._paid and main.inventory.get(part_name, 0) <= 0:
 					a.why = "You need a new %s. Get one from the parts shed." % part_name
 					return a
@@ -263,6 +272,9 @@ func _unmet(e: Dictionary) -> String:
 		var x: Dictionary = by_id[r]
 		if (x.type == "part" and st[r] != "new") or (x.type == "task" and st[r] != "done"):
 			return ("Fit the new %s first." if x.type == "part" else "%s first.") % (x.name if x.type == "part" else x.label)
+	for p in e.get("out", []):  # a part that has to be off first (rinse the screen once it's out)
+		if st[p] == "old":
+			return "%s first." % by_id[p].get("verb_remove", "Take out the " + by_id[p].name)
 	for c in e.get("with", []):  # gear that has to be in place: a tester hose, a timing light
 		if st[c] != "on":
 			return "%s first." % by_id[c].get("verb_on", "Put on the " + by_id[c].name)
@@ -296,11 +308,11 @@ func perform(e: Dictionary, v: String) -> bool:
 		"on": st[e.id] = "on"
 		"remove": st[e.id] = "out"
 		"install":
-			if not st._paid:
+			if not st._paid and not e.get("free", false):
 				main.inventory[part_name] -= 1
 				st._paid = true
 			st[e.id] = "new"
-			if not els.any(func(x): return x.type == "part" and st[x.id] != "new"):
+			if not els.any(func(x): return x.type == "part" and not x.get("free", false) and st[x.id] != "new"):
 				holding = false  # nothing left to fit (a set like 4 plugs stays in hand until all are in)
 		"do":
 			if e.has("trap"):  # the wrong move: it costs a little time and teaches why
@@ -513,12 +525,13 @@ func _tex(name: String) -> Texture2D:
 
 
 func _preload_art() -> void:
-	for n in ["work/%s_bg" % fault, "work/screw", "work/bolt", "work/nut", "icon_" + fault]:
+	for n in ["work/%s_bg" % art, "work/screw", "work/bolt", "work/nut", "icon_" + fault]:
 		_tex(n)
 	for e in els:
 		if e.type == "view":
 			continue
-		for n in ["work/%s_%s" % [fault, e.id], "work/%s_%s_old" % [fault, e.id], "work/%s_%s_new" % [fault, e.id], e.get("tex", "")]:
+		var a: String = e.get("art", e.id)
+		for n in ["work/%s_%s" % [art, a], "work/%s_%s_old" % [art, a], "work/%s_%s_new" % [art, a], e.get("tex", "")]:
 			if n != "":
 				_tex(n)
 
@@ -528,7 +541,7 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.09, 0.08, 0.07))  # the work fills the screen; HUD stays hidden
 	draw_string(font, Vector2(o.x + W - 220, 30), "Day %d" % floori(main.day), HORIZONTAL_ALIGNMENT_RIGHT, 220, 16, Color(0.85, 0.82, 0.75))
 	draw_set_transform(o)
-	var bg := _tex("work/%s_bg" % fault)
+	var bg := _tex("work/%s_bg" % art)
 	if bg:
 		draw_texture_rect(bg, Rect2(0, 0, W, H), false)
 	else:
@@ -592,7 +605,7 @@ func _draw_piece(e: Dictionary) -> void:
 			return
 		var t := _tex(v)
 		if t:
-			draw_texture_rect(t, e.rect, false)
+			draw_texture_rect(t, e.get("art_rect", e.rect), false)
 		else:
 			draw_rect(e.rect, Color(0.95, 0.88, 0.55, 0.85))
 			_label(e.rect, v.get_file().trim_prefix(fault + "_").replace("_", " "))
@@ -600,15 +613,16 @@ func _draw_piece(e: Dictionary) -> void:
 	var s: String = st[e.id]
 	match e.type:
 		"cover":
-			var art := _tex("work/%s_%s" % [fault, e.id])
-			if art:
-				draw_texture_rect(art, e.rect, false)
+			var cname: String = main.view_art(fault, e.id) if e.get("dyn", false) else "work/%s_%s" % [art, e.get("art", e.id)]
+			var cart := _tex(cname) if cname != "" else null
+			if cart:
+				draw_texture_rect(cart, e.get("art_rect", e.rect), false)
 				return
 			_fill(e.rect, e.get("tex", "plane_body_worn"), e.get("col", SKIN), e.get("shape", "rect"))
 			_label(e.rect, e.name)
 		"part":
 			if s == "out":  # the bare spot shows through; a faint outline says where the new one goes
-				var painted := _tex("work/%s_bg" % fault) != null
+				var painted := _tex("work/%s_bg" % art) != null
 				if not painted:
 					draw_rect(e.rect, Color(0, 0, 0, 0.35))
 				draw_dashed_line(e.rect.position, e.rect.position + Vector2(e.rect.size.x, 0), Color(1, 1, 1, 0.5), 2.0, 8.0)
@@ -616,9 +630,9 @@ func _draw_piece(e: Dictionary) -> void:
 				if not painted:
 					_label(e.rect, "(empty: new %s goes here)" % e.name)
 				return
-			var art := _tex("work/%s_%s_%s" % [fault, e.id, s])
-			if art:
-				draw_texture_rect(art, e.rect, false)
+			var part_art := _tex("work/%s_%s_%s" % [art, e.get("art", e.id), s])
+			if part_art:
+				draw_texture_rect(part_art, e.get("art_rect", e.rect), false)
 				return  # the painting speaks for itself
 			else:
 				var c: Color = e.get("col", METAL)
@@ -630,20 +644,20 @@ func _draw_piece(e: Dictionary) -> void:
 						Color(0.75, 0.55, 0.4) if s == "old" else Color.WHITE)
 			_label(e.rect, ("Old " if s == "old" else "New ") + e.name)
 		"task":
-			var name := "work/%s_%s" % [fault, e.id]
+			var name := "work/%s_%s" % [art, e.get("art", e.id)]
 			if e.get("dyn", false):  # art picked by what the test shows (a plug's condition)
 				name = main.view_art(fault, e.id) if s == "done" else ""
 			elif e.get("art_done", false):
 				name = name if s == "done" else ""
-			var art := _tex(name) if name != "" else null
-			if art:
-				draw_texture_rect(art, e.rect, false)
+			var task_art := _tex(name) if name != "" else null
+			if task_art:
+				draw_texture_rect(task_art, e.get("art_rect", e.rect), false)
 				return
 			if (e.get("dyn", false) or e.get("art_done", false)) and s == "done":
 				_fill(e.rect, "", Color(0.85, 0.82, 0.72, 0.9))
 				_label(e.rect, main.reading(fault, e.id) if e.get("dyn", false) else e.name)
 				return
-			if _tex("work/%s_bg" % fault):  # painted scene: a quiet hotspot, not a big block
+			if _tex("work/%s_bg" % art):  # painted scene: a quiet hotspot, not a big block
 				draw_rect(e.rect, Color(0.05, 0.04, 0.03, 0.45))
 				draw_rect(e.rect, Color(1, 0.9, 0.6, 0.7), false, 1.5)
 				var sz := font.get_string_size(e.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
@@ -689,7 +703,7 @@ func _label(r: Rect2, t: String) -> void:
 
 
 func _draw_bench() -> void:
-	var painted := _tex("work/%s_bg" % fault) != null  # the background already has a wooden bench
+	var painted := _tex("work/%s_bg" % art) != null  # the background already has a wooden bench
 	draw_rect(BENCH, Color(0.12, 0.08, 0.05, 0.45) if painted else Color(0.36, 0.27, 0.18))
 	draw_rect(BENCH, Color(0.2, 0.14, 0.08), false, 2.0)
 	var y := BENCH.position.y + 22
@@ -701,7 +715,9 @@ func _draw_bench() -> void:
 		var e: Dictionary = row[1]
 		var r: Rect2 = row[0]
 		draw_rect(r, Color(0.45, 0.35, 0.24) if e.type == "cover" else Color(0.3, 0.22, 0.15))
-		var t: String = ("Old " + e.name + " (scrap)") if e.type == "part" else e.name
+		var t: String = e.name
+		if e.type == "part":
+			t = (e.name + " (to clean)") if e.get("free", false) else ("Old " + e.name + " (scrap)")
 		draw_string(font, r.position + Vector2(6, 16), t, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 10, 13, Color(0.95, 0.9, 0.8))
 	var have: int = main.inventory.get(part_name, 0) if part_name != "" else 0
 	if part_name != "":  # the new part, sitting on the bench: click to pick it up
@@ -750,6 +766,18 @@ func _draw_hover(e: Dictionary) -> void:
 
 
 # ---------- the scenes ----------
+
+## A rect from the art kit's suggested center and size.
+static func _c(cx: float, cy: float, w: float, h: float) -> Rect2:
+	return Rect2(cx - w / 2, cy - h / 2, w, h)
+
+
+## A click area at least min_w x min_h around a small piece's art rect.
+static func _pad(r: Rect2, min_w := 70.0, min_h := 40.0) -> Rect2:
+	var gx := maxf(0, (min_w - r.size.x) / 2)
+	var gy := maxf(0, (min_h - r.size.y) / 2)
+	return r.grow_individual(gx, gy, gx, gy)
+
 
 static func _cover(id: String, name: String, r: Rect2, needs := [], o := {}) -> Dictionary:
 	var e := {"id": id, "type": "cover", "name": name, "rect": r, "needs": needs, "tool": "hand"}
@@ -994,7 +1022,8 @@ static func scenes() -> Dictionary:
 	return s
 
 
-## The troubleshooting tests and the art-backed fixes that go with them (DIAG_SCENES.md).
+## The troubleshooting tests and the jobs from the art kit (docs/JOB_ART_GUIDE.md). Piece ids
+## match the kit's file names; rects come from its suggested centers and sizes.
 static func _troubleshooting(s: Dictionary, _engine_deco: Array) -> void:
 	var bench_deco := [[Rect2(0, 0, 820, 560), "workbench_top", Color(0.62, 0.48, 0.32)]]
 	var four := ["plug0", "plug1", "plug2", "plug3"]
@@ -1008,83 +1037,274 @@ static func _troubleshooting(s: Dictionary, _engine_deco: Array) -> void:
 			{"requires": ["swap"], "turns_prop": true, "note": true, "hold": 2.5}),
 		_task("replug", "Plugs back in: new gaskets, 300-360 in-lb", Rect2(300, 476, 300, 40), "torque", ["cowl"], {"requires": ["turn2"], "hold": 2.0})]
 	for i in 4:
-		st_els.append(_task("plug%d" % i, "Pull plug %d, lay it on the case" % (i + 1), Rect2(110 + i * 170, 290, 140, 60), "ratchet", ["cowl"],
-			{"fixture": true, "art_done": true, "hide_after": "replug", "hold": 0.8}))
-		st_els.append({"id": "spark%d" % i, "type": "view", "name": "Spark %d" % (i + 1), "rect": Rect2(222 + i * 170, 295, 50, 50)})
-	s.spark_test = {"title": "Engine, left side", "desc": "Engine left side, cowling off, the four top plug holes empty and the leads hanging down to the crankcase",
-		"els": st_els + _cowl()}
+		st_els.append(_task("plug%d" % i, "Pull plug %d, lay it on the case" % (i + 1), _pad(_c(181 + i * 170, 320, 138, 48), 138, 60), "ratchet", ["cowl"],
+			{"art_rect": _c(181 + i * 170, 320, 138, 48), "fixture": true, "art_done": true, "hide_after": "replug", "hold": 0.8}))
+		st_els.append({"id": "spark%d" % i, "type": "view", "name": "Spark %d" % (i + 1), "rect": _c(247 + i * 170, 320, 50, 50)})
+	s.spark_test = {"title": "Engine, left side", "els": st_els + _cowl()}
 
 	# Cold cylinder (AC 43.13-1B 8-2): a heat crayon mark on each stack, run it briefly, and
 	# the stack whose mark didn't melt belongs to the cylinder that isn't firing.
-	var cc := [_task("pencil", "Mark each stack 1 in below the flange", Rect2(600, 500, 130, 30), "hand", ["cowl"], {"hold": 2.0}),
+	var cc := [_task("pencil", "Mark each stack 1 in below the flange", _pad(_c(664, 515, 125, 14), 150, 40), "hand", ["cowl"],
+			{"art_rect": _c(664, 515, 125, 14), "hold": 2.0}),
 		_task("run", "Run it 30 seconds at 1,200 rpm", Rect2(60, 470, 260, 46), "hand", [], {"requires": ["pencil"], "note": true, "hold": 2.5})]
 	for i in 4:
-		cc.append({"id": "mark%d" % i, "type": "view", "name": "Mark %d" % (i + 1), "rect": Rect2(150 + i * 170, 392, 60, 40)})
-	s.cold_cylinder = {"title": "Engine, exhaust stacks", "desc": "Engine left side with the four exhaust stacks running down through the lower cowl", "els": cc + _cowl()}
+		cc.append({"id": "mark%d" % i, "type": "view", "name": "Mark %d" % (i + 1), "rect": _c(180 + i * 170, 416, 53, 24)})
+	s.cold_cylinder = {"title": "Engine, exhaust stacks", "els": cc + _cowl()}
 
 	# Compression (M-0 6-4.11.2): 80 psi into each cylinder at top center; where the air
 	# hisses out names the leak: exhaust valve, intake valve or rings.
-	var cp := [{"id": "tester", "type": "view", "name": "Tester", "rect": Rect2(580, 370, 220, 150)},
-		{"id": "hiss_exhaust", "type": "view", "name": "Hiss at the exhaust", "rect": Rect2(738, 452, 80, 60)},
-		{"id": "hiss_intake", "type": "view", "name": "Hiss at the air filter", "rect": Rect2(210, 400, 80, 60)},
-		{"id": "hiss_rings", "type": "view", "name": "Hiss at the oil filler", "rect": Rect2(446, 66, 80, 60)}]
+	var cp := [{"id": "tester", "type": "view", "name": "Tester", "rect": _c(692, 449, 216, 142)},
+		{"id": "hiss_exhaust", "type": "view", "name": "Hiss at the exhaust", "rect": _c(777, 482, 50, 60)},
+		{"id": "hiss_intake", "type": "view", "name": "Hiss at the air filter", "rect": _c(249, 430, 50, 60)},
+		{"id": "hiss_rings", "type": "view", "name": "Hiss at the oil filler", "rect": _c(485, 96, 50, 60)}]
 	for i in 4:
 		cp.append(_task("p%d" % i, "Cyl %d: top center, 80 psi in" % (i + 1), Rect2(98 + i * 170, 118, 124, 64), "tester", ["cowl"],
 			{"with": ["hose"], "turns_prop": true, "note": true, "fixture": true, "hold": 2.0}))
-	cp.append(_cover("hose", "Tester hose", Rect2(172, 252, 420, 130), ["cowl"], {"start": "off", "rest": "off",
+	cp.append(_cover("hose", "Tester hose", _c(374, 318, 404, 124), ["cowl"], {"start": "off", "rest": "off",
 		"verb_on": "Pull a top plug, screw in the tester hose", "verb_off": "Tester hose out, plug back in", "col": Color(0.1, 0.1, 0.1, 0.8)}))
-	s.compression = {"title": "Engine, differential compression", "desc": "Engine left side with the air filter, exhaust outlet and oil filler showing, top plug of cylinder 1 out",
-		"els": cp + _cowl()}
+	s.compression = {"title": "Engine, differential compression", "els": cp + _cowl()}
 
 	# Reading plugs: lay them in the tray in order and read each firing end.
 	var rp := []
 	for i in 4:
-		for row in [["t", "top", 160], ["b", "bottom", 310]]:
-			rp.append(_task("%s%d" % [row[0], i], "Cyl %d %s plug to the tray" % [i + 1, row[1]], Rect2(110 + i * 115, row[2], 100, 100), "ratchet", [],
+		for row in [["t", "top", 210], ["b", "bottom", 360]]:
+			rp.append(_task("%s%d" % [row[0], i], "Cyl %d %s plug to the tray" % [i + 1, row[1]], _c(162 + i * 115, row[2], 96, 100), "ratchet", [],
 				{"fixture": true, "dyn": true, "note": true, "hold": 0.6}))
 	var all8 := rp.map(func(e): return e.id)
-	rp.append(_task("back", "Clean, gap .016-.021, new gaskets, back in", Rect2(110, 440, 440, 46), "torque", [], {"requires": all8, "hold": 2.5}))
-	s.reading_plugs = {"title": "Bench, plug tray", "deco": bench_deco, "desc": "Workbench with a numbered plug tray (top and bottom row, cylinders 1 to 4) and a plug-reading chart", "els": rp}
+	rp.append(_task("back", "Clean, gap .016-.021, new gaskets, back in", Rect2(114, 440, 440, 46), "torque", [], {"requires": all8, "hold": 2.5}))
+	s.reading_plugs = {"title": "Bench, plug tray", "deco": bench_deco, "els": rp}
 
 	# Oil screen (M-0 6-4.8.2): rinse it over a white towel, sort the metal with a magnet.
-	s.oil_screen = {"title": "Bench, oil screen", "deco": bench_deco, "desc": "Workbench with a solvent pan, a white shop towel and a card on what the metal means", "els": [
-		{"id": "screen", "type": "view", "name": "Screen", "rect": Rect2(80, 200, 240, 110)},
-		{"id": "metal", "type": "view", "name": "Metal", "rect": Rect2(420, 300, 200, 110)},
-		{"id": "magnet_v", "type": "view", "name": "Magnet", "rect": Rect2(660, 380, 120, 70)},
-		_task("pull", "Cut the wire, pull the oil screen", Rect2(80, 330, 240, 46), "pliers", [], {"hold": 1.5}),
-		_task("rinse", "Rinse it over the towel", Rect2(80, 150, 240, 40), "rag", [], {"requires": ["pull"], "note": true, "hold": 2.0}),
-		_task("magnet", "Touch the magnet to the flakes", Rect2(640, 460, 160, 40), "hand", [], {"requires": ["rinse"], "note": true, "hold": 1.0}),
-		_task("back", "Screen in: new crush gasket, 500-520 in-lb, wired", Rect2(80, 470, 400, 46), "torque", [], {"requires": ["magnet"], "uses": "Safety wire", "hold": 2.0})]}
+	s.oil_screen = {"title": "Bench, oil screen", "deco": bench_deco, "els": [
+		{"id": "screen", "type": "view", "name": "Screen", "rect": _c(201, 255, 234, 66)},
+		{"id": "metal", "type": "view", "name": "Metal", "rect": _c(522, 358, 170, 79)},
+		{"id": "magnet_v", "type": "view", "name": "Magnet", "rect": _c(722, 418, 114, 64)},
+		_task("pull", "Cut the wire, pull the oil screen", Rect2(84, 300, 234, 40), "pliers", [], {"hold": 1.5}),
+		_task("rinse", "Rinse it over the towel", Rect2(84, 170, 234, 40), "rag", [], {"requires": ["pull"], "note": true, "hold": 2.0}),
+		_task("magnet", "Touch the magnet to the flakes", Rect2(642, 456, 160, 40), "hand", [], {"requires": ["rinse"], "note": true, "hold": 1.0}),
+		_task("back", "Screen in: new crush gasket, 500-520 in-lb, wired", Rect2(84, 470, 400, 46), "torque", [], {"requires": ["magnet"], "uses": "Safety wire", "hold": 2.0})]}
 
 	# Hot magneto: tag the prop first, then a new P-lead so the switch grounds the mag again.
-	s.hot_mag = {"title": "Rear accessory case", "desc": "Rear accessory case with the left magneto installed; its P-lead terminal (the switch ground) is empty", "els": [
+	var pl := _c(657, 200, 294, 47)
+	s.hot_mag = {"title": "Rear accessory case", "els": [
 		_task("check", "Switch OFF, pull it through: no spark", Rect2(300, 420, 300, 46), "hand", ["cowl"], {"requires": ["plead"], "with": ["tag"], "turns_prop": true, "note": true, "hold": 2.0}),
-		_part("plead", "P-lead", Rect2(510, 170, 300, 60), ["cowl"], {"with": ["tag"], "col": Color(0.3, 0.3, 0.32)})]
-		+ _at("plead", [Vector2(526, 200)], "nut", "ratchet")
-		+ [_cover("tag", "DANGER tag", Rect2(90, 120, 110, 150), [], {"start": "off", "rest": "off", "col": Color(0.8, 0.12, 0.1),
+		_part("plead", "P-lead", pl, ["cowl"], {"with": ["tag"], "col": Color(0.3, 0.3, 0.32)})]
+		+ _at("plead", [Vector2(pl.position.x + 14, pl.get_center().y)], "nut", "ratchet")
+		+ [_cover("tag", "DANGER tag", _c(145, 195, 110, 150), [], {"start": "off", "rest": "off", "col": Color(0.8, 0.12, 0.1),
 			"verb_on": "Hang the DANGER tag on the prop", "verb_off": "Take the DANGER tag down"})] + _cowl()}
 
 	# Fuel vent: a mud dauber nest in the cap's vent tube starves the engine a minute after start.
-	s.fuel_vent = {"title": "Fuel cap, nose deck", "desc": "Close-up of the Cub's fuel cap on the nose deck, its vent tube pointing forward", "els": [
-		_task("nest", "Pull the nest out of the vent", Rect2(470, 100, 160, 110), "hand", [], {"hold": 2.5}),
+	s.fuel_vent = {"title": "Fuel cap, nose deck", "els": [
+		_task("nest", "Pull the nest out of the vent", _c(554, 164, 112, 82), "hand", [], {"hold": 2.5}),
 		_task("wire", "Run a wire through the vent tube", Rect2(560, 400, 230, 46), "pliers", [], {"requires": ["nest"], "hold": 1.5}),
-		_task("crumbs", "Brush the mud off the deck", Rect2(400, 330, 300, 40), "rag", [], {"requires": ["nest"], "hold": 1.2}),
+		_task("crumbs", "Brush the mud off the deck", _c(551, 351, 286, 32), "rag", [], {"requires": ["nest"], "hold": 1.2}),
 		_task("blow", "Blow through the vent", Rect2(560, 456, 230, 46), "hand", [], {"requires": ["wire"], "note": true, "hold": 1.0})]}
 
 	# Water in the fuel: sump until the cup comes up all blue.
-	s.water_fuel = {"title": "Under the nose, gascolator", "desc": "Under the nose: the gascolator bowl and its drain, gear legs either side", "els": [
-		{"id": "cup", "type": "view", "name": "Fuel tester", "rect": Rect2(360, 270, 140, 180)},
-		_task("sump1", "Sump the gascolator into the cup", Rect2(560, 250, 230, 46), "hand", [], {"note": true, "hold": 1.5}),
-		_task("tank", "Pull the tank drain till it runs clean", Rect2(560, 306, 230, 46), "hand", [], {"requires": ["sump1"], "hold": 2.5}),
-		_task("sump2", "Sump it again", Rect2(560, 362, 230, 46), "hand", [], {"requires": ["tank"], "note": true, "hold": 1.5}),
-		_task("spill", "Rake the spilled fuel into the gravel", Rect2(280, 480, 300, 40), "rag", [], {"show_after": "sump1", "requires": ["sump2"], "hold": 1.2})]}
+	s.water_fuel = {"title": "Under the nose, gascolator", "els": [
+		{"id": "cup", "type": "view", "name": "Fuel tester", "rect": _c(430, 358, 80, 176)},
+		_task("sump1", "Sump the gascolator into the cup", Rect2(570, 250, 230, 46), "hand", [], {"note": true, "hold": 1.5}),
+		_task("tank", "Pull the tank drain till it runs clean", Rect2(570, 306, 230, 46), "hand", [], {"requires": ["sump1"], "hold": 2.5}),
+		_task("sump2", "Sump it again", Rect2(570, 362, 230, 46), "hand", [], {"requires": ["tank"], "note": true, "hold": 1.5}),
+		_task("spill", "Rake the spilled fuel into the gravel", _c(430, 500, 300, 31), "rag", [], {"show_after": "sump1", "requires": ["sump2"], "hold": 1.2})]}
 
 
-## Everything else from JOBS_ATA.md: placeholders until art exists (ART_PROMPTS.md).
+## Everything else from JOBS_ATA.md. Kit-backed scenes use the kit's piece names; the rest are
+## placeholders until art exists (ART_PROMPTS.md).
 static func _more_jobs(s: Dictionary, engine_deco: Array, wheel_deco: Array, wing_deco: Array) -> void:
 	var panel_deco := [[Rect2(20, 40, 790, 480), "", Color(0.13, 0.12, 0.11)], [Rect2(60, 80, 700, 200), "cockpit_panel", Color(0.5, 0.45, 0.38)]]
 	var tail_deco := [[Rect2(20, 60, 790, 420), "plane_body_worn", SKIN.darkened(0.2)]]
 	var prop_deco := [[Rect2(250, 120, 320, 320), "", SKIN.darkened(0.3), "circle"], [Rect2(40, 245, 740, 70), "prop_wood", Color(0.62, 0.4, 0.2)]]
+
+	# ---- from the art kit ----
+
+	# Oil change: pan under, drain plug out, screen out and rinsed (oil_screen can follow), four quarts in.
+	var oc := [{"id": "stream", "type": "view", "name": "Draining oil", "rect": _c(420, 460, 9, 70)},
+		_task("drain", "Let the old oil drain into the pan", Rect2(570, 456, 230, 46), "hand", ["plug"], {"with": ["pan"], "hold": 2.5}),
+		_part("screen", "Oil screen", _c(681, 340, 234, 66), [], {"free": true, "after": ["drain"], "requires": ["rinse"], "tool": "pliers",
+			"verb_remove": "Cut the wire, pull the oil screen", "verb_install": "Screen in: new crush gasket, wired"}),
+		_task("rinse", "Rinse the screen, try a magnet on it", Rect2(570, 400, 230, 46), "rag", [], {"out": ["screen"], "note": true, "hold": 2.0}),
+		_cover("plug", "Drain plug", _pad(_c(427, 414, 44, 42), 60, 50), [], {"art_rect": _c(427, 414, 44, 42), "tool": "ratchet", "uses": "Safety wire",
+			"verb_off": "Cut the wire, pull the drain plug", "verb_on": "Drain plug in, safety-wired"}),
+		_cover("pan", "Drain pan", _c(420, 516, 280, 80), [], {"start": "off", "rest": "off", "verb_on": "Slide the drain pan under", "verb_off": "Pull the pan out, empty it"})]
+	for i in 4:
+		oc.append(_task("quart%d" % i, "Pour in quart %d" % (i + 1), _c(76 + i * 64, 410, 64, 100), "hand", [],
+			{"art": "quart", "requires": ["screen"], "with": ["plug"], "uses": "Aviation oil", "hold": 1.0}))
+	s.oil_change = {"title": "Engine, oil sump", "els": oc}
+
+	# Fuel strainer: cut the wire, slack the bail nut, bowl and screen off, rinse, back up and wired.
+	s.fuel_strainer = {"title": "Firewall, gascolator", "els": [
+		_part("bowl", "Strainer bowl", _c(490, 300, 80, 112), ["nut"], {"free": true, "requires": ["rinse"], "verb_remove": "Drop the bowl", "verb_install": "Bowl back up, new gasket"}),
+		_part("screen", "Strainer screen", _c(490, 269, 68, 38), ["nut"], {"free": true, "requires": ["rinse"], "verb_remove": "Pull the screen", "verb_install": "Screen back in"}),
+		_task("rinse", "Rinse the bowl and screen in clean fuel", Rect2(570, 220, 230, 46), "rag", [], {"out": ["bowl", "screen"], "hold": 2.0}),
+		_cover("nut", "Bail thumb nut", _pad(_c(490, 377, 34, 26), 60, 40), ["wire", "valve"], {"art_rect": _c(490, 377, 34, 26),
+			"verb_off": "Slack the bail nut, swing the bail down", "verb_on": "Bail up, thumb nut snug"}),
+		_cover("wire", "Bail nut safety wire", _pad(_c(535, 364, 46, 34), 60, 40), [], {"art_rect": _c(535, 364, 46, 34), "tool": "pliers",
+			"uses": "Safety wire", "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the thumb nut"}),
+		_cover("valve", "Fuel shut-off", Rect2(700, 440, 100, 80), [], {"col": Color(0.6, 0.1, 0.1), "verb_off": "Turn the fuel OFF", "verb_on": "Turn the fuel back ON"})]}
+
+	# Brake bleed: cap off, hose into the jar, open the bleeder and pump until the jar runs clear, top up.
+	s.brake_bleed = {"title": "Left main wheel, expander brake", "els": [
+		{"id": "jar", "type": "view", "name": "Catch jar", "rect": _c(555, 448, 90, 116)},
+		_task("pump", "Open the bleeder, pump the pedal", Rect2(600, 250, 200, 46), "ratchet", ["cap"], {"with": ["hose"], "hold": 3.0}),
+		_task("close", "Close the bleeder while it runs clear", Rect2(600, 306, 200, 46), "ratchet", [], {"requires": ["pump"], "note": true, "hold": 1.0}),
+		_task("can", "Top up the reservoir", _c(706, 448, 87, 124), "hand", [], {"requires": ["close"], "uses": "Brake fluid", "hold": 1.2}),
+		_task("lining", "Squirt fluid on the lining to free it", Rect2(40, 480, 280, 40), "hand", [], {"trap": "No: fluid on the lining ruins it, and on the fabric it lifts the dope (Cub manual p.22)."}),
+		_cover("hose", "Bleed hose", _c(486, 301, 143, 190), ["cap"], {"start": "off", "rest": "off", "verb_on": "Bleed hose on, into the jar", "verb_off": "Hose off the bleeder"}),
+		_cover("cap", "Bleeder dust cap", _pad(_c(414, 216, 22, 24), 50, 44), [], {"art_rect": _c(414, 216, 22, 24), "verb_off": "Pop the dust cap off", "verb_on": "Dust cap back on"})]}
+
+	# Bungee cords: read the date threads, stretch the new rings on with the bungee tool.
+	s.bungee = {"title": "Left main gear, shock cords", "els": [
+		_task("read", "Read the date threads", Rect2(520, 60, 240, 46), "hand", [], {"note": true, "hold": 1.0}),
+		_part("cord", "Bungee cords", _c(408, 195, 73, 136), ["jack"], {"requires": ["read"], "with": ["tool"], "tool": "hand", "hold": 2.0}),
+		_cover("tool", "Bungee tool", _c(190, 502, 219, 57), [], {"start": "off", "rest": "off", "verb_on": "Pick up the bungee stretching tool", "verb_off": "Put the bungee tool down"}),
+		_cover("jack", "Jack", Rect2(20, 300, 110, 110), [], {"col": Color(0.7, 0.15, 0.1), "verb_off": "Jack it up off its gear", "verb_on": "Lower it back down"})]}
+
+	# Tailwheel: new leaf spring and steering spring, wipe the fitting, grease it.
+	s.tailwheel = {"title": "Tailwheel", "els": [
+		_part("leaf", "Leaf spring", _c(646, 355, 128, 66), ["stand"], {"tool": "ratchet"}),
+		_part("steer", "Steering spring", _pad(_c(686, 358, 56, 31), 70, 44), ["stand"], {"art_rect": _c(686, 358, 56, 31)}),
+		_task("grime", "Wipe the old grease off the fitting", _pad(_c(706, 386, 33, 21), 60, 36), "rag", [], {"art_rect": _c(706, 386, 33, 21), "hold": 1.0}),
+		_task("gun", "Grease the fitting", _c(460, 500, 219, 53), "hand", [], {"requires": ["grime", "leaf", "steer"], "hold": 1.5}),
+		_cover("stand", "Tail stand", Rect2(60, 330, 130, 140), [], {"col": Color(0.7, 0.15, 0.1), "verb_off": "Lift the tail onto the stand", "verb_on": "Set the tail back down"})]}
+
+	# Aileron cables: plate off, tensiometer on, wires cut, new cable, set both turnbuckles to tension.
+	var tension := func(scene_cable: String, name: String, height: float) -> Array:
+		return [_part("cable", name, _c(410, 262, 620, height), ["plate", "wire_a", "wire_b"], {"col": Color(0.7, 0.7, 0.72)}),
+			_task("tb_a", "Turn the left turnbuckle", _c(240, 264, 120, 34), "screwdriver", ["plate", "wire_a"], {"requires": [scene_cable], "with": ["tensio"], "fixture": true, "hold": 2.0}),
+			_task("tb_b", "Turn the right turnbuckle", _c(580, 264, 120, 34), "screwdriver", ["plate", "wire_b"], {"requires": ["tb_a"], "with": ["tensio"], "fixture": true, "note": true, "hold": 2.0}),
+			_wire("wire_a", "Left turnbuckle wire", _c(246, 261, 102, 24), ["plate"]),
+			_wire("wire_b", "Right turnbuckle wire", _c(586, 261, 102, 24), ["plate"])]
+	s.aileron_rigging = {"title": "Left wing root, aileron cables", "els": tension.call("cable", "Aileron cable", 14.0) + [
+		_cover("tensio", "Tensiometer", _c(432, 255, 196, 98), ["plate"], {"dyn": true, "start": "off", "rest": "off", "verb_on": "Clamp the tensiometer on the cable", "verb_off": "Take the tensiometer off"}),
+		_task("sight", "Stick centered: sight the trailing edges", Rect2(560, 460, 240, 46), "hand", [], {"requires": ["tb_b"], "note": true, "hold": 1.0})]
+		+ _plate(_c(410, 270, 658, 318))}
+	# The elevator cable is the same kind of run; it borrows the aileron art.
+	s.elevator_cable = {"title": "Tail post, elevator cable", "art": "aileron_rigging", "els": tension.call("cable", "Elevator cable", 14.0) + [
+		_cover("tensio", "Tensiometer", _c(432, 255, 196, 98), ["plate"], {"dyn": true, "start": "off", "rest": "off", "verb_on": "Clamp the tensiometer on the cable", "verb_off": "Take the tensiometer off"})]
+		+ _plate(_c(410, 270, 658, 318))}
+
+	# Trim cable: someone oiled it. Clean it dry, set the turnbuckles; the oil can is the trap.
+	s.trim_cable = {"title": "Tail cone, trim cable", "els": [
+		_part("cable", "Trim cable", _pad(_c(410, 262, 620, 8), 620, 30), ["plate"], {"art_rect": _c(410, 262, 620, 8), "free": true, "requires": ["degrease"],
+			"verb_remove": "Unhook the gummed cable from the drum", "verb_install": "Cable back on the drum, dry"}),
+		_task("degrease", "Wipe the oil and grit off the cable", Rect2(160, 330, 240, 46), "rag", ["plate"], {"out": ["cable"], "hold": 2.5}),
+		_task("tb_a", "Turn the left turnbuckle", _c(240, 264, 120, 34), "screwdriver", ["plate"], {"requires": ["cable"], "with": ["tensio"], "fixture": true, "hold": 2.0}),
+		_task("tb_b", "Turn the right turnbuckle", _c(580, 264, 120, 34), "screwdriver", ["plate"], {"requires": ["tb_a"], "with": ["tensio"], "fixture": true, "note": true, "hold": 2.0}),
+		_task("oilcan", "Oil the cable so it runs smoother", _c(682, 456, 105, 99), "hand", [], {"trap": "Never oil the trim cable: it drives the drum by friction and slips worse (Cub manual p.30)."}),
+		_cover("tensio", "Tensiometer", _c(432, 355, 196, 98), ["plate"], {"start": "off", "rest": "off", "verb_on": "Clamp the tensiometer on the cable", "verb_off": "Take the tensiometer off"})]
+		+ _plate(_c(410, 270, 658, 318))}
+
+	# Exhaust: SCAT hose and heat shroud off, leak-test the muffler, replace it, torque the flange nuts.
+	var mf := _c(420, 420, 280, 70)
+	var sh := _c(422, 424, 316, 129)
+	var ex := [_part("muffler", "Muffler", mf, ["shroud"], {"after": ["leak"]}),
+		_task("leak", "Plug it, 2 psi in, dunk the seam", Rect2(40, 250, 240, 46), "hand", ["shroud"], {"note": true, "hold": 2.5})] \
+		+ _at("muffler", [mf.position + Vector2(24, 35), Vector2(mf.end.x - 24, mf.position.y + 35)], "nut", "ratchet") \
+		+ [_cover("shroud", "Heat shroud", sh, ["scat"])] + _corners("shroud", sh, "screw", "screwdriver", 14.0) \
+		+ [_cover("scat", "SCAT hose", _c(630, 378, 220, 45), [], {"verb_off": "Pull the SCAT hose off the shroud", "verb_on": "SCAT hose back on"})]
+	_torque_on(ex, "muffler")  # flange nuts 100-110 in-lb
+	s.exhaust_check = {"title": "Engine from below, muffler", "els": ex}
+
+	# Air filter and carb heat box: cover off, new filter, new flapper.
+	var afc := _c(375, 400, 240, 140)
+	s.air_filter = {"title": "Carb heat box", "els": [
+		_part("filter", "Air filter", _c(375, 400, 202, 92), ["cover"]),
+		_part("flapper", "Carb heat flapper", _c(559, 402, 92, 73), []),
+		_cover("cover", "Filter cover", afc)] + _corners("cover", afc, "screw", "screwdriver", 14.0)}
+
+	# Mag timing (C-85: 28 deg BTC): leads on, turn the prop to the mark, rotate the mag till the light comes on.
+	var mg := Rect2(330, 150, 170, 140)
+	var mt := [_task("tdc", "Prop forward to 28 deg on the marks", _c(260, 280, 260, 40), "hand", ["cowl"], {"turns_prop": true, "note": true, "fixture": true, "art": "marks", "hold": 2.0}),
+		_task("rotate", "Rotate the mag till the light comes on", Rect2(40, 330, 260, 46), "timing", ["cowl", "clamp"], {"requires": ["tdc"], "with": ["leads", "light"], "note": true, "hold": 2.5}),
+		_task("back", "Turn it backward to get there", Rect2(40, 386, 260, 40), "hand", ["cowl"], {"trap": "Never back up: turn the crank in its normal direction when timing, or gear backlash throws the reading off (M-0 6-4.9)."}),
+		_cover("light", "Timing light", _c(195, 160, 150, 100), ["cowl"], {"dyn": true, "start": "off", "rest": "off", "verb_on": "Set the timing light where you can see it", "verb_off": "Put the timing light away"}),
+		_cover("leads", "Timing light leads", _c(428, 190, 320, 52), ["cowl"], {"start": "off", "rest": "off", "verb_on": "Clip the leads to the P-lead and ground", "verb_off": "Unclip the leads"}),
+		_cover("clamp", "Magneto clamp", mg, ["cowl"], {"col": Color(0.15, 0.15, 0.17, 0.6), "verb_off": "Slack the clamp so the mag turns", "verb_on": "Snug the clamp"})] \
+		+ _at("clamp", [Vector2(mg.position.x + 16, mg.end.y - 16), Vector2(mg.end.x - 16, mg.end.y - 16)], "nut", "ratchet") + _cowl()
+	_torque_on(mt, "clamp")  # 100-120 in-lb
+	s.mag_timing = {"title": "Rear accessory case, timing", "els": mt}
+
+	# Dressing a stone nick out of a metal blade.
+	s.prop_dress = {"title": "Prop blade on the bench", "els": [
+		{"id": "nick", "type": "view", "name": "Stone nick", "rect": _c(460, 208, 61, 25)},
+		{"id": "dressed", "type": "view", "name": "Dressed edge", "rect": _c(460, 201, 160, 10)},
+		_task("file", "Dress the nick into a smooth dish", _c(490, 154, 240, 28), "hand", [], {"hold": 2.5}),
+		_task("emery", "Finish it with emery cloth", _c(700, 156, 109, 63), "rag", [], {"requires": ["file"], "hold": 1.5}),
+		_task("etch", "Etch it, look for a crack", Rect2(40, 400, 260, 46), "rag", [], {"requires": ["emery"], "note": true, "hold": 1.5}),
+		_task("straighten", "Straighten the tip while you're there", Rect2(40, 456, 260, 46), "hand", [], {"trap": "No: never straighten a blade in the field, not even to ship it (AC 43.13-1B 8-73)."})]}
+
+	# Prop tracking: block under the tip, mark each blade, shim the hub if they're more than 1/16 apart.
+	s.prop_track = {"title": "Nose, prop tracking", "els": [
+		{"id": "blade", "type": "view", "name": "Blade down", "rect": _c(532, 320, 33, 319)},
+		{"id": "mark_a", "type": "view", "name": "Mark A", "rect": _c(513, 482, 16, 4)},
+		{"id": "mark_b", "type": "view", "name": "Mark B", "rect": _c(523, 482, 16, 4)},
+		_task("t1", "Blade A down: mark its tip", Rect2(600, 300, 200, 46), "hand", [], {"with": ["block", "plugs"], "turns_prop": true, "note": true, "hold": 1.5}),
+		_task("t2", "Turn it, blade B down: mark it", Rect2(600, 356, 200, 46), "hand", [], {"requires": ["t1"], "with": ["block"], "turns_prop": true, "note": true, "hold": 1.5}),
+		_task("shim", "Shim the hub on the low blade's side", Rect2(40, 250, 260, 46), "ratchet", [], {"requires": ["t2"], "hold": 2.0}),
+		_task("t3", "Track it again", Rect2(600, 412, 200, 46), "hand", [], {"requires": ["shim"], "with": ["block"], "turns_prop": true, "note": true, "hold": 1.5}),
+		_cover("block", "Wood block", _c(533, 533, 118, 114), [], {"start": "off", "rest": "off", "verb_on": "Set the block just under the tip", "verb_off": "Take the block away"}),
+		_cover("plugs", "One plug per cylinder out", Rect2(40, 60, 200, 46), [], {"start": "off", "rest": "off", "tool": "ratchet", "col": Color(0.85, 0.85, 0.8),
+			"verb_on": "Pull one plug from each cylinder", "verb_off": "Put the plugs back in"})]}
+
+	# Wing rigging: string for dihedral, block and level for wash-out, new forks and jam nuts to set them.
+	s.wing_rig = {"title": "Wings, dihedral and wash-out", "els": [
+		{"id": "ruler", "type": "view", "name": "Ruler", "rect": _c(471, 126, 18, 56)},
+		_task("measure", "Read the string at the root", Rect2(20, 500, 190, 40), "hand", [], {"with": ["string"], "note": true, "hold": 1.0}),
+		_part("fork_l", "Left strut fork", _pad(_c(167, 143, 20, 42), 50, 50), [], {"art": "fork", "art_rect": _c(167, 143, 20, 42), "tool": "ratchet", "requires": ["measure"],
+			"verb_install": "New fork in, threaded out, jammed"}),
+		_part("fork_r", "Right strut fork", _pad(_c(653, 143, 20, 42), 50, 50), [], {"art": "fork", "art_rect": _c(653, 143, 20, 42), "tool": "ratchet", "requires": ["measure"],
+			"verb_install": "New fork in, threaded out, jammed"}),
+		_task("measure2", "Read the string again", Rect2(220, 500, 190, 40), "hand", [], {"requires": ["fork_l", "fork_r"], "with": ["string"], "note": true, "hold": 1.0}),
+		_task("washout", "Check the wash-out at the tip", Rect2(420, 500, 190, 40), "hand", [], {"requires": ["measure2"], "with": ["level", "block"], "note": true, "hold": 1.5}),
+		_task("rear", "Rear struts till it's level", Rect2(620, 500, 190, 40), "ratchet", [], {"requires": ["washout"], "with": ["level", "block"], "note": true, "hold": 2.0}),
+		_task("middle", "Push on the middle of the strut", Rect2(20, 420, 200, 36), "hand", [], {"trap": "No: push or pull on a lift strut only near the fuselage end, never its middle (Cub manual p.15)."}),
+		_cover("string", "String", _c(410, 115, 800, 18), [], {"start": "off", "rest": "off", "verb_on": "Stretch a string tip to tip", "verb_off": "Take the string down"}),
+		_cover("block", "Rigging block", _c(720, 113, 52, 22), [], {"start": "off", "rest": "off", "verb_on": "Rigging block on the tip rib", "verb_off": "Block off the rib"}),
+		_cover("level", "Level", _c(720, 86, 152, 24), [], {"start": "off", "rest": "off", "verb_on": "Level on the block", "verb_off": "Level away"})]}
+
+	# Tail brace wires: bowed and rusty, replaced and set so the stabilizer sits level.
+	s.brace_wires = {"title": "Tail brace wires", "els": [
+		_task("tape", "Friction tape where you'll grip them", Rect2(40, 60, 260, 46), "hand", [], {"hold": 1.0}),
+		_part("upper", "Upper brace wire", _c(630, 176, 153, 183), [], {"requires": ["tape"], "tool": "ratchet"}),
+		_part("lower", "Lower brace wire", _c(590, 296, 233, 83), [], {"requires": ["tape"], "tool": "ratchet"}),
+		_task("level", "Turn the nipples till it's level", Rect2(40, 400, 260, 46), "hand", [], {"requires": ["upper", "lower"], "note": true, "hold": 2.0})]}
+
+	# Baffles: dig the packed dirt out of the fins, new seals.
+	var bf := []
+	var packs := [Vector2(170, 135), Vector2(170, 265), Vector2(670, 135), Vector2(670, 265)]
+	for i in 4:
+		bf.append(_task("packed%d" % i, "Dig the packed dirt out of the fins", _c(packs[i].x, packs[i].y, 212, 102), "rag", [], {"art": "packed", "hold": 2.0}))
+	for i in 2:
+		var sx: float = [294.0, 554.0][i]
+		bf.append(_part("seal%d" % i, "Baffle seal", _pad(_c(sx, 205, 18, 270), 44, 270), [], {"art": "seal", "art_rect": _c(sx, 205, 18, 270), "tool": "screwdriver"}))
+	s.baffles = {"title": "Engine from the top, baffles", "els": bf}
+
+	# Chafed wire: splice in a new run, then a cushioned clamp so it can't rub again.
+	s.wire_chafe = {"title": "Behind the panel, wiring", "els": [
+		_part("wire", "Wire run", _pad(_c(400, 257, 320, 14), 320, 36), [], {"art_rect": _c(400, 257, 320, 14), "tool": "pliers",
+			"verb_remove": "Cut out the chafed run", "verb_install": "Splice in new wire, heat-shrink"}),
+		_task("check", "Wiggle test with the radio on", Rect2(40, 460, 260, 46), "hand", [], {"requires": ["wire"], "with": ["clamp"], "note": true, "hold": 1.5}),
+		_cover("clamp", "Cushioned clamp", _pad(_c(370, 270, 59, 49), 60, 50), [], {"art_rect": _c(370, 270, 59, 49), "start": "off", "tool": "screwdriver",
+			"verb_on": "Cushion clamp on, off the bracket", "verb_off": "Take the clamp off"})]}
+
+	# Out of storage: read the tag, bags out, dehydrator plugs out, wipe the preservative, clear it by hand.
+	var sr := [_task("tag", "Read the preservation tag", _c(495, 458, 110, 144), "hand", [], {"note": true, "hold": 1.0}),
+		_task("bag_intake", "Desiccant bag out of the intake", _c(140, 420, 160, 100), "hand", [], {"requires": ["tag"], "hold": 0.8}),
+		_task("bag_exhaust", "Desiccant bag out of the exhaust", _c(721, 470, 130, 100), "hand", [], {"requires": ["tag"], "hold": 0.8})]
+	var dh := []
+	for i in 4:
+		sr.append(_task("dehy%d" % i, "Dehydrator plug %d out" % (i + 1), _pad(_c(180 + i * 170, 244, 50, 72), 70, 72), "hand", ["cowl"],
+			{"art": "dehy", "art_rect": _c(180 + i * 170, 244, 50, 72), "hold": 0.6}))
+		dh.append("dehy%d" % i)
+	sr += [_task("oil", "Wipe the preservative off the case", _c(410, 312, 500, 33), "rag", ["cowl"], {"requires": dh, "hold": 1.5}),
+		_task("turn", "Turn it through by hand", Rect2(40, 60, 220, 46), "hand", [], {"requires": dh + ["bag_intake", "bag_exhaust"], "turns_prop": true, "note": true, "hold": 2.5}),
+		_task("refill", "Drain the preservative oil, refill", Rect2(270, 60, 240, 46), "hand", [], {"requires": ["turn"], "hold": 2.5}),
+		_task("plugs", "Plugs in, gapped, 300-360 in-lb", Rect2(520, 60, 260, 46), "torque", ["cowl"], {"requires": ["refill"], "hold": 2.0}),
+		_task("start", "Prime it and pull it through", Rect2(40, 116, 220, 40), "hand", [], {"trap": "Not yet: preservative oil still in there can hydraulic-lock a cylinder and bend a rod (M-0 6-5.2). Clear it first."})]
+	s.storage = {"title": "Engine, out of preservation", "els": sr + _cowl()}
+
+	# ---- placeholders until art exists ----
 
 	s.ign_lead = {"title": "Engine, left side", "deco": engine_deco, "desc": "Engine left side, cowling off, the ignition harness running from the magneto to each plug", "els": [
 		_task("route", "Route it clear of the exhaust, clamp it", Rect2(200, 250, 420, 40), "hand", ["cowl"], {"requires": ["lead"], "hold": 1.5}),
@@ -1100,8 +1320,7 @@ static func _more_jobs(s: Dictionary, engine_deco: Array, wheel_deco: Array, win
 
 	var rc := Rect2(200, 130, 440, 150)
 	var rocker := [_cover("rocker", "Rocker cover", rc, ["cowl"], {"tex": "metal_steel", "col": METAL})] + _corners("rocker", rc, "screw", "screwdriver", 18.0)
-	for f in rocker.filter(func(e): return e.type == "fastener"):
-		f.torque = true  # 55-65 in-lb
+	_torque_on(rocker, "rocker")  # 55-65 in-lb
 	s.stuck_valve = {"title": "Engine, rocker cover off", "deco": engine_deco, "desc": "One cylinder head with its rocker cover off: rocker arms, valve springs and stems showing", "els": [
 		_part("gasket", "Rocker cover gasket", rc.grow(-24), ["cowl", "rocker"], {"col": Color(0.75, 0.35, 0.15), "requires": ["free"]}),
 		_task("soak", "Soak the valve stem", Rect2(260, 180, 150, 50), "rag", ["cowl", "rocker"], {"uses": "Penetrant", "hold": 2.0}),
@@ -1123,129 +1342,6 @@ static func _more_jobs(s: Dictionary, engine_deco: Array, wheel_deco: Array, win
 		_cover("cap", "Relief valve cap", Rect2(330, 150, 160, 160), ["cowl", "wire"], {"col": METAL})] + _at("cap", [Vector2(410, 230)], "nut", "ratchet")
 		+ [_wire("wire", "Safety wire", Rect2(320, 140, 180, 180), ["cowl"])] + _cowl()}
 
-	var oc := [_part("oil", "Engine oil", Rect2(140, 360, 520, 60), [], {"col": Color(0.15, 0.12, 0.08), "after": ["drain"], "with": ["plug", "screen"],
-			"verb_remove": "Pour the old oil in the waste drum", "verb_install": "Pour in 4 quarts, check the stick"}),
-		_task("drain", "Drain the old oil into the pan", Rect2(140, 430, 300, 46), "hand", ["plug"], {"hold": 2.5}),
-		_task("rinse", "Rinse the screen, try the magnet", Rect2(470, 430, 300, 46), "rag", ["screen"], {"note": true, "hold": 2.0}),
-		_cover("plug", "Drain plug", Rect2(220, 280, 80, 60), ["wire"], {"tool": "ratchet", "col": METAL}),
-		_wire("wire", "Drain plug safety wire", Rect2(200, 260, 120, 100)),
-		_cover("screen", "Oil screen", Rect2(520, 260, 160, 80), ["swire"], {"col": METAL})] + _at("screen", [Vector2(600, 300)], "nut", "ratchet") \
-		+ [_wire("swire", "Screen safety wire", Rect2(510, 250, 180, 100))]
-	_torque_on(oc, "screen")  # 500-520 in-lb with a new crush gasket
-	s.oil_change = {"title": "Engine, oil sump", "deco": engine_deco, "desc": "Bottom of the engine: the oil sump drain plug, safety-wired, and the oil screen housing at the back", "els": oc}
-
-	var ms := Rect2(300, 150, 300, 130)
-	var ex := [_part("muffler", "Muffler", ms, ["cowl", "shroud"], {"col": Color(0.4, 0.3, 0.25), "after": ["leak"]}),
-		_task("leak", "Plug it, 2 psi in, dunk the seam", Rect2(300, 300, 300, 46), "hand", ["cowl", "shroud"], {"note": true, "hold": 2.5})] \
-		+ _at("muffler", [ms.position + Vector2(20, 20), Vector2(ms.end.x - 20, ms.position.y + 20)], "nut", "ratchet") \
-		+ [_cover("shroud", "Heat shroud", ms.grow(16), ["cowl"], {"tex": "metal_steel", "col": METAL})] + _corners("shroud", ms.grow(16), "screw", "screwdriver") + _cowl()
-	_torque_on(ex, "muffler")  # flange nuts 100-110 in-lb
-	s.exhaust = {"title": "Engine, muffler and heat shroud", "deco": engine_deco, "desc": "Underside of the engine: the muffler and its cabin-heat shroud, exhaust stacks running into it", "els": ex}
-
-	var ab := Rect2(260, 300, 300, 150)
-	s.air_filter = {"title": "Nose, airbox", "deco": engine_deco, "desc": "Front of the cowl from below: the carburetor airbox, its filter and the carb-heat flapper door", "els": [
-		_part("filter", "Air filter", ab.grow(-30), ["airbox"], {"col": Color(0.55, 0.5, 0.35)}),
-		_task("flap", "Free the carb heat door", Rect2(600, 360, 200, 46), "hand", ["airbox"], {"hold": 1.5}),
-		_cover("airbox", "Airbox cover", ab, [], {"col": METAL})] + _corners("airbox", ab, "screw", "screwdriver")}
-
-	var mg := Rect2(470, 130, 220, 170)
-	var mt := [_task("tdc", "#1 to top center, prop forward", Rect2(120, 180, 260, 46), "hand", ["cowl", "plug1"], {"turns_prop": true, "note": true, "hold": 2.0}),
-		_task("rotate", "Rotate the mag till the light comes on", Rect2(120, 240, 260, 46), "timing", ["cowl", "clamp"], {"requires": ["tdc"], "with": ["light"], "note": true, "hold": 2.5}),
-		_task("back", "Turn it backward to get there", Rect2(120, 300, 260, 40), "hand", ["cowl"], {"trap": "Never back up: turn the crank in its normal direction when timing, or gear backlash throws the reading off (M-0 6-4.9)."}),
-		_cover("light", "Timing light", Rect2(480, 320, 200, 60), ["cowl"], {"start": "off", "rest": "off", "col": Color(0.15, 0.15, 0.18),
-			"verb_on": "Clip the timing light to the mag", "verb_off": "Unclip the timing light"}),
-		_cover("clamp", "Magneto clamp", mg, ["cowl"], {"col": Color(0.15, 0.15, 0.17), "verb_off": "Slack the clamp so the mag turns", "verb_on": "Snug the clamp"})] \
-		+ _at("clamp", [Vector2(mg.position.x - 14, mg.end.y - 30), Vector2(mg.end.x + 14, mg.end.y - 30)], "nut", "ratchet") \
-		+ [_cover("plug1", "#1 top plug", Rect2(160, 110, 60, 60), ["cowl"], {"tool": "ratchet", "col": Color(0.85, 0.85, 0.8)})] + _cowl()
-	_torque_on(mt, "clamp")  # 100-120 in-lb
-	s.mag_timing = {"title": "Rear accessory case, timing", "deco": engine_deco, "desc": "Rear accessory case with both magnetos, a timing light clipped on, and the #1 top plug hole with a top-center locator", "els": mt}
-
-	s.baffles = {"title": "Engine, cylinder fins", "deco": engine_deco, "desc": "Engine left side, cowling off: cooling fins packed with mud dauber nests, a baffle seal strip flapping loose", "els": [
-		_task("fins", "Scrape the nests out of the fins", Rect2(120, 150, 560, 70), "rag", ["cowl"], {"hold": 3.0}),
-		_part("seal", "Baffle seal", Rect2(120, 240, 560, 30), ["cowl"], {"col": Color(0.2, 0.2, 0.2)})]
-		+ _at("seal", [Vector2(140, 255), Vector2(400, 255), Vector2(660, 255)], "screw", "screwdriver") + _cowl()}
-
-	var sr := []
-	var dh := []
-	for i in 4:
-		sr.append(_task("dehyd%d" % i, "Dehydrator plug %d out" % (i + 1), Rect2(150 + i * 170, 160, 90, 60), "hand", ["cowl"], {"hold": 0.6}))
-		dh.append("dehyd%d" % i)
-	s.storage_return = {"title": "Engine, out of preservation", "deco": engine_deco, "desc": "Engine left side, cowling off, blue dehydrator plugs in the plug holes, red REMOVE BEFORE FLIGHT streamers, a DO NOT TURN PROPELLER tag", "els": sr + [
-		_task("bag_l", "Desiccant bag out of the left stack", Rect2(80, 420, 220, 46), "hand", [], {"hold": 0.8}),
-		_task("bag_r", "Desiccant bag out of the right stack", Rect2(320, 420, 220, 46), "hand", [], {"hold": 0.8}),
-		_task("tag", "Take down the DO NOT TURN tag", Rect2(560, 420, 220, 46), "hand", [], {"requires": dh + ["bag_l", "bag_r"], "hold": 0.5}),
-		_task("turn", "Turn it through by hand", Rect2(80, 476, 220, 40), "hand", [], {"requires": ["tag"], "turns_prop": true, "note": true, "hold": 2.5}),
-		_task("oil", "Drain the preservative oil, refill", Rect2(320, 476, 220, 40), "hand", [], {"requires": ["turn"], "hold": 2.5}),
-		_task("plugs", "Plugs in, gapped, 300-360 in-lb", Rect2(150, 240, 520, 40), "torque", ["cowl"], {"requires": ["oil"], "hold": 2.0}),
-		_task("start", "Prime it and pull it through", Rect2(560, 476, 240, 40), "hand", [], {"trap": "Not yet: preservative oil still in there can hydraulic-lock a cylinder and bend a rod (M-0 6-5.2). Clear it first."})]
-		+ _cowl()}
-
-	var bowl := Rect2(360, 200, 120, 140)
-	s.fuel_strainer = {"title": "Firewall, fuel strainer", "deco": engine_deco, "desc": "Lower firewall with the glass fuel strainer bowl hanging under its bail, a safety-wired thumb nut, the fuel line in", "els": [
-		_part("gasket", "Strainer gasket", Rect2(370, 190, 100, 16), ["cowl", "bowl"], {"col": Color(0.6, 0.3, 0.1), "requires": ["screen"]}),
-		_task("screen", "Rinse the screen and bowl", Rect2(520, 220, 220, 46), "rag", ["cowl", "bowl"], {"hold": 2.0}),
-		_cover("bowl", "Strainer bowl", bowl, ["cowl", "valve", "wire"], {"col": Color(0.7, 0.75, 0.6, 0.7)})] + _at("bowl", [Vector2(420, 330)], "nut", "ratchet")
-		+ [_wire("wire", "Bail nut safety wire", Rect2(380, 310, 80, 50), ["cowl"]),
-		_cover("valve", "Fuel shut-off", Rect2(700, 420, 100, 90), [], {"col": Color(0.6, 0.1, 0.1), "verb_off": "Turn the fuel OFF", "verb_on": "Turn the fuel back ON"})] + _cowl()}
-
-	# Brake bleeding, the Cub manual's way: pump fluid up from the wheel, crack the cap screw.
-	s.brake_bleed = {"title": "Right wheel and floorboard", "deco": wheel_deco, "desc": "Right main wheel from inside, the bleeder tee on the brake line, a hand pump, and the floorboard with the heel brake pedal above", "els": [
-		_part("fluid", "Brake fluid", Rect2(380, 60, 40, 260), ["screw"], {"col": Color(0.75, 0.2, 0.15), "with": ["pump"],
-			"verb_remove": "Open the bleeder tee", "verb_install": "Pump fluid up till the system's full"}),
-		_task("cap", "Crack the cap screw half a turn", Rect2(540, 80, 260, 46), "ratchet", [], {"requires": ["fluid"], "hold": 1.0}),
-		_task("pedal", "Pedal in 1 in, snug the cap screw", Rect2(540, 136, 260, 46), "ratchet", [], {"requires": ["cap"], "note": true, "hold": 2.0}),
-		_task("wipe", "Wipe the fluid off the floorboard", Rect2(540, 192, 260, 46), "rag", [], {"requires": ["pedal"], "hold": 1.2}),
-		_task("lining", "Squirt fluid on the lining to free it", Rect2(540, 248, 260, 40), "hand", [], {"trap": "No: fluid on the lining ruins it, and on the fabric it lifts the dope (Cub manual p.22)."}),
-		_cover("pump", "Hand pump", Rect2(120, 330, 160, 100), ["screw"], {"start": "off", "rest": "off", "col": Color(0.3, 0.3, 0.6),
-			"verb_on": "Hook the hand pump to the bleeder tee", "verb_off": "Unhook the pump"}),
-		_cover("screw", "Bleeder tee screw", Rect2(300, 330, 70, 50), [], {"tool": "screwdriver", "col": Color(0.7, 0.6, 0.3)})]}
-
-	s.bungee = {"title": "Left main gear, shock cords", "deco": wheel_deco, "desc": "Left main gear leg close up: the wrapped bungee shock cords around the gear vee, their colored date threads", "els": [
-		_task("read", "Read the date threads", Rect2(480, 60, 240, 46), "hand", [], {"note": true, "hold": 1.0}),
-		_part("cords", "Bungee cords", Rect2(330, 110, 140, 180), ["jack"], {"tool": "pliers", "col": Color(0.85, 0.8, 0.7), "requires": ["read"]}),
-		_cover("jack", "Jack", Rect2(80, 330, 130, 140), [], {"col": Color(0.7, 0.15, 0.1), "verb_off": "Jack it up off its gear", "verb_on": "Lower it back down"})]}
-
-	s.tailwheel = {"title": "Tailwheel", "deco": wheel_deco, "desc": "Cub tailwheel close up: the leaf spring, the steering arm with its two little chain-and-spring links to the rudder horn", "els": [
-		_part("springs", "Steering springs", Rect2(200, 160, 300, 50), ["stand"], {"col": Color(0.6, 0.6, 0.62)}),
-		_task("grease", "Grease the spindle", Rect2(380, 260, 200, 46), "rag", ["stand", "pin"], {"hold": 1.5}),
-		_cover("pin", "Cotter pin", Rect2(400, 320, 44, 24), ["stand"], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it", "uses": "Cotter pin"}),
-		_cover("stand", "Tail stand", Rect2(80, 330, 130, 140), [], {"col": Color(0.7, 0.15, 0.1), "verb_off": "Lift the tail onto the stand", "verb_on": "Set the tail back down"})]}
-
-	s.aileron_rig = {"title": "Left wing, aileron cables", "deco": wing_deco, "desc": "Underside of the left wing at the aileron: an inspection hole showing two turnbuckles on the upper and lower aileron cables", "els": [
-		_task("center", "Center the stick", Rect2(560, 400, 220, 46), "hand", [], {"hold": 0.8}),
-		_task("up", "Back off the upper turnbuckle", Rect2(180, 170, 200, 50), "screwdriver", ["plate", "wire_up"], {"requires": ["center"], "fixture": true, "hold": 2.0}),
-		_task("lo", "Take up the lower one the same", Rect2(440, 170, 200, 50), "screwdriver", ["plate", "wire_lo"], {"requires": ["up"], "fixture": true, "hold": 2.0}),
-		_task("sight", "Sight the trailing edges", Rect2(560, 456, 220, 46), "hand", [], {"requires": ["lo"], "note": true, "hold": 1.0}),
-		_wire("wire_up", "Upper turnbuckle wire", Rect2(170, 160, 220, 70), ["plate"]),
-		_wire("wire_lo", "Lower turnbuckle wire", Rect2(430, 160, 220, 70), ["plate"])] + _plate(Rect2(140, 110, 540, 180))}
-
-	s.wing_rig = {"title": "Wings, dihedral and wash-out", "deco": wing_deco, "desc": "A Cub's wing seen from behind with a string stretched tip to tip over the front spar, and a long spirit level with a small spacer block against a rib", "els": [
-		_task("string", "String tip to tip, measure at the center", Rect2(60, 60, 300, 46), "hand", [], {"note": true, "hold": 1.5}),
-		_task("front", "Turn the front strut forks out", Rect2(60, 200, 260, 46), "ratchet", ["fjam"], {"requires": ["string"], "fixture": true, "hold": 2.0}),
-		_task("string2", "Measure again", Rect2(60, 256, 260, 46), "hand", [], {"requires": ["front"], "note": true, "hold": 1.0}),
-		_task("level", "Level and 3/8 block on the outer rib", Rect2(420, 60, 300, 46), "hand", [], {"requires": ["string2"], "note": true, "hold": 1.5}),
-		_task("rear", "Adjust the rear struts till it centers", Rect2(420, 200, 300, 46), "ratchet", ["rjam"], {"requires": ["level"], "note": true, "fixture": true, "hold": 2.0}),
-		_cover("fjam", "Front strut jam nuts", Rect2(60, 330, 220, 60), [], {"tool": "ratchet", "col": METAL, "verb_off": "Slack the front jam nuts", "verb_on": "Snug the front jam nuts"}),
-		_cover("rjam", "Rear strut jam nuts", Rect2(420, 330, 220, 60), [], {"tool": "ratchet", "col": METAL, "verb_off": "Slack the rear jam nuts", "verb_on": "Snug the rear jam nuts"}),
-		_task("middle", "Push on the middle of the strut", Rect2(60, 420, 300, 40), "hand", [], {"trap": "No: push or pull on a lift strut only near the fuselage end, never its middle (Cub manual p.15)."})]}
-
-	s.elevator_cable = {"title": "Tail post, elevator horn", "deco": tail_deco, "desc": "Tail post with its inspection cover off: the elevator horn, two cable terminals and a turnbuckle", "els": [
-		_part("cable", "Elevator cable", Rect2(100, 255, 620, 14), ["plate", "wire"], {"col": Color(0.7, 0.7, 0.72)}),
-		_task("tb", "Tension the turnbuckle", Rect2(340, 230, 120, 60), "screwdriver", ["plate", "wire"], {"fixture": true, "requires": ["cable"], "col": Color(0.6, 0.55, 0.3, 0.9), "hold": 2.5}),
-		_wire("wire", "Turnbuckle safety wire", Rect2(330, 220, 140, 80), ["plate"])] + _plate(Rect2(80, 110, 660, 320))}
-
-	s.trim_cable = {"title": "Tail, left side", "deco": tail_deco, "desc": "Left side of the Cub's tail with an inspection plate off: the trim jack screw, its V-groove pulley and the idler pulley on the endless cable", "els": [
-		_task("idler", "Take up the idler pulley", Rect2(300, 200, 220, 50), "hand", ["plate", "lock"], {"note": true, "hold": 2.0}),
-		_task("oilit", "Oil the cable so it runs smoother", Rect2(300, 260, 220, 46), "rag", ["plate"], {"trap": "Never oil the trim cable: it drives the pulleys by friction and would slip worse (Cub manual p.30)."}),
-		_cover("lock", "Idler lock nut", Rect2(540, 200, 70, 50), ["plate"], {"tool": "ratchet", "col": METAL, "verb_off": "Slack the idler lock nut", "verb_on": "Snug the lock nut, not too tight"})]
-		+ _plate(Rect2(200, 120, 460, 220))}
-
-	s.tail_brace = {"title": "Tail brace wires", "deco": tail_deco, "desc": "Cub tail from the side: the stabilizer, fin and the streamlined brace wires with threaded nipple fittings at each end", "els": [
-		_task("tape", "Friction tape where you'll grip it", Rect2(160, 160, 220, 46), "hand", [], {"hold": 1.0}),
-		_part("wire", "Brace wire", Rect2(140, 220, 540, 20), [], {"col": Color(0.7, 0.7, 0.72), "requires": ["tape"]})]
-		+ _at("wire", [Vector2(150, 230), Vector2(670, 230)], "nut", "ratchet")
-		+ [_task("level", "Turn the nipples till it's level", Rect2(420, 300, 280, 46), "hand", [], {"requires": ["wire"], "note": true, "hold": 2.0})]}
-
 	s.tie_down = {"title": "Tied down on the grass", "deco": wheel_deco, "desc": "A Cub tied down on grass from the side: rope at the tail lift handle, ropes to both front lift struts, chocks at the wheels", "els": [
 		_task("chocks", "Chock the wheels", Rect2(60, 420, 200, 46), "hand", [], {"hold": 0.8}),
 		_task("tail", "Rope the tail handle, no slack", Rect2(280, 420, 240, 46), "hand", [], {"hold": 1.5}),
@@ -1253,25 +1349,6 @@ static func _more_jobs(s: Dictionary, engine_deco: Array, wheel_deco: Array, win
 		_task("right", "Rope the right strut top", Rect2(280, 360, 240, 46), "hand", [], {"hold": 1.5}),
 		_task("lock", "Belt round the rear stick", Rect2(540, 360, 260, 46), "hand", [], {"hold": 1.0}),
 		_task("struts", "Tie it at the middle of the strut", Rect2(540, 420, 260, 46), "hand", [], {"trap": "Not the middle: never pull or push on the middle of a lift strut. Tie at the top, where it meets the wing (Cub manual p.15, 42)."})]}
-
-	s.prop_nick = {"title": "Propeller blade", "deco": prop_deco, "desc": "One propeller blade close up, laid flat: a stone nick in the leading edge a third of the way in from the tip", "els": [
-		_task("file", "Dress the nick into a smooth dish", Rect2(500, 120, 260, 46), "hand", [], {"hold": 2.5}),
-		_task("crocus", "Finish it with crocus cloth", Rect2(500, 176, 260, 46), "rag", [], {"requires": ["file"], "hold": 1.5}),
-		_task("etch", "Etch it, look for a crack", Rect2(500, 340, 260, 46), "rag", [], {"requires": ["crocus"], "note": true, "hold": 1.5}),
-		_task("straighten", "Straighten the tip while you're there", Rect2(500, 396, 260, 46), "hand", [], {"trap": "No: never straighten a blade in the field, not even to ship it (AC 43.13-1B 8-73)."})]}
-
-	var hub := Vector2(410, 280)
-	s.prop_track = {"title": "Nose, prop tracking", "deco": prop_deco, "desc": "The propeller from the side with a heavy wooden block on the ground just touching the lower blade tip", "els": [
-		_task("t1", "Turn blade 1 past the block", Rect2(580, 400, 220, 46), "hand", [], {"with": ["block", "plugs"], "turns_prop": true, "note": true, "hold": 1.5}),
-		_task("t2", "Turn blade 2 past the block", Rect2(580, 456, 220, 46), "hand", [], {"requires": ["t1"], "with": ["block"], "turns_prop": true, "note": true, "hold": 1.5}),
-		_task("shim", "Shim the hub on the low side", Rect2(330, 150, 160, 50), "hand", ["bolts"], {"requires": ["t2"], "hold": 2.0}),
-		_task("t3", "Track it again", Rect2(580, 344, 220, 46), "hand", [], {"requires": ["shim"], "with": ["block"], "turns_prop": true, "note": true, "hold": 1.5}),
-		_cover("bolts", "Prop bolts", Rect2(hub - Vector2(70, 70), Vector2(140, 140)), ["wire"], {"col": Color(0.55, 0.55, 0.58, 0.7), "verb_off": "Slacken the prop bolts", "verb_on": "Snug the prop bolts"})]
-		+ _ring("bolts", hub, 52, 6, "bolt", "ratchet", true)
-		+ [_wire("wire", "Prop bolt safety wire", Rect2(hub - Vector2(80, 80), Vector2(160, 160))),
-		_cover("block", "Wood block", Rect2(380, 470, 80, 60), [], {"start": "off", "rest": "off", "col": Color(0.6, 0.45, 0.25), "verb_on": "Set the block at the tip", "verb_off": "Take the block away"}),
-		_cover("plugs", "One plug per cylinder out", Rect2(60, 60, 160, 50), [], {"start": "off", "rest": "off", "tool": "ratchet", "col": Color(0.85, 0.85, 0.8),
-			"verb_on": "Pull one plug from each cylinder", "verb_off": "Put the plugs back in"})]}
 
 	s.compass = {"title": "Compass rose", "deco": panel_deco, "desc": "The Cub's whiskey compass above the panel, a compass rose painted on the apron seen through the windshield", "els": [
 		_task("n", "Taxi to north, run it at 1,700", Rect2(60, 320, 220, 46), "hand", [], {"note": true, "hold": 1.5}),
@@ -1297,17 +1374,10 @@ static func _more_jobs(s: Dictionary, engine_deco: Array, wheel_deco: Array, win
 		_task("r", "Read the right main scale", Rect2(300, 400, 220, 46), "hand", [], {"requires": ["level"], "note": true, "hold": 1.0}),
 		_task("t", "Read the tail scale", Rect2(540, 400, 220, 46), "hand", [], {"requires": ["level"], "note": true, "hold": 1.0})]}
 
-	s.wire_splice = {"title": "Behind the panel, wiring", "deco": panel_deco, "desc": "Behind an instrument panel: a wire bundle with one wire chafed through where it rubs a bracket, near a fuel line", "els": [
-		_task("cut", "Cut out the chafed section", Rect2(360, 140, 220, 46), "pliers", ["panel"], {"hold": 1.2}),
-		_task("splice", "Splice, heat-shrink, stagger it", Rect2(360, 196, 220, 46), "pliers", ["panel"], {"requires": ["cut"], "hold": 2.0}),
-		_task("clamp", "Clamp it 6 in clear of the fuel line", Rect2(360, 252, 220, 46), "screwdriver", ["panel"], {"requires": ["splice"], "hold": 1.5}),
-		_task("check", "Wiggle test with the radio on", Rect2(60, 400, 260, 46), "hand", [], {"requires": ["clamp"], "with": ["panel"], "note": true, "hold": 1.5}),
-		_cover("panel", "Panel back cover", Rect2(340, 100, 380, 260), [], {"col": Color(0.3, 0.28, 0.25)})] + _corners("panel", Rect2(340, 100, 380, 260), "screw", "screwdriver")}
-
 	s.fod = {"title": "Engine, under the cowl", "deco": engine_deco, "desc": "Engine left side, cowling off: a socket wedged behind a cylinder baffle", "els": [
 		_task("fish", "Fish out the loose socket", Rect2(500, 230, 160, 60), "hand", ["cowl"], {"note": true, "hold": 2.0})] + _cowl()}
 
-	# Hand-propping, the Cub manual's starting drill (p.38). Opened by the run-up on a Cub.
+	# Hand-propping, the Cub manual's starting drill (p.38): how you start it with a flat battery.
 	s.hand_prop = {"title": "In front of the prop", "deco": prop_deco, "desc": "Standing in front of a Cub's propeller on grass, chocks at the wheels, the cabin door open to the throttle and switch", "els": [
 		_task("chocks", "Chock the wheels", Rect2(40, 380, 180, 46), "hand", [], {"hold": 0.8}),
 		_task("off", "Ignition OFF, and check it", Rect2(240, 380, 180, 46), "hand", [], {"requires": ["chocks"], "hold": 0.6}),

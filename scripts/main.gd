@@ -64,8 +64,8 @@ const FAULTS := {
 	"stale_fuel": {"name": "Stale fuel in the tank", "part": "Fresh avgas", "cost": 90, "zone": "cabin", "symptom": "hasn't had fresh gas in years"},
 	"pre_oil": {"name": "Dry engine: pre-oil before start", "part": "", "cost": 0, "zone": "engine", "symptom": "hasn't been started in years"},
 	"door_pin": {"name": "Door pin rusted solid", "part": "Door pin & cotter", "cost": 120, "zone": "cabin", "symptom": "can't even get the door open"},
-	"storage_return": {"name": "Engine pickled for storage", "part": "", "cost": 0, "zone": "engine", "symptom": "the engine was put up properly for storage"},
-	"oil_change": {"name": "Oil long overdue", "part": "4 qt aviation oil", "cost": 40, "zone": "engine", "symptom": "nobody remembers the last oil change"},
+	"storage": {"name": "Engine pickled for storage", "part": "", "cost": 0, "zone": "engine", "symptom": "the engine was put up properly for storage"},
+	"oil_change": {"name": "Oil long overdue", "part": "", "cost": 0, "zone": "engine", "symptom": "nobody remembers the last oil change"},
 	"bungee": {"name": "Tired shock cords", "part": "Bungee cords", "cost": 90, "zone": "gear_l", "symptom": "sags on its gear and bangs on landing"},
 	"tie_down": {"name": "Rotten tie-downs", "part": "", "cost": 0, "zone": "tail", "symptom": "it's been rocking at its tie-downs all season"},
 	# Tracked down with troubleshooting tests.
@@ -82,22 +82,22 @@ const FAULTS := {
 	# Heard on the run-up.
 	"hot_mag": {"name": "Hot magneto (broken P-lead)", "part": "P-lead", "cost": 30, "zone": "engine", "symptom": "no drop at all on the mag check"},
 	"mag_timing": {"name": "Magneto timing drifted", "part": "", "cost": 0, "zone": "engine", "symptom": "sluggish and runs hot"},
-	"brake_bleed": {"name": "Air in the brake line", "part": "Brake fluid", "cost": 12, "zone": "gear_r", "symptom": "the right brake pedal goes soft"},
-	"wire_splice": {"name": "Chafed wire behind the panel", "part": "", "cost": 0, "zone": "cabin", "symptom": "the radio cuts out over bumps"},
+	"brake_bleed": {"name": "Air in the brake line", "part": "", "cost": 0, "zone": "gear_r", "symptom": "the right brake pedal goes soft"},
+	"wire_chafe": {"name": "Chafed wire behind the panel", "part": "Wire & splices", "cost": 15, "zone": "cabin", "symptom": "the radio cuts out over bumps"},
 	# Seen on the walk-around.
-	"exhaust": {"name": "Cracked muffler", "part": "Muffler", "cost": 380, "zone": "engine", "symptom": "the cabin smells of exhaust and the owner gets headaches"},
-	"air_filter": {"name": "Clogged air filter", "part": "Air filter", "cost": 30, "zone": "engine", "symptom": "down on power, slow to climb"},
+	"exhaust_check": {"name": "Cracked muffler", "part": "Muffler", "cost": 380, "zone": "engine", "symptom": "the cabin smells of exhaust and the owner gets headaches"},
+	"air_filter": {"name": "Clogged air filter", "part": "Air filter & flapper", "cost": 45, "zone": "engine", "symptom": "down on power, slow to climb"},
 	"baffles": {"name": "Packed fins, loose baffle seal", "part": "Baffle seal strip", "cost": 25, "zone": "engine", "symptom": "oil temperature climbs past 220"},
 	"fuel_vent": {"name": "Plugged fuel tank vent", "part": "", "cost": 0, "zone": "engine", "symptom": "starts, runs a minute, then quits"},
 	"water_fuel": {"name": "Water in the fuel", "part": "", "cost": 0, "zone": "engine", "symptom": "coughs and quits once it's warm"},
-	"fuel_strainer": {"name": "Clogged fuel strainer", "part": "Strainer gasket", "cost": 8, "zone": "engine", "symptom": "loses power at full throttle"},
-	"aileron_rig": {"name": "Ailerons out of rig", "part": "", "cost": 0, "zone": "wing_l", "symptom": "flies with the left wing low"},
-	"wing_rig": {"name": "Wings out of rig", "part": "", "cost": 0, "zone": "wing_l", "symptom": "won't fly straight hands-off"},
+	"fuel_strainer": {"name": "Clogged fuel strainer", "part": "", "cost": 0, "zone": "engine", "symptom": "loses power at full throttle"},
+	"aileron_rigging": {"name": "Ailerons out of rig", "part": "Aileron cable", "cost": 110, "zone": "wing_l", "symptom": "flies with the left wing low"},
+	"wing_rig": {"name": "Wings out of rig", "part": "Strut forks", "cost": 60, "zone": "wing_l", "symptom": "won't fly straight hands-off"},
 	"elevator_cable": {"name": "Frayed elevator cable", "part": "Elevator cable", "cost": 120, "zone": "tail", "symptom": "the stick feels notchy fore and aft"},
 	"trim_cable": {"name": "Slipping trim cable", "part": "", "cost": 0, "zone": "tail", "symptom": "the trim crank spins and nothing happens"},
-	"tail_brace": {"name": "Kinked tail brace wire", "part": "Brace wire", "cost": 65, "zone": "tail", "symptom": "the tail shakes in gusts"},
+	"brace_wires": {"name": "Kinked tail brace wire", "part": "Brace wire set", "cost": 120, "zone": "tail", "symptom": "the tail shakes in gusts"},
 	"tailwheel": {"name": "Sloppy tailwheel", "part": "Tailwheel springs", "cost": 35, "zone": "tail", "symptom": "the tailwheel shimmies and won't steer"},
-	"prop_nick": {"name": "Stone nick in the prop", "part": "", "cost": 0, "zone": "prop", "symptom": "picked up a stone on the gravel strip"},
+	"prop_dress": {"name": "Stone nick in the prop", "part": "", "cost": 0, "zone": "prop", "symptom": "picked up a stone on the gravel strip"},
 	"prop_track": {"name": "Prop out of track", "part": "", "cost": 0, "zone": "prop", "symptom": "shakes the whole panel at cruise"},
 	"compass": {"name": "Compass way off", "part": "", "cost": 0, "zone": "cabin", "symptom": "the compass is twenty degrees out"},
 	"pitot_static": {"name": "Leaking static line", "part": "Static hose", "cost": 15, "zone": "cabin", "symptom": "the airspeed and altimeter wander"},
@@ -107,12 +107,12 @@ const FAULTS := {
 	# Only ever added by the run-up: you closed the cowl on a dropped socket.
 	"fod": {"name": "Socket loose under the cowl", "part": "", "cost": 0, "zone": "engine", "symptom": ""},
 }
-const NEGLECT_FAULTS := ["stale_fuel", "pre_oil", "door_pin", "storage_return", "oil_change", "bungee", "tie_down"]
+const NEGLECT_FAULTS := ["stale_fuel", "pre_oil", "door_pin", "storage", "oil_change", "bungee", "tie_down"]
 const GROUND_FAULTS := ["jet_fuel", "prop_strike"]  # the oil-screen ones come up through diagnosis
 # How you find each fault. Seen on the walk-around (clue = what you notice at that spot), or only
 # heard/felt on the run-up from the cockpit. magneto and spark_plugs are here for saves made
 # before troubleshooting existed; new jobs track those down with tests.
-const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_splice"]
+const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_chafe"]
 
 # Troubleshooting tests (M-0 Chapter 8). clue: what the run-up tells you; symptom: what the
 # owner says on the radio; options: [what you call, its key]. TEST_KEY maps a fault to the
@@ -159,7 +159,7 @@ const CLUES := {
 	"windshield": "a long crack right across the windshield",
 	"control_cables": "the rudder flops loose; its cables feel slack",
 	"propeller": "a crack running in from one blade tip",
-	"battery": "Master ON: nothing. No ammeter flicker, no lights. Battery's dead",
+	"battery": "Master ON: nothing, not an ammeter flicker. Battery's flat, so you swung the prop by hand",
 	"starter": "Starter just clicks and won't turn the prop over",
 	"avionics": "Radio's dead silent, not even a hiss. The antenna's snapped too",
 	"magneto": "Mag check: big drop on the left mag, the engine nearly quits",
@@ -167,27 +167,27 @@ const CLUES := {
 	"stale_fuel": "the sumped fuel smells like varnish and comes out dark",
 	"pre_oil": "an engine that sat this long can't be cranked dry: pre-oil it first",
 	"door_pin": "the cabin door won't budge; the handle moves but the pin doesn't",
-	"storage_return": "a tag on the prop: DO NOT TURN PROPELLER - ENGINE PRESERVED, and red streamers on plugs in the exhaust",
+	"storage": "a tag on the prop: DO NOT TURN PROPELLER - ENGINE PRESERVED, and red streamers on plugs in the exhaust",
 	"oil_change": "the dipstick oil is black as tar",
 	"bungee": "the gear sags and the shock cords are cracked and sun-checked",
 	"tie_down": "the tie-down ropes are rotted through and it's weathervaning in the gusts",
 	"hot_mag": "Mag check: no drop at all on the right mag. It's hot: the prop is live even with the switch OFF",
 	"mag_timing": "Slow to pick up and the oil temperature climbs: the timing's off",
 	"brake_bleed": "Holding the brakes for the run-up, the right pedal sinks to the floor",
-	"wire_splice": "Tap the panel and the radio cuts out",
-	"exhaust": "a crack along the muffler seam, with gray-white exhaust streaks",
+	"wire_chafe": "Tap the panel and the radio cuts out",
+	"exhaust_check": "a crack along the muffler seam, with gray-white exhaust streaks",
 	"air_filter": "the air filter is packed with chaff and the carb heat door hangs half open",
 	"baffles": "mud dauber nests packed in the cylinder fins and a baffle seal flapping loose",
 	"fuel_vent": "the fuel cap's vent tube is plugged with a mud dauber nest",
 	"water_fuel": "a sump sample comes up with clear water beads under the fuel",
 	"fuel_strainer": "the strainer bowl is full of rust-colored sediment",
-	"aileron_rig": "with the stick centered, the left aileron hangs below the wing's trailing edge",
+	"aileron_rigging": "with the stick centered, the left aileron hangs below the wing's trailing edge",
 	"wing_rig": "sighting down the wings, the left one sits flatter than the right",
 	"elevator_cable": "a broken strand at the elevator horn terminal",
 	"trim_cable": "turn the trim crank and the stabilizer doesn't move",
-	"tail_brace": "a kinked tail brace wire, with plier marks on it",
+	"brace_wires": "a kinked tail brace wire, with plier marks on it",
 	"tailwheel": "the tailwheel flops side to side and a steering spring hangs loose",
-	"prop_nick": "a stone nick in one blade's leading edge",
+	"prop_dress": "a stone nick in one blade's leading edge",
 	"prop_track": "sighting across the prop, one tip sits ahead of the other",
 	"compass": "the compass reads 25 degrees off the runway heading",
 	"pitot_static": "the static hose behind the panel is cracked and stiff",
@@ -207,15 +207,15 @@ const ZONES := {
 	"battery": {"name": "battery bay", "pos": Vector3(0.45, 1.45, 1.7), "size": Vector3(0.3, 0.6, 0.8)},
 	"tail": {"name": "tail & rudder", "pos": Vector3(0, 2.0, 4.7), "size": Vector3(1.6, 1.6, 1.4)},
 }
-# Name, base pay, and the faults this type never gets. The rag-wing is the J-3 Cub: per its
-# manual it has no electrical system (hand-propped, no battery, starter or radio) and its brakes
-# are expander units inside the wheel, not discs.
+# Name, base pay, and the faults this type never gets. The rag-wing is the J-3 Cub with a
+# Continental C85-12 (starter, generator, battery); its brakes are expander tubes, not discs.
 const PLANE_TYPES := [["High-wing trainer", 1500, []],
-	["Rag-wing taildragger", 2000, ["battery", "starter", "avionics", "brakes", "wire_splice"]],
+	["Rag-wing taildragger", 2000, ["brakes"]],
 	["Bush plane", 2500, []], ["Vintage tourer", 3000, []], ["Utility hauler", 3500, []]]
 
 
-## True for planes with no starter: you swing the prop by hand.
+## True for planes with no starter: you swing the prop by hand. (Every type has one now that
+## the Cub runs a C85-12; a flat battery still means hand-propping, see _run_up.)
 func _hand_propped(job: Dictionary) -> bool:
 	return PLANE_TYPES.any(func(t): return t[0] == job.type and "starter" in t[2])
 
@@ -426,7 +426,7 @@ func _spawn_job() -> void:
 		if rng.randf() < 0.3:
 			picks.append("tie_down")
 	if years >= 5:
-		picks.append("storage_return" if rng.randf() < 0.3 else "pre_oil")  # some owners pickled it properly
+		picks.append("storage" if rng.randf() < 0.3 else "pre_oil")  # some owners pickled it properly
 	if years >= 8:
 		if rng.randf() < 0.6:
 			picks.append("door_pin")
@@ -647,8 +647,8 @@ func _run_up() -> void:
 		_say("It's well below 20 F and the engine's cold-soaked: the oil's like tar. Preheat it first (at the engine).")
 		_open_inspection("cabin")
 		return
-	var blocked: bool = ["door_pin", "pre_oil", "storage_return", "battery"].any(func(id): return broken.call(id))
-	if _hand_propped(job) and not blocked:
+	var blocked: bool = ["door_pin", "pre_oil", "storage"].any(func(id): return broken.call(id))
+	if (_hand_propped(job) or broken.call("battery")) and not blocked:  # flat battery: swing it by hand
 		job.work.erase("hand_prop")  # the starting drill, fresh every time
 		_open_work("hand_prop", _run_up_result)
 		return
@@ -671,20 +671,19 @@ func _run_up_result() -> void:
 	elif broken.call("pre_oil"):  # cranking a dry engine that sat for years wipes the cam
 		hear.call("pre_oil")
 		job.runup = "dead"
-	elif broken.call("storage_return"):  # preservative oil in the cylinders: hydraulic lock waiting to happen
-		hear.call("storage_return")
-		job.runup = "dead"
-	elif broken.call("battery"):
-		hear.call("battery")
+	elif broken.call("storage"):  # preservative oil in the cylinders: hydraulic lock waiting to happen
+		hear.call("storage")
 		job.runup = "dead"
 	else:
+		if broken.call("battery"):  # you hand-propped it; it runs, but the battery still needs fixing
+			hear.call("battery")
 		if broken.call("avionics"):
 			hear.call("avionics")
-		if broken.call("starter"):
+		if broken.call("starter") and not broken.call("battery"):  # hand-propped, the starter never came into it
 			hear.call("starter")
 			job.runup = "dead"
 		else:
-			for id in ["magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_splice"]:
+			for id in ["magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_chafe"]:
 				if broken.call(id) and _how(job, id) == "runup":
 					hear.call(id)
 			for id in job.faults:  # trouble you can hear but not yet name: troubleshoot it
@@ -699,8 +698,7 @@ func _run_up_result() -> void:
 					job.work.erase("fod")
 				hear.call("fod")
 			if heard.is_empty():
-				heard.append("Chocks in, switch on, and it fires on the second pull. 2,100 rpm: under 75 drop on each mag, oil pressure above 30"
-					if _hand_propped(job) else "Fires right up, smooth on both mags, oil pressure in the green")
+				heard.append("Fires right up. 2,100 rpm: under 75 drop on each mag, oil pressure above 30")
 			job.runup = "ran"
 	_say(". ".join(heard) + ("." if job.runup == "ran" else ". Can't run it up until that's fixed."))
 	_save_game()
@@ -886,30 +884,32 @@ func reading(scene: String, eid: String) -> String:
 			return "Oil runs at all four rocker arms."
 		"oil_change":
 			return "A few fine flakes, nothing on the magnet: normal wear."
-		"exhaust":
+		"exhaust_check":
 			return "Bubbles streaming from the seam: it's cracked through."
 		"bungee":
 			return "Green and red threads: made in a year ending 1 or 6, third quarter. Well past five years: replace them."
-		"aileron_rig":
-			return "Trailing edges in line, two threads showing at each turnbuckle."
+		"aileron_rigging", "elevator_cable":
+			return {"tb_b": "Tensiometer reads 30 lb: in range (25-35, game value).",
+				"sight": "Stick centered: trailing edges in line, two threads showing at each turnbuckle."}[eid]
 		"wing_rig":
-			return {"string": "1-3/8 in over the center section. It wants 2-1/8.", "string2": "2-1/8 in. Dihedral's right.",
-				"level": "Bubble off toward the trailing edge: the wash-out's wrong.", "rear": "Bubble centered."}[eid]
+			return {"measure": "1-3/8 in under the string at the root. It wants 2-1/8.", "measure2": "2-1/8 in. Dihedral's right.",
+				"washout": "Bubble off toward the trailing edge: the wash-out's wrong.", "rear": "Bubble centered."}[eid]
 		"trim_cable":
-			return "The crank turns the stabilizer, no slip."
-		"tail_brace":
+			return "Tensiometer reads 15 lb: in range (12-18, game value). The crank turns the stabilizer, no slip."
+		"brace_wires":
 			return "Stabilizer level, threads showing through each nipple."
-		"prop_nick":
+		"prop_dress":
 			return "No crack under the etch. It's clean."
 		"prop_track":
 			return {"t1": "Blade 1 just touches the block.", "t2": "Blade 2 passes 3/16 in clear. The limit is 1/16.",
 				"t3": "Within 1/32 in. In track."}[eid]
 		"mag_timing":
-			return {"tdc": "#1 at top center on its compression stroke.", "rotate": "The light comes on at 30 degrees before top center."}[eid]
+			return {"tdc": "Pointer on 28 degrees before top center, #1 on compression.", "rotate": "The light comes on right at 28 degrees BTC."}[eid]
 		"brake_bleed":
-			return "Pedal's firm, no fade."
-		"storage_return":
-			return "Preservative oil spits out of the plug holes."
+			return "Clear fluid, no bubbles in the jar. Pedal's firm."
+		"storage":
+			return {"tag": "Preserved 6 years ago: desiccant in the intake and exhaust, dehydrator plugs in. DO NOT TURN PROPELLER.",
+				"turn": "Preservative oil spits out of the plug holes."}[eid]
 		"compass":
 			return {"n": "Facing north it reads 018.", "e": "Facing east it reads 097.", "s": "Facing south it reads 186: took out half, 183.",
 				"w": "Facing west it reads 276: took out half, 273.", "swing": "Every 30 degrees, worst error 4. Under the 10 degree limit. Card filled in."}[eid]
@@ -920,7 +920,7 @@ func reading(scene: String, eid: String) -> String:
 			var wb: Dictionary = job.get("wb", {"l": 295, "r": 293, "t": 58})
 			return {"l": "Left main: %d lb." % wb.l, "r": "Right main: %d lb." % wb.r,
 				"t": "Tail: %d lb. Tail scale is 187.5 in behind the main axle." % wb.t}[eid]
-		"wire_splice":
+		"wire_chafe":
 			return "Wiggle test: the radio stays on."
 		"fod":
 			return "A 7/16 socket, wedged behind the number 3 baffle."
@@ -966,6 +966,29 @@ func view_art(scene: String, eid: String) -> String:
 					return "work/oil_screen_magnet_" + ("steel" if metal == "steel" and w.get("magnet") == "done" else "bare")
 		"water_fuel":
 			return "work/water_fuel_cup_" + ("clean" if w.get("sump2") == "done" else "water")
+		"oil_change":
+			return "work/oil_change_stream" if w.get("plug") == "off" and w.get("pan") == "on" and w.get("drain") != "done" else ""
+		"brake_bleed":
+			if w.get("hose") != "on" and w.get("close") != "done":
+				return ""
+			return "work/brake_bleed_jar_" + ("clear" if w.get("close") == "done" else "bubbles")
+		"aileron_rigging", "elevator_cable":
+			return "work/aileron_rigging_tensio_" + ("set" if w.get("tb_b") == "done" else "slack")
+		"mag_timing":
+			return "work/mag_timing_light_" + ("on" if w.get("rotate") == "done" else "off")
+		"prop_dress":
+			var filed: bool = w.get("file") == "done"
+			return ("work/prop_dress_dressed" if filed else "") if eid == "dressed" else ("" if filed else "work/prop_dress_nick")
+		"prop_track":
+			match eid:
+				"blade":
+					return "" if w.get("t1") != "done" else "work/prop_track_blade_" + ("b" if w.get("t2") == "done" and w.get("t3") != "done" else "a")
+				"mark_a":
+					return "work/prop_track_mark_a" if w.get("t1") == "done" else ""
+				"mark_b":
+					return "work/prop_track_mark_b" if w.get("t2") == "done" else ""
+		"wing_rig":
+			return "work/wing_rig_ruler" if w.get("string") == "on" else ""
 	return ""
 
 
@@ -2029,6 +2052,8 @@ const SUPPLIES := {
 	"pliers": {"name": "Safety-wire pliers", "cost": 75, "tool": true},
 	"tester": {"name": "Differential compression tester", "cost": 180, "tool": true},
 	"timing": {"name": "Timing light", "cost": 90, "tool": true},
+	"Aviation oil": {"name": "Aviation oil (quart)", "cost": 9, "qty": 1},
+	"Brake fluid": {"name": "Brake fluid (can, 2 uses)", "cost": 12, "qty": 2},
 	"Safety wire": {"name": "Safety wire (spool, 10 uses)", "cost": 25, "qty": 10},
 	"Cotter pin": {"name": "Cotter pins (box of 10)", "cost": 15, "qty": 10},
 	"Penetrant": {"name": "Penetrant (can, 3 uses)", "cost": 12, "qty": 3},

@@ -17,13 +17,18 @@ func run(main, args: PackedStringArray) -> void:
 	for a in args:
 		if a.begins_with("--shot="):
 			shot = a.trim_prefix("--shot=")
+	for a in args:
+		if a.begins_with("--scene-shots="):  # every work scene at its start and part-way, for checking art placement
+			await _scene_shots(a.trim_prefix("--scene-shots="))
+			get_tree().quit(0)
+			return
 	var edges_ok = _edge_tests()
 	var scenes_ok = _scene_tests()
 	var job: Dictionary = g.jobs[0]
 	if "--all-faults" in args:  # every broken part one plane can have at once, for screenshots
 		var excl: Array = g.PLANE_TYPES.filter(func(t): return t[0] == job.type)[0][2]
 		g._assign_faults(job, g.FAULTS.keys().filter(func(id): return not g.FAULTS[id].get("ground", false) \
-			and id != "fod" and not id in excl and id != "storage_return"))
+			and id != "fod" and not id in excl and id != "storage"))
 		job.years = 9  # a long-sat plane: grime, stale fuel, dry engine, stuck door
 		job.washed = false
 		job.annual = false
@@ -84,8 +89,8 @@ func run(main, args: PackedStringArray) -> void:
 	ok = ok and job.faults.filter(func(id): return g._how(job, id) == "runup").all(func(id):
 		return job.found.has(id) or job.runup == "dead")
 	_chk(ok, 72)
-	if job.faults.has("battery"):
-		ok = ok and job.runup == "dead"  # dead battery: nothing to hear past the master switch
+	if job.faults.has("battery") and not job.faults.any(func(id): return id in ["door_pin", "pre_oil", "storage"]):
+		ok = ok and job.runup == "ran" and job.found.has("battery")  # flat battery: you hand-prop it
 		_chk(ok, 75)
 	# Save, scramble, load: everything comes back and the job here is still the one you're on.
 	g._save_game()
@@ -174,12 +179,14 @@ func run(main, args: PackedStringArray) -> void:
 	if uses_any:
 		if g.FAULTS[id0].part != "":
 			g.inventory[g.FAULTS[id0].part] = 1
-		for mtl in ["Safety wire", "Cotter pin", "Penetrant"]:
-			g.inventory[mtl] = 0
+		for mtl in g.SUPPLIES:
+			if g.SUPPLIES[mtl].has("qty"):
+				g.inventory[mtl] = 0
 		ok = ok and not g.panel.solve() and not job.fixed.has(id0)
 		_chk(ok, 159)
-	for mtl in ["Safety wire", "Cotter pin", "Penetrant"]:
-		g.inventory[mtl] = 99
+	for mtl in g.SUPPLIES:
+		if g.SUPPLIES[mtl].has("qty"):
+			g.inventory[mtl] = 99
 	g._close_panel()
 	# Fix what's found, run it up to hear more, troubleshoot what it tells you, repeat.
 	for _round in 4:
@@ -419,7 +426,10 @@ func _scene_tests() -> bool:
 	for t in Work.TOOLS:
 		if t != "hand":
 			g.tools[t] = true
-	g.inventory = {"Safety wire": 99, "Cotter pin": 99, "Penetrant": 99}
+	g.inventory = {}
+	for mtl in g.SUPPLIES:
+		if g.SUPPLIES[mtl].has("qty"):
+			g.inventory[mtl] = 99
 	for id in g.FAULTS:
 		if g.FAULTS[id].part != "":
 			g.inventory[g.FAULTS[id].part] = 5
@@ -504,3 +514,40 @@ func _chk(ok: bool, where: int) -> void:
 	if not ok and not _said:
 		_said = true
 		print("FIRST FAILED CHECK at run() line ", where)
+
+
+## Screenshots of every work scene: fresh, and with the job worked halfway.
+func _scene_shots(prefix: String) -> void:
+	g.tools = {}
+	for t in Work.TOOLS:
+		if t != "hand":
+			g.tools[t] = true
+	for mtl in g.SUPPLIES:
+		if g.SUPPLIES[mtl].has("qty"):
+			g.inventory[mtl] = 99
+	for id in g.FAULTS:
+		if g.FAULTS[id].part != "":
+			g.inventory[g.FAULTS[id].part] = 5
+	for scene in Work.scenes():
+		var j := {"city": g.location, "type": "Test", "faults": [], "fixed": {}, "found": {}, "checked": {}, "work": {},
+			"reward": 1000, "deadline": g.day + 60, "spent": {"fuel": 0, "parts": 0, "mail": 0}}
+		var cause: String = scene
+		if scene in g.TESTS:
+			cause = g.TEST_KEY[scene].keys()[0]
+		g._assign_faults(j, [cause] if g.FAULTS.has(cause) else [])
+		if scene in g.TESTS:
+			j.diag = {cause: [scene]}
+			j.dstep = {}
+		g.jobs = [j]
+		g.current_job = j
+		g._open_work(scene, func(): pass)
+		var w = g.panel
+		w.st["_fod"] = false
+		await _snap(prefix, scene + "_a", 0.3)
+		for _i in 400:  # work it until half the pieces have moved
+			if w.done() or w._solve_step(true, {}) == "":
+				break
+			if w.els.filter(func(e): return e.type != "view" and e.type != "fastener" and w.st[e.id] != w._initial(e)).size() * 2 >= w.els.filter(func(e): return e.type != "view" and e.type != "fastener").size():
+				break
+		await _snap(prefix, scene + "_b", 0.3)
+		g._close_panel()

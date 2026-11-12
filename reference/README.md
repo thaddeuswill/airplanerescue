@@ -18,3 +18,5 @@ Each PDF has a `.txt` beside it: the same pages as plain text with the table lay
 ## Not in the repo
 
 Piper J3C-65 Cub Special owner's manual (Piper Aircraft Corporation, May 15, 1946, form SP 46-8). Its values are written into `JOBS_ATA.md` with page numbers; the scan is kept out because its copyright status is not confirmed.
+
+Continental Motors M-0 Standard Practice Maintenance Manual (Change 3, January 2017). Copyrighted and marked not for republication. Its A-65 values and troubleshooting order are written into `JOBS_ATA.md` with section numbers.

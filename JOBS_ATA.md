@@ -5,18 +5,27 @@ Every job on the airplane, sorted by ATA chapter, with the real-world values eac
 - **Sources of values:**
   - FAA AC 43.13-1B CHG 1, pages 6-31 to the end (PDFs and searchable text in `reference/ac43-13-1b/`). Paragraph and table numbers below point into it.
   - Piper J3C-65 Cub Special owner's manual, May 15, 1946. Cited below as "Cub p.N" using the page numbers printed in the manual. The scan itself is not in the repo.
+  - Continental Motors M-0 Standard Practice Maintenance Manual, Change 3, January 2017. Cited as "M-0" with its section or table number. It is copyrighted and marked not for republication, so only its values and the gist of its procedures are here, not the manual.
 - **Codes** are ATA chapter-section. Drop the dash to get the FAA's four-digit JASC code (32-40 is JASC 3240).
 - **In game** names the existing fault id in `scripts/main.gd` when the job is already built.
 - **Status:** `HAVE` means every number the job needs is on this page. `PARTIAL` means the general rule is here but an airplane-specific number is missing. `NEED` means AC 43.13-1B gives no value at all.
 - Everything missing is collected in one list at the bottom: [Values still needed](#values-still-needed).
 
-AC 43.13-1B is a general-practice book. It deliberately leaves model-specific numbers to the manufacturer. The Cub manual fills the airframe ones. What is still open comes mostly from two documents: the Continental A-65 engine manual and the propeller maker's instructions.
+AC 43.13-1B is a general-practice book and leaves model-specific numbers to the manufacturer. The Cub manual fills the airframe ones and the Continental manual the engine ones. What is still open is listed at the bottom.
 
-Two things to know before building from this:
+Things to know before building from this:
 
 1. **Parts 1 to 3 of the AC are not in the repo yet.** They hold Chapters 1 to 5 and most of 6: wood, fabric, plastics and windshields, metal structure and welding, inspection methods, and corrosion treatment of aluminum. Every job that depends on them is marked `NEED (AC parts 1-3)`.
-2. **The real Cub has no electrical system** ("not standard equipment", Cub p.34). No battery, starter or radio; it is hand-propped. The game's `battery`, `starter` and `avionics` jobs are fine for the other four plane types, but on the Cub they are a liberty. Its brakes are hydraulic expansion units inside the wheel, not discs, and its propeller is wood.
-3. **The game's tire pressure is wrong for a Cub.** `scripts/work.gd` says 18 psi; the manual says 15.
+2. **The game now follows the manuals on these points:**
+   - The rag-wing taildragger (the Cub) no longer gets `battery`, `starter`, `avionics` or `brakes` jobs. It has no electrical system (Cub p.34) and its brakes are expander units, not discs. Its run-up is a hand-prop start.
+   - Tire pressure is 15 psi, after seating the beads at 35 (Cub p.19).
+   - The ferry flight reads miles per hour and lifts off at about 40 (Cub p.41).
+   - The propeller fault is "damaged", not "bent": the Cub's prop is wood.
+3. **Still contradicting the Cub manual, left alone because fixing them means new art:**
+   - The Cub's fuel tank is in the fuselage behind the firewall (p.31). The game puts `fuel_line` and `stale_fuel` at the left wing.
+   - The `propeller` scene has a spinner; a stock Cub has none.
+   - `models/propeller_broken.glb` shows a bent metal blade.
+   - `pre_oil` is done by turning the prop; the engine manual does it with a pressure pot.
 
 ## Shared tables
 
@@ -163,13 +172,121 @@ Everything the Cub manual gives, in one place. These fill the airframe gaps for 
 - Every 20 hours: all of the above, drain the tank, check elevator and rudder controls for corrosion, lubricate controls and gear, check brakes, pull the exhaust shrouds and check for scale, cracks and leaks, check engine controls and piping, clean the engine bay, check tailwheel play and lubricate it, open the tailpost cover and check the elevator cable ends and trim screw, clean and re-oil the carburetor air filter.
 - Every 100 hours: the CAA Form 319 periodic inspection.
 
+## Continental A-65 values
+
+From the Continental M-0 manual. Section and table numbers are M-0's.
+
+**Limits and intervals.**
+- Time between overhauls: 1,800 hours or 12 years (6-3).
+- Oil change: every 25 hours or 4 months with the A-65's reusable oil screen; 50 hours with a spin-on filter (3-2). Drain within 30 minutes of shutdown.
+- Fuel: 80/87 minimum, 100LL approved (7-2.2).
+- Oil grade today: SAE 50 above 40 °F, SAE 30 below, or multi-viscosity (3-1). The 1946 Cub manual's grades are the period-correct ones.
+
+**Ignition.**
+- Magneto timing: 30 degrees before top center, both magnetos (Table 6-8). Timing that drifts more than 4 degrees between inspections means cam or point wear.
+- Spark plug gap: 0.016 to 0.021 in (Table 6-9).
+- Spark plug torque: 300 to 360 in-lb (18 mm plug, Appendix B).
+- Mag check, general rule: at 1,700 rpm, no more than 150 rpm drop and no more than 50 rpm difference between the two (6-4.7.5). The Cub's own tighter figure is 75 rpm at 2,100. **No drop at all means a magneto that cannot be switched off**: the engine can fire if the prop is moved by hand. Grounded until fixed.
+- Rough after running on one mag: 2,200 rpm on both, lean to peak for ten seconds, back to rich.
+
+**Spark plug service (6-4.9.2).**
+- Pull top and bottom plugs and keep track of where each came from.
+- Read each one. Good: insulator tip grey, tan or light brown, few deposits, electrodes not eroded. Worn out: electrodes eaten to less than half their original thickness. A dropped plug is scrap.
+- Clean, gap, new copper gasket.
+- Rotate on a four-cylinder: top plugs go to the bottom of the opposite cylinder and bottoms to the top. Cylinder 1 swaps with 4, and 2 swaps with 3.
+- Thread lubricant on all but the first thread. Screw in by hand to within one or two threads of the gasket, then torque with a six-point deep socket.
+
+**Ignition harness (6-4.9.3, 6-4.15).** Look for chafing, heat damage, cracks. Leads clamped so they cannot whip, and routed away from the exhaust. The outlet plate only fits the magneto one way; its No. 1 mark is cylinder 1.
+
+**Torques (Appendix B, in-lb).**
+- Rocker cover screw: 55 to 65.
+- Magneto to crankcase nut: 100 to 120.
+- Cylinder base nut: 410 to 430 (3/8 in), 400 to 450 (7/16 in).
+- Exhaust flange nut: 100 to 110. Intake flange screw: 85 to 110.
+- Oil screen with a new crush gasket: 500 to 520.
+
+**Oil screen check (6-4.8.2).** Cut the safety wire, pull the screen, rinse it in mineral spirits over filter paper, sort the particles with a magnet. Steel sticks; aluminum and bronze do not. Bronze points at piston pin bushings.
+
+**Pre-oiling (5-2.9).** Not done by cranking. Plugs in and torqued. Pressure pot of oil at 50 psi (60 at most) connected to the oil pressure gauge fitting. Rocker covers off. Open the valve and wait until oil runs at the rocker arms, which can take several minutes when cold. Covers back on with new gaskets.
+
+**Compression test (6-4.11.2).** 80 psi in, piston at top center, rock the prop to seat the rings. The pass mark is not a flat number: it is read off a calibrated master orifice on the tester that day. A low cylinder gets a borescope look and a re-test after flying before it is condemned. Listen for where the air goes: exhaust pipe is the exhaust valve, air filter is the intake valve, oil filler is the rings.
+
+**Air filter and airbox (6-4.14).** Filter clean with no gaps. No hole in the airbox that lets air around the filter. Carb heat door closes and seals. Dirt past the filter sands the cylinders.
+
+**Crankcase pressure (8-9.1).** Hook an airspeed indicator to the oil filler or dipstick tube and run the engine. The A-65 limit on the ground is a reading of 90 mph (4 in of water). High means a blocked breather or worn rings, and it blows the nose seal out.
+
+**Prop strike (6-5.1).** Any strike that needs more than minor blade dressing, or that made the engine lose rpm, means the engine comes out for full teardown and crack inspection. There is no field check that clears it.
+
+**Hydraulic lock (6-5.2).** Never force a prop that stops solid on a flooded or freshly un-preserved engine. Drain it. Starting against a locked cylinder bends a connecting rod.
+
+**Wrong fuel (6-5.6).** Wrong grade or jet fuel in the tank but engine never run: drain and purge. Engine run on it: do not fly, engine out for teardown.
+
+**Loose objects (6-5.7).** Count your tools before and after. Every scrap of old safety wire, gasket and cotter pin leaves with you. Anything unaccounted for means the oil sump comes off to look.
+
+**Cold weather (7-4.1).** Below 20 °F the engine must be preheated all the way through, not just warmed enough to fire: oil stays congealed in the sump and lines. Frosted plugs after a failed cold start have to come out and be dried.
+
+**Storage (9-1).**
+- 30 to 90 days is temporary; longer is indefinite.
+- Preserving: fog each cylinder with preservative oil through the top plug hole with the piston at the bottom, dehydrator plugs in the plug holes (dark blue means dry), desiccant bags in the exhaust pipes, every opening sealed, a tag on the prop reading "DO NOT TURN PROPELLER - ENGINE PRESERVED". Checked every 15 days.
+- Return to service: pull the seals, desiccant and dehydrator plugs, change the oil, turn the prop several turns by hand to clear the preservative, clean and gap the plugs, run it up, then change the oil again at 25 hours.
+
+## Troubleshooting chains
+
+From M-0 Chapter 8, carbureted engines only, reworded. Each is a symptom the owner could report on the radio, then the checks in the order the manual gives them: cheapest first, and the first one that fails is the fault. This is the shape a diagnosis mechanic in the game could take. Steps marked (electric) do not apply to a hand-propped Cub.
+
+**Won't start (8-1.1, 8-5, 8-6, 8-2.1).**
+1. Switches: fuel on, throttle a quarter open, ignition on both.
+2. Fuel in the tank.
+3. (electric) Battery charged. Starter turns: if not, starter relay or wiring, then the starter itself.
+4. Intake blocked (a nest, a rag left in the airbox).
+5. Loose intake connections.
+6. Magneto P-lead shorted to ground, or a bad ignition switch.
+7. Spark test: plugs out and laid on the engine with leads on, turn it over, watch for spark. No spark with known-good plugs on the same leads means the leads; still nothing means the magneto.
+
+**Turns over slowly (electric) (8-5).** Battery, then burned ignition switch contacts, then wiring, then the starter.
+
+**Starts, runs a moment, quits (8-1.4).**
+1. Fuel valve fully on.
+2. Fuel tank vent blocked (mud dauber nests are the classic).
+3. Fuel strainer clogged.
+4. Fuel sample: water or dirt.
+
+**Won't idle (8-1.4, 8-2.2).**
+1. Intake leaks or loose connections.
+2. Idle mixture, and a leaking primer.
+3. Fouled or worn plugs.
+4. The carburetor itself.
+
+**Runs rough (8-1.3.1).**
+- Only at idle: raise the idle speed, check the air filter.
+- At any speed, in order: intake blocked, propeller out of balance, idle mixture, primer or carburetor leaking, loose or broken engine mount, then a compression test for a burned or sticking valve.
+
+**Low power, slow to pick up (8-1.6, 8-2.3).**
+1. Throttle not reaching full travel.
+2. Dirty air filter, or carb heat stuck on.
+3. Intake leaks.
+4. Plug condition.
+5. Idle mixture and accelerator pump.
+6. Compression test.
+7. Exhaust blocked (a collapsed muffler baffle).
+
+**Oil pressure low (8-7).** Oil level, then change the oil and check the screen for metal, then try a known-good gauge, then the pressure relief valve, then the oil pump.
+
+**Oil temperature high (8-7).** Oil level, then oil pressure (if low, follow that chain), then try a known-good gauge, then the oil cooler for blockage.
+
+**Uses or loses oil (8-7, 8-9).** Look for the leak first: drain plug, oil screen, filler neck, sump bolts, rocker cover gaskets, nose seal. No leak found: top up, log it, watch for 25 hours, then a compression test.
+
+**Runs hot (8-8).** Cooling fins packed with dirt, then baffles and cowl seals out of place, then exhaust gasket leaks and loose exhaust studs.
+
+**Oil on the windshield, nose seal weeping (8-9.1).** Crankcase pressure test. High: clear the breather. Still high: compression test for worn rings.
+
 ## 05 Time limits and maintenance checks
 
 | Code | Job | What the player does | AC ref | Values | Status |
 |---|---|---|---|---|---|
 | 05-20 | Annual / 100-hour inspection | Open every panel, work a checklist across all chapters below | 8-2, 7-149, 9-2 | Intervals in the table under this one | HAVE for the Cub (line, 20-hour and 100-hour lists, Cub p.35-36) |
-| 05-50 | Prop-strike (sudden stoppage) inspection | Dial-indicate the crankshaft flange, turning it in 90-degree steps | 8-2 | Method only | PARTIAL: need the runout limit |
-| 05-50 | Return to service after years of storage | Wash, sump, pre-oil, free stuck parts (the neglect jobs) | Cub p.24, 49-52 | Clean out dirt trapped between tubes and fabric, check lower longerons at the tailpost, open drain grommets, re-tighten wood prop bolts | PARTIAL: need the engine side (pre-oil, preservation) |
+| 05-50 | Prop-strike call | Decide whether the engine may run again | 8-2, M-0 6-5.1 | More than minor blade dressing, or an rpm loss at the strike, means engine out for teardown | HAVE |
+| 05-50 | Return to service after years of storage | Wash, sump, pre-oil, free stuck parts (the neglect jobs) | Cub p.24, 49-52 | Clean out dirt trapped between tubes and fabric, check lower longerons at the tailpost, open drain grommets, re-tighten wood prop bolts | HAVE (airframe from the Cub manual, engine from M-0 9-1.5) |
 | 05-50 | Aircraft recovered from water | Flush with fresh water, dry, re-preserve | 6-220 to 6-223 | Removed parts into hot water or oil at 180 °F. Substitute cleaner: 1 part compound to 9 parts water | HAVE |
 
 Intervals the AC gives: control cables every annual or 100 hours. Fixed-pitch prop bolt torque after the first flight, at 25 hours, then every 50 hours. Bungee cords replaced near 5 years. ELT inspected every 12 months. Static system, altimeter and transponder every 24 months. Life preservers every 12 months. First-aid kit every 120 days. Oxygen cylinder hydrostatic test every 5 years (3 years for lightweight cylinders).
@@ -191,8 +308,8 @@ Intervals the AC gives: control cables every annual or 100 hours. Fixed-pitch pr
 |---|---|---|---|---|---|---|
 | 12-10 | Refuel | fuel truck | Ground the plane, fuel outdoors | 8-38, 11-191 | Aircraft grounded. Extinguisher at hand. Open lines capped. Bond 1 ohm or less | HAVE for the Cub: 12 gal, 73 octane minimum |
 | 12-10 | Drain and replace stale fuel | `stale_fuel` | Sump each drain until clean, refill | 8-38 | Drain plug at the rear of the tank, strainer bowl in the engine bay (Cub p.32-33) | PARTIAL: need how to judge bad fuel |
-| 12-10 | Oil change | no | Drain, check the screen for metal, refill | 8-5, 8-6 | Fine metal is normal on a new engine only. An unusual amount means teardown | PARTIAL: 4 quarts, grade by temperature (Cub p.38, 49). Need change interval |
-| 12-10 | Pre-oil a dry engine | `pre_oil` | Pull top plugs, turn the prop until oil pressure shows | Cub p.39 | After start, pressure within 30 seconds or shut down. 30 psi minimum | PARTIAL: need the pre-oil procedure itself |
+| 12-10 | Oil change | no | Drain, check the screen for metal, refill | 8-5, 8-6 | Fine metal is normal on a new engine only. An unusual amount means teardown | HAVE: 4 quarts, grade by temperature (Cub p.38, 49), every 25 hours, screen check (A-65 values) |
+| 12-10 | Pre-oil a dry engine | `pre_oil` | Game: pull top plugs, turn the prop until pressure shows. Manual: pressure pot at 50 psi until oil runs at the rockers | M-0 5-2.9, Cub p.39 | See A-65 values. After start, pressure within 30 seconds, 30 psi minimum | HAVE (the game's method differs from the manual's) |
 | 12-10 | Tire inflation | step of `tire` | Seat the tube, inflate | 9-15, 9-18, Cub p.19 | Cub: inflate to about 35 psi to seat the beads, let down to 15 psi (p.19). The game's 18 psi should become 15 | HAVE for the Cub |
 | 12-20 | Lubrication | no | Grease gear pivots and wheel bearings, oil cables | 9-3, 7-150, Cub p.22-51 | See Cub values, Servicing | HAVE for the Cub |
 | 12-30 | Wash down | wash | Wash off grime before inspecting | 6-220, Cub p.49-50 | Warm water, alkali-free soap, low-pressure rinse. Windshield by bare hand | HAVE |
@@ -323,13 +440,13 @@ Almost everything here waits on AC parts 1 to 3.
 | 71-10 | Nest or debris in the cowl | `bird_nest` | Pull the nest, sweep out the straw | none | none | HAVE (no value needed) |
 | 71-20 | Engine mount | no | Check tubes for cracks, bolts for snugness | Cub p.24 | Cracked mount: replace, do not repair. Bolts snug, never over-tight | HAVE for the Cub |
 | 71-60 | Air filter and carb heat | no | Clean and re-oil the filter, check the heat control | Cub p.32, 36, 41 | Filter every 20 hours. Carb heat on drops about 50 rpm | HAVE for the Cub |
-| 72-30 | Compression test | no | Differential tester on each cylinder | 8-14, Fig 8-1 | 80 psi in. Supply 100 to 120 psi. Orifice 0.040 in for bores under 5 in, 0.060 in for 5 in and over. Losing more than 25% (reading under 60 over 80) makes the cylinder suspect; run the engine 3 minutes and test again | HAVE |
-| 72-30 | Rocker cover gasket | `oil_leak` | Cover off, scrape, new gasket, wipe down | 8-9 | Fiber lock nuts good to 250 °F | PARTIAL: need cover screw torque |
+| 72-30 | Compression test | no | Differential tester on each cylinder | 8-14, Fig 8-1, M-0 6-4.11.2 | 80 psi in. Supply 100 to 120 psi. Orifice 0.040 in for bores under 5 in, 0.060 in for 5 in and over. Losing more than 25% (reading under 60 over 80) makes the cylinder suspect; run the engine 3 minutes and test again | HAVE |
+| 72-30 | Rocker cover gasket | `oil_leak` | Cover off, scrape, new gasket, wipe down | 8-9 | Fiber lock nuts good to 250 °F | HAVE: 55 to 65 in-lb, new gasket (M-0 App. B) |
 | 73-10 | Primer | no | Check the plunger seats and locks | Cub p.31 | A leaking primer makes the engine run rough | HAVE for the Cub |
 | 73-10 | Carburetor | no | Clean the inlet screen, check for leaks and float level | none | none | NEED |
-| 74-10 | Magneto | `magneto` | Swap the magneto, set timing | 8-19, 8-20 | Good points look frosted grey; deep pits or burns are scrap. Always turn the crank in its normal direction when timing. Re-time after any point adjustment. Never advance past the engine's spec | PARTIAL: mag drop 75 rpm at 2,100 rpm (Cub p.39). Need timing angle and point gap |
+| 74-10 | Magneto | `magneto` | Swap the magneto, set timing | 8-19, 8-20 | Good points look frosted grey; deep pits or burns are scrap. Always turn the crank in its normal direction when timing. Re-time after any point adjustment. Never advance past the engine's spec | PARTIAL: 30 degrees BTC, mount nuts 100 to 120 in-lb, mag drop 75 rpm at 2,100 (A-65 values). Need point gap |
 | 74-10 | Find a dead cylinder | no | Run on the bad mag, mark the stacks, see which stays cold | 8-2 | 30 seconds at 1,200 rpm, grease-pencil mark 1 in from each exhaust flange | HAVE |
-| 74-20 | Spark plugs | `spark_plugs` | Pull, read, clean, gap, refit | 8-15 to 8-17, Figs 8-6 | New gasket every time. A dropped plug is scrap. Anti-seize on the threads only. It must screw in by hand to within 2 or 3 threads of the gasket. Reach: 14 mm long 1/2 in, short 3/8 in; 18 mm long 13/16 in, short 1/2 in | PARTIAL: need gap and torque |
+| 74-20 | Spark plugs | `spark_plugs` | Pull, read, clean, gap, refit | 8-15 to 8-17, Figs 8-6 | New gasket every time. A dropped plug is scrap. Anti-seize on the threads only. It must screw in by hand to within 2 or 3 threads of the gasket. Reach: 14 mm long 1/2 in, short 3/8 in; 18 mm long 13/16 in, short 1/2 in | HAVE: gap 0.016 to 0.021 in, torque 300 to 360 in-lb, reading and rotation (A-65 values) |
 | 74-20 | Ignition leads | no | Check for chafing, cracked insulators, loose clamps | 8-18 | Inspection only | HAVE |
 | 75-00 | Cooling baffles | no | Check for cracks and missing seals | none | none | NEED |
 | 76-10 | Throttle and carb heat controls | no | Check full travel, free movement, safetied ends | Cub p.9, 36, 39 | Idle 550 to 600 rpm warm. Checked every 20 hours | HAVE for the Cub |
@@ -356,14 +473,9 @@ Grouped by the document that has them.
 
 **The other four plane types** (high-wing trainer, bush plane, vintage tourer, utility hauler) have no manual yet. Each needs what the Cub manual gave: tire pressure, fluids, oil and fuel, engine limits, rigging, jack points, inspection list, plus battery and electrical details.
 
-**Engine overhaul manual:**
-- Spark plug gap and torque.
-- Magneto timing angle and point gap.
-- Oil change interval.
-- Rocker cover screw torque. Starter mount torque.
-- Crankshaft runout limit after a prop strike.
-- Pre-oil and return-from-storage procedure.
-- Carburetor checks.
+**Engine, still open (magneto and carburetor makers' manuals):**
+- Magneto breaker point gap and internal timing.
+- Carburetor checks: float level, idle mixture.
 
 **Propeller manufacturer:**
 - Hub bolt torque, wood and metal.

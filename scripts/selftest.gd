@@ -19,7 +19,8 @@ func run(main, args: PackedStringArray) -> void:
 			shot = a.trim_prefix("--shot=")
 	for a in args:
 		if a.begins_with("--scene-shots="):  # every work scene at its start and part-way, for checking art placement
-			await _scene_shots(a.trim_prefix("--scene-shots="))
+			var spec := a.trim_prefix("--scene-shots=").split(":")  # prefix[:scene,scene] to shoot only some
+			await _scene_shots(spec[0], Array(spec[1].split(",")) if spec.size() > 1 else [])
 			get_tree().quit(0)
 			return
 	var edges_ok = _edge_tests()
@@ -532,7 +533,7 @@ func _chk(ok: bool, where: int) -> void:
 
 
 ## Screenshots of every work scene: fresh, and with the job worked halfway.
-func _scene_shots(prefix: String) -> void:
+func _scene_shots(prefix: String, only := []) -> void:
 	g.tools = {}
 	for t in Work.TOOLS:
 		if t != "hand":
@@ -544,6 +545,8 @@ func _scene_shots(prefix: String) -> void:
 		if g.FAULTS[id].part != "":
 			g.inventory[g.FAULTS[id].part] = 5
 	for scene in Work.scenes():
+		if only.size() > 0 and not scene in only:
+			continue
 		var j := {"city": g.location, "type": "Test", "faults": [], "fixed": {}, "found": {}, "checked": {}, "work": {},
 			"reward": 1000, "deadline": g.day + 60, "spent": {"fuel": 0, "parts": 0, "mail": 0}}
 		var cause: String = scene
@@ -566,7 +569,7 @@ func _scene_shots(prefix: String) -> void:
 				break
 		await _snap(prefix, scene + "_b", 0.3)
 		g._close_panel()
-	for job in ["", "spark_test", "oil_change"]:  # the service manual: contents and two job pages
+	for job in ([] if only.size() > 0 else ["", "spark_test", "oil_change"]):  # the service manual: contents and two job pages
 		g._open_manual(job)
 		await _snap(prefix, "manual_" + (job if job != "" else "contents"), 0.6)
 		g._close_panel()

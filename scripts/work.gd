@@ -852,35 +852,47 @@ static func scenes() -> Dictionary:
 	var engine_deco := [[Rect2(30, 30, 780, 500), "", Color(0.16, 0.16, 0.17)], [Rect2(80, 80, 680, 260), "metal_steel", ENGINE]]
 	var s := {}
 
-	# Propeller, nose seen head-on: spinner screws, safety wire, six torqued bolts.
+	# Propeller, nose head-on (Continental 6-4, 9-3c): mags OFF, cut the safety wire, six hub bolts
+	# through the face plate, face plate off, prop off. Back on: bolts torqued 200-220 in-lb in a star,
+	# safety-wired in pairs, then track the blades within 1/8 in.
 	var hub := Vector2(410, 280)
-	s.propeller = {"title": "Nose, head-on", "deco": [[Rect2(250, 120, 320, 320), "", SKIN.darkened(0.3), "circle"]],
-		"els": [_part("prop", "Propeller", Rect2(40, 245, 740, 70), ["spinner", "wire"], {"tex": "prop_wood", "col": Color(0.62, 0.4, 0.2)})]
-		+ _ring("prop", hub, 52, 6, "bolt", "ratchet", true)
-		+ [_cover("wire", "Safety wire", Rect2(hub - Vector2(70, 70), Vector2(140, 140)), ["spinner"],
-			{"tool": "pliers", "col": Color(0.75, 0.75, 0.78, 0.35), "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the bolts", "uses": "Safety wire"}),
-		_cover("spinner", "Prop face plate", Rect2(hub - Vector2(105, 105), Vector2(210, 210)), [], {"col": Color(0.85, 0.86, 0.88)})]
-		+ _ring("spinner", hub, 88, 4, "screw", "screwdriver", false, PI / 4)}
+	s.propeller = {"title": "Nose, head-on: propeller hub", "deco": [[Rect2(250, 120, 320, 320), "", SKIN.darkened(0.3), "circle"]],
+		"els": [_task("track", "Track the blades: tips within 1/8 inch", Rect2(560, 400, 220, 50), "hand", ["mags"], {"requires": ["prop"], "col": Color(0.35, 0.3, 0.2, 0.85), "hold": 2.0}),
+		_part("prop", "Propeller", Rect2(40, 245, 740, 70), ["mags", "plate"], {"tex": "prop_wood", "col": Color(0.62, 0.4, 0.2)}),
+		_cover("plate", "Prop face plate", Rect2(hub - Vector2(105, 105), Vector2(210, 210)), ["mags", "wire"], {"col": Color(0.85, 0.86, 0.88)})]
+		+ _ring("plate", hub, 52, 6, "bolt", "ratchet", true)
+		+ [_cover("wire", "Safety wire", Rect2(hub - Vector2(70, 70), Vector2(140, 140)), ["mags"],
+			{"tool": "pliers", "col": Color(0.75, 0.75, 0.78, 0.35), "verb_off": "Cut the safety wire", "verb_on": "Safety-wire the bolts in pairs", "uses": "Safety wire"}),
+		_cover("mags", "Mag switch", Rect2(40, 60, 150, 70), [], {"col": Color(0.2, 0.2, 0.2), "verb_off": "Switch the mags OFF and check the P-leads before touching the prop",
+			"verb_on": "Take the OFF tag down: prop done"})]}
 
-	# Spark plugs, engine left side: cowling, four ignition leads, four plugs.
+	# Spark plugs, engine left side (Continental 9-3g, Table of Limits T-1): cylinders 4 and 2 end-on,
+	# a top and a bottom plug in each. Lead elbow nut off, plug out, new copper gasket, plug gapped,
+	# in and torqued 300-360 in-lb, lead back on. The right side is the same job.
+	var plug_at := [Vector2(160, 66), Vector2(300, 166), Vector2(460, 66), Vector2(600, 166)]
+	var plug_name := ["Cyl 4 top plug", "Cyl 4 bottom plug", "Cyl 2 top plug", "Cyl 2 bottom plug"]
 	var plugs := []
 	for i in 4:
-		var x := 150 + i * 170
-		plugs += [_part("plug%d" % i, "Plug %d" % (i + 1), Rect2(x, 160, 60, 110), ["cowl", "lead%d" % i], {"tool": "ratchet", "col": Color(0.85, 0.85, 0.8),
-			"requires": ["gap"], "verb_install": "Fit the new plug, new gasket, 300-360 in-lb"}),
-			_cover("lead%d" % i, "Lead %d" % (i + 1), Rect2(x - 10, 130, 80, 50), ["cowl"], {"col": Color(0.55, 0.12, 0.1), "verb_off": "Pull the ignition lead", "verb_on": "Push the lead back on"})]
-	s.spark_plugs = {"title": "Engine, left side", "deco": engine_deco, "els": [_task("gap", "Gap the new plugs .016-.021 in", Rect2(150, 290, 520, 36), "hand", ["cowl"], {"hold": 1.5})]
-		+ plugs + _cowl()}
+		var p: Vector2 = plug_at[i]
+		plugs += [_task("gasket%d" % i, "Fit a new copper gasket", Rect2(p.x + 6, p.y + 84, 48, 22), "hand", ["cowl", "lead%d" % i],
+				{"uses": "Gasket", "out": ["plug%d" % i], "col": Color(0.8, 0.5, 0.25, 0.9), "hold": 0.6}),
+			_part("plug%d" % i, plug_name[i], Rect2(p.x, p.y, 60, 110), ["cowl", "lead%d" % i], {"col": Color(0.85, 0.85, 0.8), "requires": ["gasket%d" % i, "gap"]})]
+		plugs += _at("plug%d" % i, [Vector2(p.x + 30, p.y + 71)], "plug", "ratchet")
+		plugs[-1].torque = true  # 300-360 in-lb
+		plugs += [_cover("lead%d" % i, "Lead %d" % (i + 1), Rect2(p.x - 10, p.y - 30, 80, 50), ["cowl"], {"tool": "ratchet", "col": Color(0.55, 0.12, 0.1),
+			"verb_off": "Unscrew the lead's elbow nut and pull it straight out", "verb_on": "Seat the lead and run the elbow nut down"})]
+	s.spark_plugs = {"title": "Engine, left side (cylinders 4 and 2): the right side is the same", "deco": engine_deco,
+		"els": [_task("gap", "Gap the new plugs .016-.021 in", Rect2(150, 400, 520, 36), "hand", ["cowl"], {"hold": 1.5})] + plugs + _cowl()}
 
 	# Oil leak: wipe the mess, rocker cover off, scrape, new gasket.
 	var rc := Rect2(200, 130, 440, 150)
-	s.oil_leak = {"title": "Engine, left side", "deco": engine_deco, "els": [
+	s.oil_leak = {"title": "Engine, left side: rocker cover", "deco": engine_deco, "els": [
 		_part("gasket", "Rocker cover gasket", rc.grow(-20), ["cowl", "rocker"], {"col": Color(0.75, 0.35, 0.15), "requires": ["scrape"]}),
-		_task("scrape", "Scrape off the old gasket", Rect2(rc.position.x + 20, rc.end.y - 50, rc.size.x - 40, 30), "rag", ["cowl", "rocker"], {"hold": 2.0}),
+		_task("scrape", "Scrape the old gasket off both faces", Rect2(rc.position.x + 20, rc.end.y - 50, rc.size.x - 40, 30), "rag", ["cowl", "rocker"], {"hold": 2.0}),
 		_cover("rocker", "Rocker cover", rc, ["cowl"], {"tex": "metal_steel", "col": METAL})]
 		+ _at("rocker", [rc.position + Vector2(18, 18), Vector2(rc.get_center().x, rc.position.y + 18), Vector2(rc.end.x - 18, rc.position.y + 18),
-			rc.end - Vector2(18, 18), Vector2(rc.get_center().x, rc.end.y - 18), Vector2(rc.position.x + 18, rc.end.y - 18)], "bolt", "ratchet")
-		+ [_task("wipe", "Wipe the oil off the engine", Rect2(120, 290, 600, 40), "rag", ["cowl"], {"tex": "oil_puddle", "col": Color(0.2, 0.15, 0.05, 0.9), "hold": 2.0})]
+			rc.end - Vector2(18, 18), Vector2(rc.get_center().x, rc.end.y - 18), Vector2(rc.position.x + 18, rc.end.y - 18)], "screw", "screwdriver")
+		+ [_task("wipe", "Wipe the engine down so the leak shows", Rect2(120, 290, 600, 40), "rag", ["cowl"], {"tex": "oil_puddle", "col": Color(0.2, 0.15, 0.05, 0.9), "hold": 2.0})]
 		+ _cowl()}
 
 	# Bird nest: reach in and pull it out by the handful, then clean up the straw.
@@ -888,46 +900,68 @@ static func scenes() -> Dictionary:
 		_task("straw", "Sweep out the loose straw", Rect2(140, 250, 540, 60), "rag", ["cowl"], {"requires": ["nest"], "col": Color(0.7, 0.6, 0.35, 0.8)}),
 		_task("nest", "Pull the nest out", Rect2(300, 110, 240, 140), "hand", ["cowl"], {"tex": "bark", "col": Color(0.75, 0.6, 0.4), "hold": 2.5})] + _cowl()}
 
-	# Starter: cable nut off, two mount bolts, swap.
+	# Starter, C85-12 (Continental 10-25, 10-26): master and ignition OFF, cockpit pull cable off the
+	# shift lever, power cable nut off, three nuts and two through bolts, tap it free of its gasket.
+	# Back on: scrape the pad, new gasket with paste, bolts run down evenly.
 	var sr := Rect2(130, 200, 260, 110)
-	s.starter = {"title": "Engine, lower left", "deco": engine_deco, "els": [
-		_part("starter", "Starter motor", sr, ["cowl", "cable"], {"col": Color(0.25, 0.25, 0.28)})]
-		+ _at("starter", [sr.position + Vector2(20, 20), Vector2(sr.position.x + 20, sr.end.y - 20)], "bolt", "ratchet")
-		+ [_cover("cable", "Starter cable", Rect2(400, 230, 260, 40), ["cowl"], {"col": Color(0.55, 0.12, 0.1)})]
-		+ _at("cable", [Vector2(420, 250)], "nut", "ratchet") + _cowl()}
+	var st_f := _at("starter", [sr.position + Vector2(20, 20), Vector2(sr.position.x + 20, sr.get_center().y), Vector2(sr.position.x + 20, sr.end.y - 20),
+		Vector2(sr.position.x + 70, sr.position.y + 8), Vector2(sr.position.x + 70, sr.end.y - 8)], "nut", "ratchet")
+	st_f[3].kind = "bolt"  # the two through bolts from the front of the crankcase flange
+	st_f[4].kind = "bolt"
+	s.starter = {"title": "Engine, rear accessory case: starter pad", "deco": engine_deco, "els": [
+		_task("gasket", "Scrape the pad, fit a new gasket with paste", Rect2(140, 215, 80, 80), "rag", ["cowl", "master"], {"uses": "Gasket", "out": ["starter"], "col": Color(0.8, 0.5, 0.25, 0.9), "hold": 1.5}),
+		_part("starter", "Starter motor", sr, ["cowl", "master", "cable", "pull"], {"col": Color(0.25, 0.25, 0.28), "requires": ["gasket"]})]
+		+ st_f
+		+ [_cover("pull", "Starter pull cable", Rect2(250, 150, 150, 46), ["cowl"], {"tool": "pliers", "col": Color(0.3, 0.3, 0.32),
+			"verb_off": "Unhook the cockpit pull cable from the shift lever", "verb_on": "Hook the pull cable back on and check the lever returns"}),
+		_cover("cable", "Starter power cable", Rect2(400, 230, 260, 40), ["cowl", "master"], {"col": Color(0.55, 0.12, 0.1), "verb_off": "Take the power cable off and tape its end"})]
+		+ _at("cable", [Vector2(420, 250)], "nut", "ratchet") + _cowl(["master"])
+		+ [_cover("master", "Master and ignition", Rect2(690, 420, 120, 80), [], {"col": Color(0.15, 0.15, 0.15),
+			"verb_off": "Switch the master and the ignition OFF", "verb_on": "Master back on for the starter test"})]}
 
-	# Magneto: harness cap off, two clamp nuts, swap, time it.
+	# Magneto (Continental 10-8 to 10-12): harness outlet plate off, P-lead off, two nuts and washers,
+	# pull it straight back with its drive gear. Back on: new gasket with paste, No. 1 up on
+	# compression at the firing angle (left mag 30 deg BTC), turn the case until the timing light
+	# shows the points opening, tighten, then back the crank up and check again.
 	var mr := Rect2(470, 130, 220, 170)
-	s.magneto = {"title": "Engine, rear accessory case", "deco": engine_deco, "els": [
-		_task("timing", "Set the magneto timing", Rect2(130, 260, 260, 50), "screwdriver", ["cowl"], {"fixture": true, "requires": ["magneto"], "col": Color(0.2, 0.3, 0.2, 0.85), "hold": 3.0}),
-		_part("magneto", "Magneto", mr, ["cowl", "cap"], {"col": Color(0.15, 0.15, 0.17)})]
+	s.magneto = {"title": "Engine, rear accessory case: left magneto", "deco": engine_deco, "els": [
+		_task("timing", "Time it: No. 1 at 30 deg BTC, turn the case till the light shows the points opening", Rect2(130, 260, 260, 50), "screwdriver", ["cowl"],
+			{"fixture": true, "requires": ["magneto"], "col": Color(0.2, 0.3, 0.2, 0.85), "hold": 3.0}),
+		_task("gasket", "Fit a new flange gasket with paste", Rect2(540, 250, 80, 60), "hand", ["cowl", "cap", "plead"], {"uses": "Gasket", "out": ["magneto"], "col": Color(0.8, 0.5, 0.25, 0.9), "hold": 0.8}),
+		_part("magneto", "Magneto", mr, ["cowl", "cap", "plead"], {"col": Color(0.15, 0.15, 0.17), "requires": ["gasket"]})]
 		+ _at("magneto", [Vector2(mr.position.x - 14, mr.end.y - 30), Vector2(mr.end.x + 14, mr.end.y - 30)], "nut", "ratchet")
-		+ [_cover("cap", "Harness cap", Rect2(mr.position + Vector2(30, 20), Vector2(160, 70)), ["cowl"], {"col": Color(0.2, 0.2, 0.5)})]
-		+ _at("cap", [mr.position + Vector2(44, 55), mr.position + Vector2(176, 55)], "screw", "screwdriver") + _cowl()}
+		+ [_cover("cap", "Harness outlet plate", Rect2(mr.position + Vector2(30, 20), Vector2(160, 70)), ["cowl"], {"col": Color(0.2, 0.2, 0.5)})]
+		+ _at("cap", [mr.position + Vector2(44, 55), mr.position + Vector2(176, 55)], "screw", "screwdriver")
+		+ [_cover("plead", "P-lead", Rect2(510, 170, 300, 60), ["cowl"], {"tool": "ratchet", "col": Color(0.6, 0.6, 0.62),
+			"verb_off": "Unscrew the P-lead union nut", "verb_on": "Reconnect the P-lead (or the mag stays hot)"})] + _cowl()}
 
 	# Flat tire: jack the wing, hubcap, cotter pin, axle nut, swap, pump up, lower.
 	var wc := Vector2(400, 300)
 	var wheel_deco := [[Rect2(0, 470, 820, 90), "gravel", Color(0.7, 0.68, 0.62)], [Rect2(380, 40, 40, 160), "", SKIN.darkened(0.2)]]
 	s.tire = {"title": "Left main wheel, outside", "deco": wheel_deco, "els": [
 		_task("pump", "Pump to 35 psi to seat the beads, let down to 15", Rect2(600, 380, 200, 70), "hand", [], {"requires": ["tire"], "col": Color(0.4, 0.15, 0.1, 0.9), "hold": 2.5}),
-		_part("tire", "Tire & tube", Rect2(wc - Vector2(170, 170), Vector2(340, 340)), ["jack", "hubcap", "pin"], {"shape": "circle", "col": RUBBER})]
+		_task("deflate", "Let all the air out (valve core out)", Rect2(440, 120, 90, 60), "hand", ["jack"], {"col": Color(0.3, 0.3, 0.3, 0.8), "hold": 1.5}),
+		_part("tire", "Tire & tube", Rect2(wc - Vector2(170, 170), Vector2(340, 340)), ["jack", "hubcap", "pin"], {"shape": "circle", "col": RUBBER, "after": ["deflate"]})]
 		+ _at("tire", [wc], "nut", "ratchet")
 		+ [_cover("pin", "Cotter pin", Rect2(wc - Vector2(22, 40), Vector2(44, 24)), ["hubcap"], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it", "uses": "Cotter pin"}),
-		_cover("hubcap", "Hubcap", Rect2(wc - Vector2(70, 70), Vector2(140, 140)), [], {"shape": "circle", "col": METAL})]
+		_cover("hubcap", "Hub cap", Rect2(wc - Vector2(70, 70), Vector2(140, 140)), [], {"shape": "circle", "col": METAL})]
 		+ _ring("hubcap", wc, 52, 3, "screw", "screwdriver", false, -PI / 2)
-		+ [_cover("jack", "Jack", Rect2(80, 330, 130, 140), [], {"col": Color(0.7, 0.15, 0.1), "verb_off": "Jack the wing up", "verb_on": "Lower the plane back down"})]}
+		+ [_cover("jack", "Jack", Rect2(80, 330, 130, 140), [], {"col": Color(0.7, 0.15, 0.1), "verb_off": "Jack the axle up", "verb_on": "Lower the plane back down"})]}
 
-	# Brake disc: jack, cotter pin, axle nut, wheel off, caliper off, new disc.
+	# Brake shoes (J-3 parts list Fig. 8): jack the axle, cotter and axle nut, wheel and drum off,
+	# brake line off its bracket, four bolts, shoe assembly off the flange. New shoes on, line on,
+	# wheel on, then bleed the air out at the bleeder.
 	var bc := Vector2(330, 290)
-	s.brakes = {"title": "Right main wheel, inside", "deco": wheel_deco, "els": [
-		_part("disc", "Brake disc", Rect2(bc - Vector2(120, 120), Vector2(240, 240)), ["wheel", "caliper"], {"shape": "circle", "col": Color(0.55, 0.45, 0.4)})]
+	s.brakes = {"title": "Right main wheel, inside: drum brake", "deco": wheel_deco, "els": [
+		_task("bleed", "Bleed the brake until the hose runs clear", Rect2(410, 120, 140, 50), "ratchet", [], {"requires": ["disc"], "col": Color(0.6, 0.1, 0.1, 0.8), "hold": 2.5, "uses": "Brake fluid"}),
+		_part("disc", "Brake shoes & expander tube", Rect2(bc - Vector2(120, 120), Vector2(240, 240)), ["wheel", "caliper"], {"shape": "circle", "col": Color(0.55, 0.45, 0.4)})]
 		+ _ring("disc", bc, 80, 4, "bolt", "ratchet", false, PI / 4)
-		+ [_cover("wheel", "Wheel", Rect2(bc - Vector2(160, 160), Vector2(320, 320)), ["jack", "pin"], {"shape": "circle", "col": RUBBER})]
+		+ [_cover("wheel", "Wheel and drum", Rect2(bc - Vector2(160, 160), Vector2(320, 320)), ["jack", "pin"], {"shape": "circle", "col": RUBBER})]
 		+ _at("wheel", [bc], "nut", "ratchet")
-		+ [_cover("pin", "Cotter pin", Rect2(bc - Vector2(22, 40), Vector2(44, 24)), [], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it", "uses": "Cotter pin"}),
-		_cover("caliper", "Brake caliper", Rect2(520, 160, 120, 150), [], {"col": Color(0.6, 0.15, 0.12)})]
+		+ [_cover("pin", "Cotter pin", Rect2(bc - Vector2(22, 40), Vector2(44, 24)), ["jack"], {"tool": "pliers", "col": Color(0.8, 0.7, 0.3), "verb_off": "Pull the cotter pin", "verb_on": "Fit a new cotter pin and bend it", "uses": "Cotter pin"}),
+		_cover("caliper", "Brake line bracket", Rect2(520, 160, 120, 150), ["jack"], {"col": Color(0.6, 0.15, 0.12), "verb_off": "Break the brake line loose and unbolt its bracket"})]
 		+ _at("caliper", [Vector2(580, 185), Vector2(580, 285)], "bolt", "ratchet")
-		+ [_cover("jack", "Jack", Rect2(650, 330, 130, 140), [], {"col": Color(0.7, 0.15, 0.1), "verb_off": "Jack the wing up", "verb_on": "Lower the plane back down"})]}
+		+ [_cover("jack", "Jack", Rect2(650, 330, 130, 140), [], {"col": Color(0.7, 0.15, 0.1), "verb_off": "Jack the axle up", "verb_on": "Lower the plane back down"})]}
 
 	# Battery: hatch, negative off first, positive, hold-down strap, swap.
 	var br := Rect2(260, 170, 300, 200)
@@ -944,7 +978,7 @@ static func scenes() -> Dictionary:
 	var fr := Rect2(120, 150, 560, 230)
 	s.fuel_line = {"title": "Firewall, lower cowl open", "deco": [[Rect2(20, 40, 790, 480), "plane_body_worn", SKIN.darkened(0.2)]],
 		"els": [_task("mop", "Wipe up the spilled fuel", Rect2(140, 330, 520, 40), "rag", ["fairing"], {"col": Color(0.3, 0.45, 0.8, 0.6), "hold": 2.0}),
-		_part("line", "Fuel line", Rect2(180, 240, 440, 34), ["fairing", "valve"], {"col": Color(0.3, 0.3, 0.75)})]
+		_part("line", "Fuel line", Rect2(180, 240, 440, 34), ["fairing", "valve"], {"col": Color(0.3, 0.3, 0.75), "verb_remove": "Back off both B-nuts (hold the fitting with a second wrench) and lift the line out"})]
 		+ _at("line", [Vector2(190, 257), Vector2(610, 257)], "nut", "ratchet")
 		+ [_cover("fairing", "Lower cowl panel", fr, [], {"col": SKIN})]
 		+ _at("fairing", [fr.position + Vector2(16, 16), Vector2(fr.get_center().x, fr.position.y + 16), Vector2(fr.end.x - 16, fr.position.y + 16),
@@ -989,8 +1023,8 @@ static func scenes() -> Dictionary:
 	s.stale_fuel = {"title": "Fuselage tank, behind the firewall", "deco": wing_deco, "els": [
 		_part("fuel", "Avgas", Rect2(160, 170, 500, 120), ["cap"], {"col": Color(0.45, 0.35, 0.12, 0.85), "requires": ["sump_l", "sump_r"],
 			"verb_remove": "Drain out the stale fuel", "verb_install": "Fill up with fresh 80 octane or better"}),
-		_task("sump_l", "Pull the tank drain until it runs clean", Rect2(160, 330, 220, 60), "hand", [], {"col": Color(0.3, 0.45, 0.8, 0.7), "hold": 2.5}),
-		_task("sump_r", "Sump the gascolator until it runs clean", Rect2(440, 330, 220, 60), "hand", [], {"col": Color(0.3, 0.45, 0.8, 0.7), "hold": 2.5}),
+		_task("sump_l", "Drain the tank through the gascolator", Rect2(160, 330, 220, 60), "hand", [], {"col": Color(0.3, 0.45, 0.8, 0.7), "hold": 2.5}),
+		_task("sump_r", "Sump the strainer until the sample runs blue", Rect2(440, 330, 220, 60), "hand", [], {"col": Color(0.3, 0.45, 0.8, 0.7), "hold": 2.5}),
 		_cover("cap", "Fuel cap", Rect2(380, 90, 80, 60), [], {"col": METAL, "verb_off": "Open the fuel cap", "verb_on": "Close the fuel cap"})]}
 
 	# Door pin rusted into the hinge: trim panel off, soak it, pull the cotter, drive the pin out.
@@ -1003,20 +1037,16 @@ static func scenes() -> Dictionary:
 		_cover("trim", "Door trim panel", dp, [], {"col": Color(0.4, 0.3, 0.22)})]
 		+ _corners("trim", dp, "screw", "screwdriver")}
 
-	# Pre-oil a dry engine before its first start in years (Continental M-0 5-2.9): rocker
-	# covers off, a pressure pot at 50 psi on the oil gallery until oil runs at the rockers.
+	# Pre-oil a dry engine (Continental 7-1, 7-3): one plug out of each cylinder on this side so it
+	# turns easily, pressure pot on the gallery, turn it by hand until oil pressure shows.
 	var po := []
-	var rockers := []
 	for i in 4:
-		var rk := Rect2(110 + i * 170, 118, 140, 84)
-		rockers.append("rocker%d" % i)
-		po += [_cover("rocker%d" % i, "Rocker cover %d" % (i + 1), rk, ["cowl"], {"tex": "metal_steel", "col": METAL})]
-		po += _at("rocker%d" % i, [rk.position + Vector2(16, 42), rk.end - Vector2(16, 42)], "screw", "screwdriver")
-	for f in po.filter(func(e): return e.type == "fastener"):
-		f.torque = true  # rocker cover screws 55-65 in-lb
+		var p: Vector2 = plug_at[i]
+		po.append(_cover("plug%d" % i, plug_name[i], Rect2(p.x, p.y, 60, 110), ["cowl"], {"tool": "ratchet", "col": Color(0.85, 0.85, 0.8),
+			"verb_off": "Pull the plug", "verb_on": "Put the plug back in"}))
 	s.pre_oil = {"title": "Engine, left side", "deco": engine_deco, "els": [
-		_task("turn", "Pre-oiler at 50 psi: open it until oil runs at the rockers", Rect2(150, 290, 520, 40), "hand", ["cowl"] + rockers,
-			{"col": Color(0.65, 0.5, 0.15, 0.85), "hold": 4.0, "note": true})] + po + _cowl()}
+		_task("turn", "Pump the pot and turn the prop by hand until oil pressure shows", Rect2(150, 350, 520, 40), "hand", ["cowl", "plug0", "plug1", "plug2", "plug3"],
+			{"col": Color(0.65, 0.5, 0.15, 0.85), "hold": 4.0, "note": true, "turns_prop": true})] + po + _cowl()}
 
 	_troubleshooting(s, engine_deco)
 	_more_jobs(s, engine_deco, wheel_deco, wing_deco)

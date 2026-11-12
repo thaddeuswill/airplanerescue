@@ -289,6 +289,7 @@ func _ready() -> void:
 		_say("Couldn't read your saved game, so it was left untouched. This session won't be saved over it.")
 	else:
 		tools = STARTER_TOOLS.duplicate()  # a new career starts with a screwdriver and a rag
+		inventory = {"Gasket": 3}  # and a few gaskets in the truck
 		while jobs.size() < MAX_JOBS:
 			_spawn_job()
 		_load_field(START_CITY, null)
@@ -951,7 +952,7 @@ func reading(scene: String, eid: String) -> String:
 		"hot_mag":
 			return "Switch OFF: no spark. The P-lead grounds the mag."
 		"pre_oil":
-			return "Oil runs at all four rocker arms."
+			return "Oil pressure shows on the gauge: it's oiled through."
 		"oil_change":
 			return "A few fine flakes, nothing on the magnet: normal wear."
 		"exhaust_check":
@@ -2170,6 +2171,7 @@ const SUPPLIES := {
 	"punch": {"name": "Fabric punch tester", "cost": 45, "tool": true},
 	"Dope": {"name": "Dope (can, 6 uses)", "cost": 14, "qty": 6},
 	"Aviation oil": {"name": "Aviation oil (quart)", "cost": 9, "qty": 1},
+	"Gasket": {"name": "Gasket assortment (10)", "cost": 30, "qty": 10},
 	"Brake fluid": {"name": "Brake fluid (can, 2 uses)", "cost": 12, "qty": 2},
 	"Safety wire": {"name": "Safety wire (spool, 10 uses)", "cost": 25, "qty": 10},
 	"Cotter pin": {"name": "Cotter pins (box of 10)", "cost": 15, "qty": 10},

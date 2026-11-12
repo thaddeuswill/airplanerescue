@@ -49,5 +49,7 @@ Rescue 10 planes to win. Owners scrap their planes if you're too late. One call 
 - Plane: Piper J-3 Cub for FlightGear by Don Lavelle (model), David Megginson and Jim Wilson, GPLv3 ([source](https://github.com/wlbragg/J3Cub)). Source files and license are in `models_raw/j3cub_fg/`.
 - `ART_DIRECTION.md`, `TEXTURES.md`, `MODELS.md`: art direction and asset lists
 - `prototype/index.html`: the original 2D browser prototype
+- `JOBS_ATA.md`: every job on the airplane by ATA code, with real-world values and what is still missing
+- `reference/`: the FAA source documents behind it
 
 Self-test (`scripts/selftest.gd`): `godot --headless --path . -- --self-test [--all-faults] [--city=Omaha] [--shot=prefix]`

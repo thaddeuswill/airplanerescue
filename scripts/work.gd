@@ -425,10 +425,10 @@ func _gui_input(ev: InputEvent) -> void:
 			var a := action(e)
 			note = ""
 			if a.verb == "":
-				note = a.why
+				note = a.why if main.guide("medium") else "Not yet."
 			elif a.tool != tool:
-				note = "Use the %s for that%s." % [TOOLS[a.tool],
-					"" if a.tool == "hand" or main.tools.has(a.tool) else " (it's in the hangar toolbox)"]
+				note = ("Use the %s for that%s." % [TOOLS[a.tool],
+					"" if a.tool == "hand" or main.tools.has(a.tool) else " (it's in the hangar toolbox)"]) if main.guide("medium") else "Wrong tool for that."
 			elif a.hold == 0.0:
 				held_done = true
 				perform(e, a.verb)
@@ -667,12 +667,15 @@ func _draw_piece(e: Dictionary) -> void:
 			if _tex("work/%s_bg" % art):  # painted scene: a quiet hotspot, not a big block
 				draw_rect(e.rect, Color(0.05, 0.04, 0.03, 0.45))
 				draw_rect(e.rect, Color(1, 0.9, 0.6, 0.7), false, 1.5)
+				if not main.guide("medium"):
+					return  # hard: the step is only named when you hover it
 				var sz := font.get_string_size(e.label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
 				draw_string(font, Vector2(e.rect.get_center().x - minf(sz.x, e.rect.size.x) / 2, e.rect.get_center().y + 5), e.label,
 					HORIZONTAL_ALIGNMENT_LEFT, e.rect.size.x, 13, Color(1, 0.95, 0.85))
 				return
 			_fill(e.rect, e.get("tex", ""), e.get("col", Color(0.15, 0.12, 0.08, 0.8)))
-			_label(e.rect, e.label)
+			if main.guide("medium"):
+				_label(e.rect, e.label)
 		"fastener":
 			_draw_fastener(e, s)
 
@@ -753,10 +756,14 @@ func _draw_hover(e: Dictionary) -> void:
 		if st[e.id] == "done" and e.get("note", false):
 			line = main.reading(fault, e.id)
 	var how := ""
-	if a.verb != "":
+	if a.verb != "" and not main.guide("medium"):  # hard: what you'd do, not what to do it with
+		how = _verb_text(e, a.verb)
+	elif a.verb != "":
 		how = "%s  [%s%s]" % [_verb_text(e, a.verb), TOOLS[a.tool], ", hold" if a.hold > 0 else ""]
 		if a.tool != "hand" and not main.tools.has(a.tool):
 			how += "  - get it from the hangar toolbox"
+	elif not main.guide("medium"):
+		how = "Not yet." if st[e.id] != "done" and a.why != "" else "Nothing to do here."
 	else:
 		how = a.why if a.why != "" else "Nothing to do here."
 	if note != "":

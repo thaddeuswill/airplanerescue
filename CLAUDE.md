@@ -19,6 +19,7 @@ rescues through the real code and exits non-zero on failure.
 godot --headless --path . -- --self-test                       # one random job; prints SELF-TEST PASS/FAIL
 godot --headless --path . -- --self-test --all-faults          # every fault one plane can have at once
 godot --headless --path . -- --self-test --faults=tire,magneto # a chosen set
+godot --headless --path . -- --self-test --difficulty=hard     # easy, medium (default) or hard
 ```
 
 - Run the plain self-test several times: faults are random, so one pass proves little.
@@ -43,6 +44,8 @@ godot --headless --path . -- --self-test --faults=tire,magneto # a chosen set
 | `JOBS_ATA.md` | Every job by ATA chapter with real-world values and what's still missing |
 | `ART_PROMPTS.md`, `docs/JOB_ART_GUIDE.md`, `WORK_SCENES.md` | Art requests and how scene art is cut and named |
 | `reference/` | The FAA source documents (AC 43.13-1B) |
+| `docs/DEVELOPMENT_STAGES.md`, `docs/ROADMAP_STATUS.md` | The five-stage roadmap and where the game stands on each of its 50 tips |
+| `docs/quick-specs/` | Short design specs for each change (what, why, acceptance criteria) |
 
 ## Work scenes (`scripts/work.gd`)
 

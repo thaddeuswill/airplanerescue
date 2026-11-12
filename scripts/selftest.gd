@@ -40,6 +40,9 @@ func run(main, args: PackedStringArray) -> void:
 	job.preheated = true  # the cold-start rule has its own test
 	job.fabric_bad = -1  # a failed punch test grounds the plane; that has its own test
 	for a in args:
+		if a.begins_with("--difficulty="):  # easy, medium (default) or hard
+			g.difficulty = a.trim_prefix("--difficulty=")
+	for a in args:
 		if a.begins_with("--city="):  # pick the field, e.g. a plains town to see trees
 			job.city = a.trim_prefix("--city=")
 	var start = g.money
@@ -94,10 +97,12 @@ func run(main, args: PackedStringArray) -> void:
 	_chk(ok, 68)
 	_run_up()
 	# A clean start hears every run-up fault; a dead battery or starter cuts the test short.
-	ok = ok and job.faults.filter(func(id): return g._how(job, id) == "runup").all(func(id):
-		return job.found.has(id) or job.runup == "dead")
+	# On Easy the run-up is refused while known don't-run-it work is open.
+	var refused: bool = g.guide("easy") and job.faults.any(func(id): return g.RUNUP_DAMAGE.has(id) and job.found.has(id))
+	ok = ok and (refused or job.faults.filter(func(id): return g._how(job, id) == "runup").all(func(id):
+		return job.found.has(id) or job.runup == "dead"))
 	_chk(ok, 72)
-	if job.faults.has("battery") and not job.faults.any(func(id): return id in ["door_pin", "storage"]):
+	if not refused and job.faults.has("battery") and not job.faults.any(func(id): return id in ["door_pin", "storage"]):
 		ok = ok and job.runup == "ran" and job.found.has("battery")  # flat battery: you hand-prop it
 		_chk(ok, 75)
 	# Save, scramble, load: everything comes back and the job here is still the one you're on.
@@ -512,6 +517,8 @@ func _scene_tests() -> bool:
 	_run_up()
 	ok = ok and cj.get("runup", "") == "ran"
 	g._close_panel()
+	var diff: String = g.difficulty
+	g.difficulty = "medium"
 	# Running it unready breaks things: a dry start scuffs a cylinder, loose prop bolts wreck the
 	# prop, and a part you'd already fitted (the baffle seal) burns again. Found, no troubleshooting.
 	var dj: Dictionary = fake.call(["pre_oil", "prop_bolts", "bird_nest", "baffles"])
@@ -528,6 +535,30 @@ func _scene_tests() -> bool:
 	_run_up()
 	ok = ok and sj.get("runup", "") == "dead" and sj.faults.size() == before
 	g._close_panel()
+	# Easy: the boss won't let you start what you know isn't ready, and nothing breaks.
+	g.difficulty = "easy"
+	var ej: Dictionary = fake.call(["pre_oil"])
+	ej.preheated = true
+	ej.found["pre_oil"] = true
+	_run_up()
+	ok = ok and not ej.has("runup") and not ej.faults.has("worn_rings")
+	g._close_panel()
+	# Hard: clues say only what you see, a test with no symptom behind it reads normal and costs
+	# time, and signing off with work open is a comeback that pays less.
+	g.difficulty = "hard"
+	ok = ok and not g.guide("medium") and g.clue("pre_oil") != g.CLUES["pre_oil"] and g.clue("tire") == g.CLUES["tire"]
+	var hj: Dictionary = fake.call(["tire"])
+	var t0: float = g.day
+	g._run_test("compression")
+	ok = ok and g.panel is Work and g.panel.solve() and g.day > t0 and hj.get("dready", {}).is_empty()
+	g._close_panel()
+	var cash: int = g.money
+	var r0: int = g.rescued
+	g._sign_off()
+	ok = ok and g.money - cash == 1000 - (g.FAULTS.tire.cost * 2 + 200) and g.logbook[-1].work[0].begins_with("Comeback")
+	g.rescued = r0
+	g.logbook.pop_back()
+	g.difficulty = diff
 	g.money = saved[0]
 	g.jobs = saved[1]
 	g.current_job = saved[2]

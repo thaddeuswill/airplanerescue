@@ -123,9 +123,12 @@ const GROUND_FAULTS := ["jet_fuel", "prop_strike"]  # the oil-screen ones come u
 ## see]. Only for things the walk-around shows and the radio call hints at, so you're always
 ## warned first. The owner doesn't pay for damage you did. (docs/quick-specs/run-it-unready-2026-11-12.md)
 const RUNUP_DAMAGE := {
-	"pre_oil": ["worn_rings", "It fired dry. A screech for the first seconds before the oil got there: cylinder %d's wall and rings are scuffed. That's a new cylinder"],
-	"prop_bolts": ["propeller", "The prop worked on its loose bolts: the wood's charred at the flange and the bolt holes are oval. It's scrap"],
-	"bird_nest": ["baffles", "Smoke from the cowl: the nest caught on the exhaust and scorched the baffle seals"],
+	"pre_oil": ["worn_rings", "It fired dry. A screech for the first seconds before the oil got there: cylinder %d's wall and rings are scuffed. That's a new cylinder",
+		"Pre-oil it first: started dry, it'll scuff a cylinder."],
+	"prop_bolts": ["propeller", "The prop worked on its loose bolts: the wood's charred at the flange and the bolt holes are oval. It's scrap",
+		"Torque the prop bolts first: run loose, they'll ruin the prop."],
+	"bird_nest": ["baffles", "Smoke from the cowl: the nest caught on the exhaust and scorched the baffle seals",
+		"Pull that nest first: it'll catch fire on the exhaust."],
 }
 const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_chafe", "instrument_swap"]
 
@@ -165,6 +168,20 @@ const TEST_KEY := {
 	"compression": {"stuck_valve": "@valve", "worn_rings": "rings"},
 	"oil_screen": {"relief_valve": "clean", "cam_wear": "steel", "piston_scuff": "aluminum", "bronze_bushing": "bronze"},
 }
+## Hard: what you see, without what it means (the rest of CLUES already only describe).
+const HARD_CLUES := {
+	"pre_oil": "a dry varnish film on the dipstick, and the engine log shows no run in years",
+	"fabric_test": "the wing fabric is chalky and ringworm-cracked",
+	"mag_timing": "Slow to pick up and the oil temperature climbs",
+	"hot_mag": "Mag check: no drop at all on the right mag",
+	"fod": "CLANK: something loose rattles under the cowl as it fires",
+}
+
+
+func clue(id: String) -> String:
+	return HARD_CLUES[id] if not guide("medium") and HARD_CLUES.has(id) else CLUES[id]
+
+
 const CLUES := {
 	"tire": "the left tire is squashed flat on its rim",
 	"brakes": "orange rust and deep grooves on the right brake disc",
@@ -247,6 +264,14 @@ var inventory := {}
 var jobs: Array = []
 var current_job = null  # Dictionary of the plane at this field, or null
 var logbook: Array = []  # one entry per rescue: {day, city, type, pay, faults}
+## How much the game tells you (docs/quick-specs/difficulty-2026-11-12.md). Old saves: medium.
+const DIFFICULTIES := {
+	"easy": "Points at the work, says why a step can't happen yet, and won't let you run an engine that isn't ready.",
+	"medium": "You get the facts and the paperwork. The mistakes are yours.",
+	"hard": "Nobody tells you what's next, when it can run, or if it's ready. Sign off bad work and it comes back.",
+}
+var difficulty := "medium"
+static var keep_difficulty := ""  # carried across "start over"
 var graphics := "high"  # "low" drops haze, bounce light, ambient occlusion and dust (weaker PCs)
 var rng := RandomNumberGenerator.new()
 
@@ -287,6 +312,9 @@ func _ready() -> void:
 		save_path = "user://selftest.save"  # never touch the player's game
 		_delete_save()
 	had_save = _load_game()
+	if keep_difficulty != "":
+		difficulty = keep_difficulty
+		keep_difficulty = ""
 	if had_save:
 		_load_field(location, current_job)
 		_say("Welcome back. Day %d in %s." % [floori(day), location])
@@ -343,7 +371,7 @@ func _install_update() -> void:
 # ---------- save / load ----------
 
 var save_path := "user://airplane_rescue.save"
-const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics"]
+const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty"]
 const SAVE_VERSION := 1  # bump when the layout changes, and teach _migrate the step
 var had_save := false  # a career was loaded at launch (so the title screen offers Continue)
 var save_locked := false  # a save we couldn't read is never overwritten (it might be newer, or fixable)
@@ -435,13 +463,19 @@ func _spawn_job() -> void:
 	if near.size() > 0 and not jobs.any(func(j): return j.city != location and miles(location, j.city) < NEAR_MILES):
 		options = near
 	var t: Array = PLANE_TYPES[rng.randi() % PLANE_TYPES.size()]
+	# The career ramps up with every rescue (docs/quick-specs/difficulty-2026-11-12.md): the first
+	# calls are things you can see or hear; troubleshooting, long-sat wrecks, annuals and planes
+	# that can't be saved come later, and so do more faults per plane and owners in a hurry.
+	var r: int = rescued
 	var ids := FAULTS.keys().filter(func(id): return not id in NEGLECT_FAULTS and not id in GROUND_FAULTS and id != "fod" \
-		and not id in t[2] and not FAULTS[id].get("ground", false))
+		and not id in t[2] and not FAULTS[id].get("ground", false) and (r >= 2 or FAULTS[id].get("diags", []).is_empty()))
 	ids.shuffle()
-	var picks := ids.slice(0, 1 + rng.randi() % mini(4, 2 + rescued / 3))
+	var most: int = mini(5, 2 + r / 2)
+	var fewest: int = mini(most, 1 + r / 4)
+	var picks := ids.slice(0, rng.randi_range(fewest, most))
 	# Some planes were just parked; others sat in the weather for years (Rebuild Rescue style):
 	# grimy, stale gas, a dry or pickled engine, old oil, tired cords, maybe a door rusted shut.
-	var years := 0 if rng.randf() < 0.45 else rng.randi_range(2, 15)
+	var years := 0 if rng.randf() < 0.45 else rng.randi_range(2, mini(15, 4 + r * 3 / 2))
 	if years >= 2:
 		picks += ["stale_fuel", "oil_change"]
 		if rng.randf() < 0.3:
@@ -453,12 +487,12 @@ func _spawn_job() -> void:
 			picks.append("door_pin")
 		if rng.randf() < 0.5:
 			picks.append("bungee")
-	if rng.randf() < 0.06:  # now and then a plane that can't be fixed where it sits
+	if r >= 2 and rng.randf() < 0.06:  # now and then a plane that can't be fixed where it sits
 		picks.push_front(GROUND_FAULTS[rng.randi() % GROUND_FAULTS.size()])
 	var job := {"city": options[rng.randi() % options.size()], "type": t[0], "years": years, "washed": years == 0,
-		"fixed": {}, "found": {}, "checked": {}, "work": {}, "annual": rng.randf() < 0.15,
+		"fixed": {}, "found": {}, "checked": {}, "work": {}, "annual": r >= 3 and rng.randf() < 0.15,
 		"spent": {"fuel": 0, "parts": 0, "mail": 0}, "fuel": rng.randf_range(0.03, 0.3), "parked": "apron",
-		"deadline": day + 7 + rng.randi() % 9}
+		"deadline": day + 7 - mini(2, r / 4) + rng.randi() % 9}
 	_assign_faults(job, picks)
 	var cost := 0
 	for id in job.faults:
@@ -626,7 +660,7 @@ func _inspect_zone(zone: String) -> void:
 		for id in current_job.faults:
 			if FAULTS[id].zone == zone and _how(current_job, id) == "walk":  # the rest show on the run-up or in tests
 				current_job.found[id] = true
-				seen.append(CLUES[id])
+				seen.append(clue(id))
 		_say(("%s: %s." % [ZONES[zone].name.capitalize(), "; ".join(seen)]) if seen.size() > 0
 			else "%s: nothing wrong you can see." % ZONES[zone].name.capitalize())
 	if current_job:
@@ -669,6 +703,12 @@ func _run_up() -> void:
 		_say("It's well below 20 F and the engine's cold-soaked: the oil's like tar. Preheat it first (at the engine).")
 		_open_inspection("cabin")
 		return
+	if guide("easy"):  # the boss stops you: known work that has to come before a start
+		var wait: Array = RUNUP_DAMAGE.keys().filter(func(id): return broken.call(id) and job.found.has(id))
+		if not wait.is_empty():
+			_say("Not yet. " + " ".join(wait.map(func(id): return RUNUP_DAMAGE[id][2])))
+			_open_inspection("cabin")
+			return
 	var blocked: bool = ["door_pin", "storage"].any(func(id): return broken.call(id))
 	if (_hand_propped(job) or broken.call("battery")) and not blocked:  # flat battery: swing it by hand
 		job.work.erase("hand_prop")  # the starting drill, fresh every time
@@ -686,7 +726,7 @@ func _run_up_result() -> void:
 	var broken := func(id): return job.faults.has(id) and not job.fixed.has(id)
 	var hear := func(id):
 		job.found[id] = true
-		heard.append(CLUES[id])
+		heard.append(clue(id))
 	if broken.call("door_pin"):  # you can't run it up from outside
 		hear.call("door_pin")
 		job.runup = "dead"
@@ -725,7 +765,7 @@ func _run_up_result() -> void:
 			if heard.is_empty():
 				heard.append("Fires right up. 2,100 rpm: under 75 drop on each mag, oil pressure above 30")
 			job.runup = "ran"
-	_say(". ".join(heard) + ("." if job.runup == "ran" else ". Can't run it up until that's fixed."))
+	_say(". ".join(heard) + ("." if job.runup == "ran" or not guide("medium") else ". Can't run it up until that's fixed."))
 	_save_game()
 	_open_inspection("cabin")
 
@@ -892,6 +932,29 @@ func _diagnose(id: String) -> void:
 	_open_work(t, func():
 		current_job.get_or_add("dready", {})[id] = true
 		_verdict(id))
+
+
+## Hard: run whichever test you choose. If it's the next one for a symptom you've heard, it's the
+## real thing; otherwise everything reads normal and you've spent the time.
+func _run_test(t: String) -> void:
+	var id := _cause(t)
+	if id != "" and current_job.get("sym", {}).has(id):
+		_diagnose(id)
+		return
+	_open_work(t, func():
+		current_job.work.erase(t)  # nothing to keep: run it fresh next time
+		_advance(0.05)
+		if current_job:
+			_say("Everything reads normal. That's not where the trouble is.")
+			_open_inspection(standing_at))
+
+
+## Hard: try to start it if it's never run; otherwise it's your signature on the logbook.
+func _hard_take_off() -> void:
+	if current_job.get("runup", "") != "ran":
+		_run_up()
+		return
+	_start_ferry()
 
 
 ## What do you make of it? The right call moves you on; a wrong one costs time.
@@ -1272,15 +1335,26 @@ func _ferry_done() -> void:
 ## Called when the ferry flight gets the plane airborne.
 func _sign_off() -> void:
 	var job: Dictionary = current_job
-	money += job.reward
+	# Hard lets you sign off with work open. The owner's next mechanic finds it: a comeback.
+	var missed: Array = job.faults.filter(func(id): return not job.fixed.has(id))
+	var pay: int = job.reward
+	for id in missed:
+		pay -= FAULTS[id].cost * 2 + 200
+	if missed.any(func(id): return FAULTS[id].get("ground", false)):
+		pay = 0  # flew off with metal in the oil or a struck prop
+	pay = maxi(0, pay)
+	money += pay
 	rescued += 1
 	jobs.erase(job)
 	current_job = null
 	var spent: Dictionary = job.get("spent", {})
-	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": job.reward,
-		"work": job.faults.map(func(id): return FAULTS[id].name), "years": job.get("years", 0),
+	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": pay,
+		"work": job.faults.map(func(id): return ("Comeback: " if id in missed else "") + FAULTS[id].name), "years": job.get("years", 0),
 		"fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "days": day - job.get("arrived", day)})
-	_say("The %s is back in the air! Owner paid $%d." % [job.type, job.reward])
+	if missed.is_empty():
+		_say("The %s is back in the air! Owner paid $%d." % [job.type, pay])
+	else:
+		_say("A comeback: the owner's next mechanic found %s. Owner paid $%d of $%d." % [", ".join(missed.map(func(id): return FAULTS[id].name.to_lower())), pay, job.reward])
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
 	sound.chime()  # a new call on the radio
@@ -1326,6 +1400,7 @@ func _can_finish_here() -> bool:
 
 func _restart() -> void:
 	_delete_save()  # "Play again" means a fresh career
+	keep_difficulty = difficulty
 	skip_menu = true  # straight into the new career, not back to the title screen
 	get_tree().reload_current_scene()
 
@@ -1401,6 +1476,7 @@ func _open_menu() -> void:
 			items.append(["NEW CAREER", "", _menu_confirm])
 		else:
 			items.append(["START", "Home base: %s" % START_CITY.to_upper(), _close_menu])
+		items.append(["DIFFICULTY: %s" % difficulty.to_upper(), DIFFICULTIES[difficulty], _menu_difficulty])
 		items.append(["GRAPHICS: %s" % graphics.to_upper(), "Low drops haze, bounce light and dust for weaker PCs.", _menu_graphics])
 		items.append(["QUIT GAME", "", func(): get_tree().quit()])
 	_menu.sel = clampi(_menu.sel, 0, items.size() - 1)
@@ -1580,6 +1656,19 @@ func _close_menu() -> void:
 	if not _pending_update.is_empty():
 		_offer_update(_pending_update[0], _pending_update[1])
 		_pending_update = []
+
+
+func _menu_difficulty() -> void:
+	var order: Array = DIFFICULTIES.keys()
+	difficulty = order[(order.find(difficulty) + 1) % order.size()]
+	_save_game()
+	_open_menu()
+
+
+## True when this guidance is shown: "easy" guidance only on Easy, "medium" on Easy and Medium.
+func guide(level: String) -> bool:
+	var order: Array = DIFFICULTIES.keys()
+	return order.find(difficulty) <= order.find(level)
 
 
 func _menu_graphics() -> void:
@@ -2098,6 +2187,7 @@ func _refresh_markers() -> void:
 		var open: bool = job.faults.any(func(id): return FAULTS[id].zone == z and job.found.has(id) and not job.fixed.has(id))
 		if z == "cabin" and job.get("runup", "") != "ran" and job.checked.has(z):
 			open = true  # the run-up still waits here
+		m.visible = guide("medium") and (guide("easy") or not job.checked.has(z))  # medium: "?" only; hard: none
 		if not job.checked.has(z):
 			m.text = "?"
 			m.modulate = Color(1.0, 0.9, 0.3)
@@ -2128,6 +2218,8 @@ func _open_inspection(at := standing_at) -> void:
 			var tz: String = TESTS[t].zone
 			if job.get("dready", {}).has(id):
 				rows.append(["%s\n%s done: make your call." % [what, TESTS[t].name], "Make the call", func(): _verdict(id), true])
+			elif not guide("medium"):  # hard: you pick the test
+				rows.append([what])
 			elif at == tz:
 				rows.append(["%s\nNext: %s." % [what, TESTS[t].name.to_lower()], "Run the " + TESTS[t].name.to_lower(), func(): _diagnose(id), true])
 			else:
@@ -2148,7 +2240,11 @@ func _open_inspection(at := standing_at) -> void:
 		if at == f.zone:
 			rows.append(["%s\n%s" % [f.name, need], "Work on it", func(): _repair(id), true, icon])
 		else:
-			rows.append(["%s\n%s. Work on it at the %s." % [f.name, need, ZONES[f.zone].name], "", null, false, icon])
+			rows.append(["%s\n%s%s" % [f.name, need, (". Work on it at the %s." % ZONES[f.zone].name) if guide("medium") else "."], "", null, false, icon])
+	if not guide("medium") and at != "":  # hard: every test you could run here
+		for t in TESTS:
+			if TESTS[t].zone == at:
+				rows.append(["", "Run the " + TESTS[t].name.to_lower(), func(): _run_test(t), true])
 	if not job.get("washed", true):
 		rows.append(["Sat %d years: filthy, lichen on the wings." % job.years, "Wash it down" if at != "" else "", _wash, at != ""])
 	var ran: bool = job.get("runup", "") == "ran"
@@ -2166,6 +2262,12 @@ func _open_inspection(at := standing_at) -> void:
 			"Roll it out to the apron" if in_hangar else "Push it into the hangar", _toggle_parked, true])
 	var done: bool = all_checked and job.fixed.size() == job.faults.size()
 	var ready: bool = done and fuel >= 0.5 and not in_hangar
+	if not guide("medium"):  # hard: signing off is your call, and so is what's wrong with it
+		if at == "cabin" and fuel >= 0.5 and not in_hangar:
+			rows.append(["Sign the logbook and fly it out to the owner.", "Sign off & take off", _hard_take_off, true])
+		_open_panel(("Work order: " if at != "" else "Clipboard: ") + job.type + (("  (at the %s)" % ZONES[at].name) if at != "" else ""), rows, true, "paper_catalog", "")
+		_refresh_markers()
+		return
 	if ready and at == "cabin":
 		rows.append(["Airworthy! Fly it out to the owner.", "Climb in & take off (+$%d)" % job.reward, _start_ferry, true])
 	elif done:

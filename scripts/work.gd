@@ -27,6 +27,9 @@ const TOOLS := {
 	"torque": "Torque wrench", "pliers": "Safety-wire pliers", "rag": "Shop rag",
 	"tester": "Compression tester", "timing": "Timing light", "punch": "Fabric tester",
 }
+## Short names for the tool roll buttons: all nine have to fit under the 1000 px scene.
+const TOOL_SHORT := {"hand": "Hands", "screwdriver": "Screwdriver", "ratchet": "Ratchet", "torque": "Torque",
+	"pliers": "Pliers", "rag": "Rag", "tester": "Tester", "timing": "Timing light", "punch": "Fabric tester"}
 const FOD_CHANCE := 0.12  # chance a scene with a cowling has a socket you drop behind a baffle
 const DAYS := {"loosen": 0.003, "tighten": 0.003, "torque": 0.004, "out": 0.001, "insert": 0.001,
 	"off": 0.003, "on": 0.004, "remove": 0.008, "install": 0.012, "do": 0.012}
@@ -83,7 +86,7 @@ func setup(m, scene_id: String, j: Dictionary) -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)  # offsets too, or it stays 64x64 and misses clicks
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	toolbar = HBoxContainer.new()
-	toolbar.add_theme_constant_override("separation", 8)
+	toolbar.add_theme_constant_override("separation", 4)
 	add_child(toolbar)
 	_build_toolbar()
 	_preload_art()
@@ -105,7 +108,9 @@ func _build_toolbar() -> void:
 		if t != "hand" and not main.tools.has(t):
 			continue
 		var b := Button.new()
-		b.text = TOOLS[t]
+		b.text = TOOL_SHORT.get(t, TOOLS[t])
+		b.tooltip_text = TOOLS[t]
+		b.add_theme_font_size_override("font_size", 14)
 		b.toggle_mode = true
 		b.button_pressed = t == tool
 		b.focus_mode = Control.FOCUS_NONE
@@ -115,7 +120,7 @@ func _build_toolbar() -> void:
 		var icon := "res://textures/work/tool_%s.png" % t
 		if ResourceLoader.exists(icon):
 			b.icon = load(icon)
-			b.add_theme_constant_override("icon_max_width", 36)  # fixed size: long names squeezed it to nothing
+			b.add_theme_constant_override("icon_max_width", 30)  # fixed size: long names squeezed it to nothing
 			b.custom_minimum_size = Vector2(0, 48)
 		toolbar.add_child(b)
 

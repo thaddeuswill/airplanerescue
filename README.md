@@ -33,7 +33,11 @@ Rescue 10 planes to win. Owners scrap their planes if you're too late. One call 
 
 ## Layout
 - `scripts/main.gd`: game state, world and plane building, panels
-- `scripts/work.gd`: the 2D work scenes (rules, drawing, and all 13 jobs as data)
+- `scripts/work.gd`: the 2D work scenes (rules, drawing, and every job as data: 57 scenes)
+- `scripts/manual.gd`, `scripts/parts_book.gd`: the M-key service manual and parts book, read from `data/c85_manual.json` and `data/c85_parts.json`
+- `tools/art_list.gd`: lists every work-scene piece and whether its art exists
+- `docs/`: art guides for the job scenes and the parts list
+- `CLAUDE.md`: how to run, test and extend the project (for Claude Code and contributors)
 - `scripts/gauge.gd`: round cockpit dials drawn into the Cub's panel
 - `scripts/updater.gd`: checks GitHub Releases and installs newer versions
 - `scripts/chart.gd`: the radio's navigation chart overlay
@@ -53,4 +57,4 @@ Rescue 10 planes to win. Owners scrap their planes if you're too late. One call 
 - `JOBS_ATA.md`: every job on the airplane by ATA code, with real-world values and what is still missing
 - `reference/`: the FAA source documents behind it
 
-Self-test (`scripts/selftest.gd`): `godot --headless --path . -- --self-test [--all-faults] [--city=Omaha] [--shot=prefix]`
+Self-test (`scripts/selftest.gd`): `godot --headless --path . -- --self-test [--all-faults] [--faults=a,b] [--city=Omaha] [--shot=prefix] [--scene-shots=prefix[:scene,scene]]`

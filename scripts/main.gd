@@ -54,7 +54,7 @@ const FAULTS := {
 	"control_cables": {"name": "Jammed rudder cables", "part": "Control cable set", "cost": 650, "zone": "tail", "symptom": "rudder pedals are stiff"},
 	"magneto": {"name": "Bad magneto", "part": "Magneto", "cost": 1400, "zone": "engine", "symptom": "dies on the mag check"},
 	"avionics": {"name": "Broken radio antenna", "part": "Antenna & radio", "cost": 1800, "zone": "cabin", "symptom": "radio's dead, can't raise anyone"},
-	"propeller": {"name": "Bent propeller", "part": "Propeller", "cost": 2600, "zone": "prop", "symptom": "hit a fence post taxiing"},
+	"propeller": {"name": "Damaged propeller", "part": "Propeller", "cost": 2600, "zone": "prop", "symptom": "hit a fence post taxiing"},
 	# Neglect jobs: only planes that sat for years get these (see _spawn_job).
 	"stale_fuel": {"name": "Stale fuel in the tanks", "part": "Fresh avgas", "cost": 90, "zone": "wing_l", "symptom": "hasn't had fresh gas in years"},
 	"pre_oil": {"name": "Dry engine: pre-oil before start", "part": "", "cost": 0, "zone": "engine", "symptom": "hasn't been started in years"},
@@ -72,7 +72,7 @@ const CLUES := {
 	"fuel_line": "a blue stain and a sharp avgas smell under the wing root",
 	"windshield": "a long crack right across the windshield",
 	"control_cables": "the rudder flops loose; its cables feel slack",
-	"propeller": "a prop tip bent back and the blade edge chewed up",
+	"propeller": "a prop tip split and splintered, the blade edge chewed up",
 	"battery": "Master ON: nothing. No ammeter flicker, no lights. Battery's dead",
 	"starter": "Starter just clicks and won't turn the prop over",
 	"avionics": "Radio's dead silent, not even a hiss. The antenna's snapped too",
@@ -93,8 +93,17 @@ const ZONES := {
 	"battery": {"name": "battery bay", "pos": Vector3(0.45, 1.45, 1.7), "size": Vector3(0.3, 0.6, 0.8)},
 	"tail": {"name": "tail & rudder", "pos": Vector3(0, 2.0, 4.7), "size": Vector3(1.6, 1.6, 1.4)},
 }
-const PLANE_TYPES := [["High-wing trainer", 1500], ["Rag-wing taildragger", 2000],
-	["Bush plane", 2500], ["Vintage tourer", 3000], ["Utility hauler", 3500]]
+# Name, base pay, and the faults this type never gets. The rag-wing is the J-3 Cub: per its
+# manual it has no electrical system (hand-propped, no battery, starter or radio) and its brakes
+# are expander units inside the wheel, not discs.
+const PLANE_TYPES := [["High-wing trainer", 1500, []],
+	["Rag-wing taildragger", 2000, ["battery", "starter", "avionics", "brakes"]],
+	["Bush plane", 2500, []], ["Vintage tourer", 3000, []], ["Utility hauler", 3500, []]]
+
+
+## True for planes with no starter: you swing the prop by hand.
+func _hand_propped(job: Dictionary) -> bool:
+	return PLANE_TYPES.any(func(t): return t[0] == job.type and "starter" in t[2])
 
 var money := 3000
 var day := 1.0  # travel, inspections and repairs take time; calls have deadlines
@@ -291,7 +300,7 @@ func _spawn_job() -> void:
 	if near.size() > 0 and not jobs.any(func(j): return j.city != location and miles(location, j.city) < NEAR_MILES):
 		options = near
 	var t: Array = PLANE_TYPES[rng.randi() % PLANE_TYPES.size()]
-	var ids := FAULTS.keys().filter(func(id): return not id in NEGLECT_FAULTS)
+	var ids := FAULTS.keys().filter(func(id): return not id in NEGLECT_FAULTS and not id in t[2])
 	ids.shuffle()
 	var faults := ids.slice(0, 1 + rng.randi() % mini(4, 2 + rescued / 3))
 	# Some planes were just parked; others sat in the weather for years (Rebuild Rescue style):
@@ -494,7 +503,8 @@ func _run_up() -> void:
 				if broken.call(id):
 					hear.call(id)
 			if heard.is_empty():
-				heard.append("Fires right up, smooth on both mags, oil pressure in the green")
+				heard.append("Chocks in, switch on, and it fires on the second pull. 2,100 rpm: under 75 drop on each mag, oil pressure above 30"
+					if _hand_propped(job) else "Fires right up, smooth on both mags, oil pressure in the green")
 			job.runup = "ran"
 	_say(". ".join(heard) + ("." if job.runup == "ran" else ". Can't run it up until that's fixed."))
 	_save_game()
@@ -560,7 +570,7 @@ func _start_ferry() -> void:
 	add_child(ferry)
 	ferry.finished.connect(_ferry_done)
 	ferry.start(self, plane, visuals["propeller"].get_child(-1))
-	_say("Hold W to open the throttle. At 55 knots, hold S to lift off.")
+	_say("Hold W to open the throttle. At 40 mph, hold S to lift off.")
 
 
 ## The Cub panel's four dial holes (probed: front face z=-0.202, y=1.382, r 0.044 m).

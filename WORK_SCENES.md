@@ -106,7 +106,7 @@ Small icons in the bottom-left corner, **64 x 64 px**, transparent, in `textures
 | File | Size (px) | Placed at (x, y) | What it is |
 |---|---|---|---|
 | `work/tire_bg.png` | 1000 x 560 | 0, 0 | Painted background of this spot, everything removable left off |
-| `work/tire_pump.png` | 200 x 70 | 600, 380 | Mess to clear: Pump it up to 18 psi |
+| `work/tire_pump.png` | 200 x 70 | 600, 380 | Mess to clear: Pump to 35 psi to seat the beads, let down to 15 |
 | `work/tire_tire_old.png` | 340 x 340 | 230, 130 | Tire & tube, worn/broken |
 | `work/tire_tire_new.png` | 340 x 340 | 230, 130 | Tire & tube, new |
 | `work/tire_pin.png` | 44 x 24 | 378, 260 | Cotter pin (comes off) |

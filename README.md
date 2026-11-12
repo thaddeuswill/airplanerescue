@@ -8,7 +8,7 @@ Open the folder in Godot 4.7 (Import → select `project.godot`) and press F5.
 **Controls:** WASD to move, mouse to look, Space to jump, E to interact (and to close panels), Esc to close a panel or free the mouse.
 **Title screen:** the hangar interior behind a text menu (W/S or arrows, Enter): Continue, New career, Graphics (High/Low for weaker PCs), Quit. Message of the day bottom left (Q/E pages, V hides). Flying to a job shows a travel card while the field loads.
 **Pockets:** Tab opens your wallet (cash, day, parts, tools, start over), J the clipboard (the work order), L the logbook (every rescue). The game autosaves and picks up where you left off.
-**Ferry flight:** hold W for throttle, and at 55 knots hold S to lift off.
+**Ferry flight:** hold W for throttle, and at 40 mph hold S to lift off.
 
 ## Install and updates
 - **Build the installer:** `powershell -ExecutionPolicy Bypass -File tools/build_release.ps1`, which writes `dist\AirplaneRescue-<version>-setup.exe`. It needs the Godot 4.7.2 Windows export templates and Inno Setup 6 (both already installed on the dev PC). The installer is per user (no admin prompt), adds Start menu and optional desktop shortcuts, and comes with an uninstaller. Saves live in AppData and survive updates and uninstalls.

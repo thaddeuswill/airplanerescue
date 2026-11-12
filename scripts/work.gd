@@ -396,6 +396,7 @@ func perform(e: Dictionary, v: String) -> bool:
 				extra = kick[1]
 	if v in ["on", "do"] and e.get("uses", "") != "":
 		main.inventory[e.uses] -= 1  # a fresh length of safety wire, a new cotter pin, a squirt of penetrant
+		main.used_supply(fault, e.uses, healthy)
 	if v in ["torque", "install", "on"]:
 		main.sound.clink()
 	_sync_shared()

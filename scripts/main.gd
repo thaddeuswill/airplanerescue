@@ -783,6 +783,18 @@ func _run_up_result() -> void:
 	_open_inspection("cabin")
 
 
+## Supplies the job used: the owner pays for them at sign-off, at what they cost you. What went
+## into undoing your own mistakes (damage you caused, taking apart a place with nothing wrong)
+## is yours to pay.
+func used_supply(scene: String, item: String, wasted: bool) -> void:
+	var job: Dictionary = current_job
+	if job == null or not SUPPLIES.has(item):
+		return
+	var unit: float = float(SUPPLIES[item].cost) / SUPPLIES[item].get("qty", 1)
+	var mine: bool = wasted or job.get("caused", {}).has(scene)
+	job.get_or_add("supplies", {"billed": 0.0, "mine": 0.0})["mine" if mine else "billed"] += unit
+
+
 ## Breaks what running with `cause` undone breaks: added found (no troubleshooting), or broken
 ## again if you'd already fixed it, so its part is bought and fitted a second time. Returns what
 ## you saw, or "" if it was broken already.
@@ -794,6 +806,7 @@ func _run_damage(job: Dictionary, cause: String) -> String:
 		job.faults.append(hit)
 	job.fixed.erase(hit)
 	job.work.erase(hit)  # a fresh repair, from the start
+	job.get_or_add("caused", {})[hit] = true  # its supplies are on you
 	job.found[hit] = true
 	if visuals.has(hit):
 		visuals[hit].queue_free()
@@ -1469,19 +1482,21 @@ func _sign_off() -> void:
 	if missed.any(func(id): return FAULTS[id].get("ground", false)):
 		pay = 0  # flew off with metal in the oil or a struck prop
 	pay = maxi(0, pay)
+	var supplies: int = roundi(job.get("supplies", {}).get("billed", 0.0))  # the owner pays for what the job used
+	pay += supplies
 	money += pay
 	rescued += 1
 	jobs.erase(job)
 	current_job = null
 	var spent: Dictionary = job.get("spent", {})
-	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": pay,
+	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": pay, "supplies": supplies,
 		"work": job.faults.map(func(id): return ("Comeback: " if id in missed else "") + FAULTS[id].name), "years": job.get("years", 0),
 		"fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "days": day - job.get("arrived", day)})
 	var found_later: Array = missed.map(func(id): return FAULTS[id].name.to_lower())
 	if open_cowl:
 		found_later.append("the engine cowling not screwed down")
 	if found_later.is_empty():
-		_say("The %s is back in the air! Owner paid $%d." % [job.type, pay])
+		_say("The %s is back in the air! Owner paid $%d%s." % [job.type, pay, (" (with $%d of supplies)" % supplies) if supplies > 0 else ""])
 	else:
 		_say("A comeback: the owner's next mechanic found %s. Owner paid $%d of $%d." % [", ".join(found_later), pay, job.reward])
 	while jobs.size() < MAX_JOBS:

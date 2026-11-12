@@ -326,7 +326,7 @@ func run(main, args: PackedStringArray) -> void:
 		await get_tree().process_frame
 	Input.action_release("move_forward")
 	Input.action_release("move_back")
-	ok = ok and g.ferry == null and g.rescued == 1 and g.money == start + job.reward and g.jobs.size() == g.MAX_JOBS
+	ok = ok and g.ferry == null and g.rescued == 1 and g.money == start + job.reward + roundi(job.get("supplies", {}).get("billed", 0.0)) and g.jobs.size() == g.MAX_JOBS
 	_chk(ok, 275)
 	ok = ok and g.logbook.size() == 1 and g.logbook[0].has("parts")  # the cost sheet was written
 	_chk(ok, 276)
@@ -593,6 +593,18 @@ func _scene_tests() -> bool:
 	var r0: int = g.rescued
 	g._sign_off()
 	ok = ok and g.money - cash == 1000 - (g.FAULTS.tire.cost * 2 + 200) and g.logbook[-1].work[0].begins_with("Comeback")
+	g.rescued = r0
+	g.logbook.pop_back()
+	# Supplies: the owner pays for what the job used; what you used on a good part is yours.
+	g.difficulty = "medium"
+	var pj: Dictionary = fake.call(["tire"])
+	pj.fixed["tire"] = true
+	for _k in 10:
+		g.used_supply("tire", "Cotter pin", false)  # $1.50 each
+	g.used_supply("magneto", "Gasket", true)
+	cash = g.money
+	g._sign_off()
+	ok = ok and g.money - cash == 1000 + 15 and g.logbook[-1].supplies == 15
 	g.rescued = r0
 	g.logbook.pop_back()
 	g.difficulty = diff

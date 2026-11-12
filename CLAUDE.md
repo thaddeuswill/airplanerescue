@@ -67,6 +67,9 @@ Each scene is a list of elements: `fastener`, `cover`, `part`, `task` or `view`.
 - Real values beat game feel. Where the manuals disagree, the Continental/Piper manual for that
   airplane wins over AC 43.13-1B. Contradictions found so far are resolved in `JOBS_ATA.md`.
 - Faults with `"ground": true` have no field fix: the plane is grounded and the owner called.
+- Money: the owner pays for the job, its parts (in the quoted pay) and the supplies it used
+  (paid back at sign-off). Anything you mess up comes out of your pocket: damage from running it
+  unready, supplies used on it or on a place with nothing wrong, and comeback deductions.
 - Guessing costs time only: a wrong verdict or quiz answer advances the clock. Running the engine
   with "don't run it yet" work undone breaks a part you pay for (`RUNUP_DAMAGE` in `main.gd`,
   `docs/quick-specs/run-it-unready-2026-11-12.md`).
@@ -79,9 +82,8 @@ Each scene is a list of elements: `fastener`, `cover`, `part`, `task` or `view`.
 ## Open decisions (need a value from the user)
 
 Missing manual values are listed under "Values still needed" at the bottom of `JOBS_ATA.md`. Still
-open at the time of writing: whether consumables (safety wire, gaskets, dope) come out of the job's
-pay, and the art for steps 1-5 of the accuracy audit (two-cylinder spark plug and pre-oil
-backgrounds, brake drum pieces, plane body, cowling, cockpit panel, seat).
+open at the time of writing: audit step 6 art (starter ring gear, both magnetos, tail tie rods,
+bungee boot, tire proportions, jack pad, fabric look inside the older 2D scenes).
 
 Settled from the manuals: C-85 mag timing right 28°, left 30° (the timing jobs work on the left mag);
 mag drop 75 rpm max; prop track 1/16 in; oil SAE 40 above 40 °F, SAE 20 below.

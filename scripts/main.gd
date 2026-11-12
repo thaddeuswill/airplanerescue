@@ -47,7 +47,7 @@ const REGIONS := {
 # Values and procedures: JOBS_ATA.md (AC 43.13-1B, the J3C-65 manual, Continental M-0).
 const FAULTS := {
 	"tire": {"name": "Flat main tire", "part": "Tire & tube", "cost": 180, "zone": "gear_l", "symptom": "sits low on the left side"},
-	"brakes": {"name": "Rusted brake disc", "part": "Brake disc", "cost": 260, "zone": "gear_r", "symptom": "grinds when it taxis"},
+	"brakes": {"name": "Worn brake shoes", "part": "Brake shoe set", "cost": 260, "zone": "gear_r", "symptom": "grinds when it taxis"},
 	"battery": {"name": "Dead battery", "part": "Battery", "cost": 350, "zone": "battery", "symptom": "won't crank, everything's dead"},
 	"spark_plugs": {"name": "Worn-out spark plugs", "part": "Spark plug set", "cost": 220, "zone": "engine", "symptom": "runs rough, puffs black smoke",
 		"diags": [["spark_test"], ["reading_plugs"]]},
@@ -184,7 +184,7 @@ func clue(id: String) -> String:
 
 const CLUES := {
 	"tire": "the left tire is squashed flat on its rim",
-	"brakes": "orange rust and deep grooves on the right brake disc",
+	"brakes": "black grit round the right wheel, and the brake blocks show worn thin through the drum's inspection gap",
 	"oil_leak": "fresh oil dripping off the bottom of the cowling",
 	"bird_nest": "straw poking out of the cowl inlet, and chirping inside",
 	"fuel_line": "a blue stain and a sharp avgas smell at the firewall",
@@ -245,9 +245,10 @@ const ZONES := {
 	"tail": {"name": "tail & rudder", "pos": Vector3(0, 2.0, 4.7), "size": Vector3(1.6, 1.6, 1.4)},
 }
 # Name, base pay, and the faults this type never gets. The rag-wing is the J-3 Cub with a
-# Continental C85-12 (starter, generator, battery); its brakes are expander tubes, not discs.
+# Continental C85-12 (starter, generator, battery); its brakes are drums with expander tubes, and
+# the brake job shows exactly that (blocks round the tube), so every type can get it.
 const PLANE_TYPES := [["High-wing trainer", 1500, []],
-	["Rag-wing taildragger", 2000, ["brakes"]],
+	["Rag-wing taildragger", 2000, []],
 	["Bush plane", 2500, []], ["Vintage tourer", 3000, []], ["Utility hauler", 3500, []]]
 
 
@@ -430,6 +431,10 @@ func _read_save(path: String):
 
 ## Upgrades an older save in place, one version step at a time.
 func _migrate(data: Dictionary) -> void:
+	var inv: Dictionary = data.get("inventory", {})
+	if inv.has("Brake disc"):  # the drum-brake part was renamed
+		inv["Brake shoe set"] = inv.get("Brake shoe set", 0) + inv["Brake disc"]
+		inv.erase("Brake disc")
 	for j in data.get("jobs", []):  # fields added after the first saves shipped
 		for key in ["years", "washed", "spent", "work", "fuel", "parked"]:
 			if not j.has(key):
@@ -2107,7 +2112,7 @@ func _buy_can() -> void:
 
 
 ## Model shown on the parts table for a part you own (a labeled crate if there's no model).
-const PART_MODELS := {"Brake disc": "brakes_ok", "Magneto": "magneto_ok", "Starter motor": "starter_ok",
+const PART_MODELS := {"Brake shoe set": "brakes_ok", "Magneto": "magneto_ok", "Starter motor": "starter_ok",
 	"Battery": "battery_ok", "Propeller": "propeller_ok", "Tire & tube": "tire_ok"}
 var _parts_table: Node3D
 

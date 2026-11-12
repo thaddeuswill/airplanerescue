@@ -63,7 +63,7 @@ Each scene is a list of elements: `fastener`, `cover`, `part`, `task` or `view`.
 
 ## Settled decisions (don't change without asking)
 
-- The Cub is a J-3 with a **C85-12 with a starter** (not the C-65): `PLANE_TYPES` excludes only `brakes` for it.
+- The Cub is a J-3 with a **C85-12 with a starter** (not the C-65), drum brakes with expander tubes.
 - Real values beat game feel. Where the manuals disagree, the Continental/Piper manual for that
   airplane wins over AC 43.13-1B. Contradictions found so far are resolved in `JOBS_ATA.md`.
 - Faults with `"ground": true` have no field fix: the plane is grounded and the owner called.

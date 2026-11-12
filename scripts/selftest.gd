@@ -255,7 +255,7 @@ func run(main, args: PackedStringArray) -> void:
 	if shot != "":
 		g._open_truck()
 		await _snap(shot, "fuel_truck_panel")
-		g.inventory["Brake disc"] = 1
+		g.inventory["Brake shoe set"] = 1
 		g._refresh_parts_table()
 		g._close_panel()
 		g.player.position = Vector3(-6.5, 0.1, 7.5)

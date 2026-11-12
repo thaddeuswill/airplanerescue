@@ -117,8 +117,8 @@ Small icons in the bottom-left corner, **64 x 64 px**, transparent, in `textures
 | File | Size (px) | Placed at (x, y) | What it is |
 |---|---|---|---|
 | `work/brakes_bg.png` | 1000 x 560 | 0, 0 | Painted background of this spot, everything removable left off |
-| `work/brakes_disc_old.png` | 240 x 240 | 210, 170 | Brake disc, worn/broken |
-| `work/brakes_disc_new.png` | 240 x 240 | 210, 170 | Brake disc, new |
+| `work/brakes_disc_old.png` | 240 x 240 | 210, 170 | Brake shoes & expander tube, worn |
+| `work/brakes_disc_new.png` | 240 x 240 | 210, 170 | Brake shoes & expander tube, new |
 | `work/brakes_wheel.png` | 320 x 320 | 170, 130 | Wheel (comes off) |
 | `work/brakes_pin.png` | 44 x 24 | 308, 250 | Cotter pin (comes off) |
 | `work/brakes_caliper.png` | 120 x 150 | 520, 160 | Brake caliper (comes off) |

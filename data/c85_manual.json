@@ -12,6 +12,14 @@
    "title": "Servicing"
   },
   {
+   "ata": "31",
+   "title": "Instruments"
+  },
+  {
+   "ata": "51",
+   "title": "Structures and fabric"
+  },
+  {
    "ata": "24",
    "title": "Electrical"
   },
@@ -150,6 +158,53 @@
    "caution": "",
    "figure": "fig_sump",
    "picture": "res://textures/manual/ref_oil_change.png"
+  },
+  {
+   "id": "instrument_swap",
+   "ata": "31",
+   "title": "Tachometer swap",
+   "job": "instrument_swap",
+   "summary": "The J-3's tach is driven by a flexible shaft. No reading means a dead gauge or a broken shaft.",
+   "steps": [
+    "Four bezel screws out, ease the tach forward.",
+    "Unscrew the drive shaft nut from the back of the gauge.",
+    "Shaft spins when you turn the prop? The gauge is bad. Fit the new one and run it up."
+   ],
+   "tools": [
+    "Screwdriver",
+    "Pliers"
+   ],
+   "parts": [
+    "tach",
+    "tach_shaft"
+   ],
+   "specs": {},
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_instrument_swap.png"
+  },
+  {
+   "id": "fabric_test",
+   "ata": "51",
+   "title": "Fabric punch test",
+   "job": "fabric_test",
+   "summary": "Doped fabric weakens with sun and age. The punch tester tells you if it can still carry the load.",
+   "steps": [
+    "Test the top surfaces where the sun hits hardest: between ribs, never on a tape.",
+    "Press the tester straight down until it stops. Read the band.",
+    "Green: airworthy. Red, or it punches through: the airplane needs recovering.",
+    "Seal each test dent with a dab of dope."
+   ],
+   "tools": [
+    "Fabric punch tester"
+   ],
+   "parts": [
+    "dope"
+   ],
+   "specs": {},
+   "caution": "One failing spot fails the whole covering on that surface.",
+   "figure": "",
+   "picture": "res://textures/manual/ref_fabric_test.png"
   },
   {
    "id": "wire_chafe",
@@ -437,6 +492,33 @@
    "picture": "res://textures/manual/ref_fuel_line.png"
   },
   {
+   "id": "brake_master",
+   "ata": "32",
+   "title": "Brake master cylinder",
+   "job": "brake_master",
+   "summary": "Each heel pedal pushes a Scott master cylinder under the rear floorboard. A weeping one means a soft pedal.",
+   "steps": [
+    "Four screws, inspection cover off.",
+    "Wipe up the spilled fluid so you can see the leak.",
+    "Line off at the B-nut, two bolts out, cylinder out.",
+    "New cylinder in, line on, fill with red fluid. Bleed the brake at the wheel."
+   ],
+   "tools": [
+    "Screwdriver",
+    "Wrenches",
+    "Shop rag"
+   ],
+   "parts": [
+    "master_cyl",
+    "mc_cover",
+    "brake_fluid"
+   ],
+   "specs": {},
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_brake_master.png"
+  },
+  {
    "id": "bungee",
    "ata": "32",
    "title": "Landing gear bungee cords",
@@ -659,6 +741,31 @@
    "caution": "",
    "figure": "",
    "picture": "res://textures/manual/ref_brace_wires.png"
+  },
+  {
+   "id": "prop_bolts",
+   "ata": "61",
+   "title": "Wood prop bolts",
+   "job": "prop_bolts",
+   "summary": "Wood shrinks in dry weather and swells in wet. Loose prop bolts crack the hub, so they get re-torqued every season.",
+   "steps": [
+    "Mags OFF. Look for a dark gap at the hub and cracks in the varnish.",
+    "Cut the safety wire.",
+    "Torque the six bolts in a star pattern, a little at a time, to the prop maker's figure.",
+    "Safety-wire them in pairs. Track the prop."
+   ],
+   "tools": [
+    "Torque wrench",
+    "Safety-wire pliers"
+   ],
+   "parts": [
+    "prop_bolts",
+    "prop_wood"
+   ],
+   "specs": {},
+   "caution": "Never turn a prop without both mags OFF and the P-leads checked.",
+   "figure": "",
+   "picture": "res://textures/manual/ref_prop_bolts.png"
   },
   {
    "id": "prop_dress",

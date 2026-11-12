@@ -1712,6 +1712,114 @@
    "icon": ""
   },
   {
+   "id": "master_cyl",
+   "no": "451 700",
+   "name": "Cylinder, brake master, left (Scott unit)",
+   "section": "airframe",
+   "price": 140,
+   "blurb": "Heel-pedal master cylinder with its own reservoir. Weeping red fluid means the diaphragm is going.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brake_master"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/brake_master_cylinder_new.png"
+  },
+  {
+   "id": "mc_cover",
+   "no": "23831-00",
+   "name": "Cover, master cylinder inspection",
+   "section": "airframe",
+   "price": 18,
+   "blurb": "Floorboard cover over the master cylinders, with a grommet for the line.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brake_master"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/brake_master_cover.png"
+  },
+  {
+   "id": "tach",
+   "no": "450 640",
+   "name": "Tachometer",
+   "section": "airframe",
+   "price": 160,
+   "blurb": "Mechanical tach, cream dial, driven by a flexible shaft from the engine.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "instrument_swap"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/instrument_swap_tach_new.png"
+  },
+  {
+   "id": "tach_shaft",
+   "no": "486 565",
+   "name": "Shaft and housing, tachometer (34 in)",
+   "section": "airframe",
+   "price": 45,
+   "blurb": "Flexible drive from the accessory case to the back of the tach.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "instrument_swap"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/instrument_swap_cable.png"
+  },
+  {
+   "id": "prop_bolts",
+   "no": "AR-6112",
+   "name": "Prop bolt set with safety wire",
+   "section": "airframe",
+   "price": 36,
+   "blurb": "Six bolts and washers for the wood prop. Re-torque them every season.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "prop_bolts"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "dope",
+   "no": "AR-7310",
+   "name": "Butyrate dope, pint, Cub yellow",
+   "section": "engine",
+   "price": 14,
+   "blurb": "Seals fabric test spots and small patches.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "fabric_test"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
    "id": "bleeder",
    "no": "451 770",
    "name": "Fitting, brake bleeder",

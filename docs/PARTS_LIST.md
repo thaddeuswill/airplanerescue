@@ -1,6 +1,6 @@
 # Parts list: J-3 Cub with C85-12
 
-Source key: **Continental** = the Continental C75/C85/C90/O-200 parts book or FAA TCDS E-233 · **Piper** = the Univair J-3 parts list · **game** = the game's own number. Piper numbers were read from a photocopy scan; double-check before relying on them outside the game. Prices are game prices.
+Source key: **Piper** = Univair J-3 parts list · **Continental** = C75/C85/C90/O-200 parts book or FAA TCDS E-233 · **Game** = the game's own number. Piper numbers come from a photocopy scan: check them before relying on them outside the game. Prices are game prices.
 
 ## Ignition
 
@@ -50,6 +50,7 @@ Source key: **Continental** = the Continental C75/C85/C90/O-200 parts book or FA
 | AR-7212 | Desiccant bag | $6 | Game | storage |
 | AR-7214 | Preservative oil, quart | $9 | Game | storage |
 | AR-7216 | Grease, general purpose, tube | $5 | Game | tailwheel |
+| AR-7310 | Butyrate dope, pint, Cub yellow | $14 | Game | fabric_test |
 
 ## Fuel & Air
 
@@ -101,6 +102,11 @@ Source key: **Continental** = the Continental C75/C85/C90/O-200 parts book or FA
 | AR-5212 | Door hinge pin and cotter | $120 | Game | door_pin, door_pin |
 | AR-6110 | Propeller, metal, fixed pitch, 72 in | $2600 | Game | prop_track, prop_dress, propeller |
 | AR-7110 | Baffle seal strip, 3 ft | $12 | Game | baffles |
+| 451 700 | Cylinder, brake master, left (Scott unit) | $140 | Piper | brake_master |
+| 23831-00 | Cover, master cylinder inspection | $18 | Piper | brake_master |
+| 450 640 | Tachometer | $160 | Piper | instrument_swap |
+| 486 565 | Shaft and housing, tachometer (34 in) | $45 | Piper | instrument_swap |
+| AR-6112 | Prop bolt set with safety wire | $36 | Game | prop_bolts |
 | 451 770 | Fitting, brake bleeder | $6 | Piper | brake_bleed |
 | 451 762 | Cap, hub | $12 | Piper | tire |
 | 451 740 | Tube, Cub 8.00 x 4 | $40 | Piper | tire |

@@ -25,7 +25,7 @@ const BENCH := Rect2(828, 14, 160, 532)
 const TOOLS := {
 	"hand": "Hands", "screwdriver": "Screwdriver", "ratchet": "Ratchet & sockets",
 	"torque": "Torque wrench", "pliers": "Safety-wire pliers", "rag": "Shop rag",
-	"tester": "Compression tester", "timing": "Timing light",
+	"tester": "Compression tester", "timing": "Timing light", "punch": "Fabric tester",
 }
 const FOD_CHANCE := 0.12  # chance a scene with a cowling has a socket you drop behind a baffle
 const DAYS := {"loosen": 0.003, "tighten": 0.003, "torque": 0.004, "out": 0.001, "insert": 0.001,
@@ -79,7 +79,7 @@ func setup(m, scene_id: String, j: Dictionary) -> void:
 	for e in els:
 		by_id[e.id] = e
 		if e.type != "view" and not st.has(e.id):  # also fills in pieces added since a save
-			st[e.id] = {"fastener": "tight", "cover": e.get("start", "on"), "part": "old", "task": "todo"}[e.type]
+			st[e.id] = _initial(e)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)  # offsets too, or it stays 64x64 and misses clicks
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	toolbar = HBoxContainer.new()
@@ -131,7 +131,7 @@ func done() -> bool:
 
 
 func _initial(e: Dictionary) -> String:
-	return {"fastener": "tight", "cover": e.get("start", "on"), "part": "old", "task": "todo"}[e.type]
+	return e.get("start", {"fastener": "tight", "cover": "on", "part": "old", "task": "todo"}[e.type])
 
 
 func _complete(e: Dictionary) -> bool:
@@ -323,6 +323,8 @@ func perform(e: Dictionary, v: String) -> bool:
 				return ok
 			st[e.id] = "done"
 			st["_last"] = e.id
+			if e.get("hook", false):
+				main.task_done(fault, e.id)
 	var extra := 0.0
 	if v == "do":
 		note = main.reading(fault, e.id) if e.get("note", false) else ""
@@ -1318,6 +1320,48 @@ static func _more_jobs(s: Dictionary, engine_deco: Array, wheel_deco: Array, win
 		_task("plugs", "Plugs in, gapped, 300-360 in-lb", Rect2(520, 60, 260, 46), "torque", ["cowl"], {"requires": ["refill"], "hold": 2.0}),
 		_task("start", "Prime it and pull it through", Rect2(40, 116, 220, 40), "hand", [], {"trap": "Not yet: preservative oil still in there can hydraulic-lock a cylinder and bend a rod (M-0 6-5.2). Clear it first."})]
 	s.storage = {"title": "Engine, out of preservation", "els": sr + _cowl()}
+
+	# ---- round 3 (docs/NEW_SCENES_3.md) ----
+
+	# Fabric punch test: three spots on the wing top, read the band, seal each dent with dope.
+	var ft := []
+	var spots := [[Vector2(160, 140), Vector2(200, 210)], [Vector2(360, 210), Vector2(400, 280)], [Vector2(560, 120), Vector2(600, 190)]]
+	for i in 3:
+		var rd: Vector2 = spots[i][0]
+		var sp: Vector2 = spots[i][1]
+		ft += [{"id": "read%d" % i, "type": "view", "name": "Reading %d" % (i + 1), "rect": Rect2(rd, Vector2(120, 60))},
+			{"id": "spot%d" % i, "type": "view", "name": "Test spot %d" % (i + 1), "rect": Rect2(sp, Vector2(40, 40))},
+			_task("t%d" % i, "Punch-test spot %d" % (i + 1), Rect2(sp - Vector2(15, 15), Vector2(70, 70)), "punch", [], {"art": "none", "note": true, "hook": true, "hold": 1.5}),
+			_task("s%d" % i, "Seal spot %d with dope" % (i + 1), Rect2(40 + i * 200, 470, 180, 46), "rag", [], {"requires": ["t%d" % i], "uses": "Dope", "hold": 1.0})]
+	s.fabric_test = {"title": "Left wing, top surface", "els": ft}
+
+	# Brake master cylinder: cover off, wipe up, line off, swap the Scott cylinder, fill it.
+	s.brake_master = {"title": "Rear floorboard, brake master cylinders", "els": [
+		_part("cylinder", "Master cylinder", Rect2(260, 170, 120, 170), ["cover", "line"], {"tool": "ratchet"}),
+		_task("puddle", "Wipe up the spilled fluid", Rect2(220, 300, 260, 130), "rag", ["cover"], {"hold": 1.5}),
+		_cover("line", "Brake line B-nut", Rect2(270, 310, 80, 60), ["cover"], {"tool": "ratchet", "verb_off": "Crack the B-nut, line off", "verb_on": "Line on, B-nut snug"}),
+		_task("can", "Fill the new cylinder", Rect2(640, 380, 90, 130), "hand", [], {"requires": ["cylinder"], "with": ["line"], "uses": "Brake fluid", "hold": 1.5}),
+		_cover("cover", "Inspection cover", Rect2(240, 140, 360, 280))] + _corners("cover", Rect2(240, 140, 360, 280), "screw", "screwdriver", 18.0)}
+	s.brake_master.els[2].needs = ["cover", "puddle"]  # you wipe it up first, to see where it's leaking
+
+	# Tachometer swap: bezel screws, drive shaft nut off the back, new gauge in.
+	var tach := Rect2(322, 154, 195, 195)
+	s.instrument_swap = {"title": "Instrument panel, tachometer", "els": [
+		_part("tach", "Tachometer", tach, ["cable"], {"tool": "hand"})]
+		+ _corners("tach", tach, "screw", "screwdriver", 14.0)
+		+ [_cover("cable", "Tach drive shaft nut", Rect2(320, 231, 120, 70), [], {"tool": "ratchet", "verb_off": "Unscrew the drive shaft nut", "verb_on": "Drive shaft nut back on, snug"})]}
+
+	# Wood prop bolts: wire off, check the hub gap, torque the six in a star, re-wire in pairs.
+	var hubc := Vector2(410, 280)
+	var pb := [{"id": "order", "type": "view", "name": "Torque order", "rect": Rect2(360, 230, 140, 140)},
+		_task("look", "Look for a gap at the hub seat", Rect2(600, 200, 210, 46), "hand", ["wire"], {"note": true, "hold": 1.0}),
+		_cover("hub", "Prop hub", Rect2(310, 180, 200, 200), ["wire"], {"dyn": true, "verb_off": "Pull the prop off the hub", "verb_on": "Prop back on the hub"})]
+	for f in _ring("hub", hubc, 52, 6, "bolt", "ratchet", true):
+		f["start"] = "snug"  # the wood shrank: the bolts are only snug, the torque wrench finishes them
+		pb.append(f)
+	pb.append(_cover("wire", "Prop bolt safety wire", Rect2(320, 190, 180, 180), [], {"tool": "pliers", "uses": "Safety wire",
+		"verb_off": "Cut the safety wire", "verb_on": "Safety-wire the bolts in pairs"}))
+	s.prop_bolts = {"title": "Nose, prop bolts", "els": pb}
 
 	# ---- placeholders until art exists ----
 

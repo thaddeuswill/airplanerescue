@@ -104,7 +104,14 @@ const FAULTS := {
 	"weight_balance": {"name": "Weight and balance out of date", "part": "", "cost": 0, "zone": "cabin", "symptom": "new tires and seat cushions, and paperwork from 1946", "quiz": true},
 	"jet_fuel": {"name": "Run on jet fuel", "part": "", "cost": 0, "zone": "engine", "symptom": "the line boy fueled it with Jet-A and they ran it", "ground": true},
 	"prop_strike": {"name": "Prop strike", "part": "", "cost": 0, "zone": "prop", "symptom": "nosed over in soft mud; the prop hit and the engine stopped dead", "ground": true},
-	# Only ever added by the run-up: you closed the cowl on a dropped socket.
+	# Round 3.
+	"fabric_test": {"name": "Fabric due a punch test", "part": "", "cost": 0, "zone": "wing_l", "symptom": "the wing fabric looks chalky and tired"},
+	"brake_master": {"name": "Leaking brake master cylinder", "part": "Master cylinder", "cost": 95, "zone": "cabin", "symptom": "the left brake pedal sinks and there's red fluid on the floor"},
+	"instrument_swap": {"name": "Dead tachometer", "part": "Tachometer", "cost": 160, "zone": "cabin", "symptom": "the tach needle never leaves zero"},
+	"prop_bolts": {"name": "Loose prop bolts", "part": "", "cost": 0, "zone": "prop", "symptom": "a clunk at the nose when it idles"},
+	# Only ever added: a punch test that fails, or a socket you closed the cowl on.
+	"fabric_rot": {"name": "Fabric failed the punch test", "part": "", "cost": 0, "zone": "wing_l", "symptom": "", "ground": true,
+		"ground_why": "The fabric's rotten: the airplane has to be recovered. That's a shop job, not a field one."},
 	"fod": {"name": "Socket loose under the cowl", "part": "", "cost": 0, "zone": "engine", "symptom": ""},
 }
 const NEGLECT_FAULTS := ["stale_fuel", "pre_oil", "door_pin", "storage", "oil_change", "bungee", "tie_down"]
@@ -112,7 +119,7 @@ const GROUND_FAULTS := ["jet_fuel", "prop_strike"]  # the oil-screen ones come u
 # How you find each fault. Seen on the walk-around (clue = what you notice at that spot), or only
 # heard/felt on the run-up from the cockpit. magneto and spark_plugs are here for saves made
 # before troubleshooting existed; new jobs track those down with tests.
-const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_chafe"]
+const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_chafe", "instrument_swap"]
 
 # Troubleshooting tests (M-0 Chapter 8). clue: what the run-up tells you; symptom: what the
 # owner says on the radio; options: [what you call, its key]. TEST_KEY maps a fault to the
@@ -194,6 +201,11 @@ const CLUES := {
 	"weight_balance": "the weight and balance in the logbook predates the big tires and the cushions",
 	"jet_fuel": "the sump cup smells of kerosene, and the owner says they ran it like that",
 	"prop_strike": "a prop tip broken off, mud on the cowl: it nosed over and the engine stopped dead",
+	"fabric_test": "the wing fabric is chalky and ringworm-cracked: it needs a punch test",
+	"brake_master": "red fluid pooled on the rear floorboard under the left heel pedal",
+	"instrument_swap": "The tach needle sits on zero the whole run-up, and its glass is cracked",
+	"prop_bolts": "a dark gap between the hub and the wood, and the prop bolts turn by hand",
+	"fabric_rot": "the fabric tester punched right through",
 	"fod": "CLANK: something loose rattles under the cowl as it fires. A dropped tool?",
 }
 # Walk-around inspection spots, in plane-local coords (nose -Z), probed from the plane model.
@@ -459,6 +471,7 @@ func _assign_faults(job: Dictionary, picks: Array) -> void:
 	job.valve = ["exhaust", "intake"][rng.randi() % 2]
 	var tl := 52 + rng.randi() % 14
 	job.wb = {"l": 290 + rng.randi() % 16, "r": 288 + rng.randi() % 16, "t": tl}
+	job.fabric_bad = rng.randi() % 3 if rng.randf() < 0.3 else -1  # a failed punch test grounds it
 	var used := {}
 	for id in picks:
 		if id in job.faults:
@@ -683,7 +696,7 @@ func _run_up_result() -> void:
 			hear.call("starter")
 			job.runup = "dead"
 		else:
-			for id in ["magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_chafe"]:
+			for id in ["magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_chafe", "instrument_swap"]:
 				if broken.call(id) and _how(job, id) == "runup":
 					hear.call(id)
 			for id in job.faults:  # trouble you can hear but not yet name: troubleshoot it
@@ -803,6 +816,9 @@ func _work_done(id: String) -> void:
 	current_job.fixed[id] = true
 	if id == "stale_fuel":
 		current_job.fuel = 1.0  # you refilled it with fresh 100LL
+	if id == "brake_master" and not current_job.faults.has("brake_bleed"):  # new cylinder: now bleed it at the wheel
+		current_job.faults.append("brake_bleed")
+		current_job.found["brake_bleed"] = true
 	_refresh_parts_table()
 	if visuals.has(id):
 		visuals[id].queue_free()
@@ -978,6 +994,15 @@ func reading(scene: String, eid: String) -> String:
 			return "Wiggle test: the radio stays on."
 		"fod":
 			return "A 7/16 socket, wedged behind the number 3 baffle."
+		"fabric_test":
+			var i := int(eid.substr(1))
+			if job.get("fabric_bad", -1) == i:
+				return "Spot %d: it punched right through. This fabric's done." % (i + 1)
+			return "Spot %d: in the green band. Good fabric." % (i + 1)
+		"prop_bolts":
+			return "A dark gap all round the hub seat: the wood's shrunk. Torque the six in a star."
+		"brake_master":
+			return ""
 	return ""
 
 
@@ -1043,6 +1068,23 @@ func view_art(scene: String, eid: String) -> String:
 					return "work/prop_track_mark_b" if w.get("t2") == "done" else ""
 		"wing_rig":
 			return "work/wing_rig_ruler" if w.get("string") == "on" else ""
+		"fabric_test":
+			var i := int(eid.substr(4))
+			var tested: bool = w.get("t%d" % i) == "done"
+			var bad: bool = job.get("fabric_bad", -1) == i
+			if eid.begins_with("read"):
+				return ("work/fabric_test_read_" + ("fail" if bad else "pass")) if tested else ""
+			if not tested:
+				return ""
+			if w.get("s%d" % i) == "done":
+				return "work/fabric_test_seal"
+			return "work/fabric_test_" + ("hole" if bad else "dent")
+		"prop_bolts":
+			if eid == "hub":
+				var tight: bool = range(6).all(func(k): return w.get("hub_f%d" % k) == "tight")
+				return "work/prop_bolts_hub_" + ("new" if tight else "old")
+			var torquing: bool = w.get("wire") == "off" and range(6).any(func(k): return w.get("hub_f%d" % k) == "snug")
+			return "work/prop_bolts_order" if torquing else ""
 	return ""
 
 
@@ -1063,6 +1105,14 @@ func _plug_look(cause: String, c: int) -> String:
 		"primer_leak": return "black"
 		"worn_rings": return "oily" if c == current_job.get("cyl", 0) else "tan"
 	return "tan"
+
+
+## A work-scene step just finished that the game reacts to.
+func task_done(scene: String, eid: String) -> void:
+	if scene == "fabric_test" and current_job and current_job.get("fabric_bad", -1) == int(eid.substr(1)):
+		if not current_job.faults.has("fabric_rot"):  # punched through: the plane needs recovering
+			current_job.faults.append("fabric_rot")
+		current_job.found["fabric_rot"] = true
 
 
 ## Names and parts for the work-scene title and bench.
@@ -2056,7 +2106,7 @@ func _open_inspection(at := standing_at) -> void:
 			continue
 		var f: Dictionary = FAULTS[id]
 		if f.get("ground", false):
-			rows.append(["%s\nNo field fix: the engine comes out for a teardown. Ground it and call the owner." % f.name,
+			rows.append(["%s\n%s Ground it and call the owner." % [f.name, f.get("ground_why", "No field fix: the engine comes out for a teardown.")],
 				"Ground it" if at != "" else "", _ground_job, at != ""])
 			continue
 		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
@@ -2117,6 +2167,8 @@ const SUPPLIES := {
 	"pliers": {"name": "Safety-wire pliers", "cost": 75, "tool": true},
 	"tester": {"name": "Differential compression tester", "cost": 180, "tool": true},
 	"timing": {"name": "Timing light", "cost": 90, "tool": true},
+	"punch": {"name": "Fabric punch tester", "cost": 45, "tool": true},
+	"Dope": {"name": "Dope (can, 6 uses)", "cost": 14, "qty": 6},
 	"Aviation oil": {"name": "Aviation oil (quart)", "cost": 9, "qty": 1},
 	"Brake fluid": {"name": "Brake fluid (can, 2 uses)", "cost": 12, "qty": 2},
 	"Safety wire": {"name": "Safety wire (spool, 10 uses)", "cost": 25, "qty": 10},

@@ -578,3 +578,92 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 | `storage_tag.png` | 110 x 144 | 495, 458 | Yellow preservation tag hung on the engine (read it first) |
 | `storage_oil.png` | 500 x 33 | 410, 326 | Sticky preservative oil weeping along the case rail, to wipe off |
 | `storage_cowl.png` | 756 x 296 | 420, 190 | Cowling |
+
+## Fabric punch test
+`jobs/fabric_test/` · mockups: `reference/fabric_test_start.png`, `reference/fabric_test_end.png`
+
+**Flow**
+
+1. Pick up the punch `tester`. Press it at each of the three spots between the ribs.
+2. Each spot shows `read_pass` (leaves a `dent`) or `read_fail` (leaves a `hole`): one fail means the wing needs recovering.
+3. Seal every passing dent with a dab of dope (`seal`).
+
+**Pieces** (suggested center on the 1000 x 560 scene; a file listed twice is placed twice)
+
+| File | Size | Suggested center (x, y) | What it is |
+|---|---|---|---|
+| `backgrounds/fabric_test_bg.png` | 1000 x 560 | fills the scene | Top surface of the left wing in the sun: rib-stitched fabric, faded dope, ringworm cracks, a test card |
+| `fabric_test_tester.png` | 44 x 225 | 938, 316 | Fabric punch tester (picked up from the tool tray) |
+| `fabric_test_read_pass.png` | 112 x 52 | 220, 170 | Reading at test spot 1: in the green band |
+| `fabric_test_read_pass.png` | 112 x 52 | 420, 240 | Reading at test spot 2: in the green band |
+| `fabric_test_read_pass.png` | 112 x 52 | 620, 150 | Reading at test spot 3: in the green band |
+| `fabric_test_read_fail.png` | 112 x 52 | 220, 170 | Reading at test spot 1: red band, fabric too weak |
+| `fabric_test_read_fail.png` | 112 x 52 | 420, 240 | Reading at test spot 2: red band, fabric too weak |
+| `fabric_test_read_fail.png` | 112 x 52 | 620, 150 | Reading at test spot 3: red band, fabric too weak |
+| `fabric_test_dent.png` | 15 x 15 | 220, 230 | Test spot 1: dent from a passing test |
+| `fabric_test_hole.png` | 23 x 23 | 220, 230 | Test spot 1: punched through (fail) |
+| `fabric_test_seal.png` | 25 x 25 | 220, 230 | Test spot 1: test spot sealed with a dab of dope |
+| `fabric_test_dent.png` | 15 x 15 | 420, 300 | Test spot 2: dent from a passing test |
+| `fabric_test_hole.png` | 23 x 23 | 420, 300 | Test spot 2: punched through (fail) |
+| `fabric_test_seal.png` | 25 x 25 | 420, 300 | Test spot 2: test spot sealed with a dab of dope |
+| `fabric_test_dent.png` | 15 x 15 | 620, 210 | Test spot 3: dent from a passing test |
+| `fabric_test_hole.png` | 23 x 23 | 620, 210 | Test spot 3: punched through (fail) |
+| `fabric_test_seal.png` | 25 x 25 | 620, 210 | Test spot 3: test spot sealed with a dab of dope |
+
+## Brake master cylinder
+`jobs/brake_master/` · mockups: `reference/brake_master_start.png`, `reference/brake_master_end.png`
+
+**Flow**
+
+1. Four screws, inspection `cover` off the rear floorboard.
+2. Wipe up the red `puddle`. Undo the `line` B-nut, two bolts, `cylinder_old` out.
+3. `cylinder_new` in, line on, fill from the `can`, then bleed at the wheel (brake_bleed job).
+
+**Pieces** (suggested center on the 1000 x 560 scene; a file listed twice is placed twice)
+
+| File | Size | Suggested center (x, y) | What it is |
+|---|---|---|---|
+| `backgrounds/brake_master_bg.png` | 1000 x 560 | fills the scene | Rear floorboard with the inspection cover off: heel brake pedals, the right Scott master cylinder, the empty left mount |
+| `brake_master_cover.png` | 360 x 280 | 420, 280 | Master cylinder inspection cover, four screws (Piper 23831-00, with grommet AN931-8-13) |
+| `brake_master_cylinder_old.png` | 116 x 162 | 322, 259 | Left master cylinder, Scott unit (451 700) weeping red fluid past the diaphragm |
+| `brake_master_cylinder_new.png` | 116 x 162 | 322, 259 | Left master cylinder, Scott unit (451 700) new |
+| `brake_master_puddle.png` | 241 x 101 | 350, 370 | Red fluid pooled on the floorboard (wipe it up) |
+| `brake_master_line.png` | 74 x 36 | 307, 336 | Brake line B-nut at the cylinder outlet |
+| `brake_master_can.png` | 87 x 124 | 686, 448 | Hydraulic fluid to fill the new cylinder |
+
+## Tachometer swap
+`jobs/instrument_swap/` · mockups: `reference/instrument_swap_start.png`, `reference/instrument_swap_end.png`
+
+**Flow**
+
+1. Four bezel screws out, pull `tach_old` forward.
+2. Unscrew the tach drive `cable` nut from the back.
+3. `tach_new` on the cable, into the panel, four screws. Run-up shows RPM.
+
+**Pieces** (suggested center on the 1000 x 560 scene; a file listed twice is placed twice)
+
+| File | Size | Suggested center (x, y) | What it is |
+|---|---|---|---|
+| `backgrounds/instrument_swap_bg.png` | 1000 x 560 | fills the scene | J-3 instrument panel with the tachometer out: the hole, the flexible tach drive shaft end behind it |
+| `instrument_swap_tach_old.png` | 193 x 193 | 420, 252 | Tachometer (Piper 450 640) needle stuck at zero, glass cracked |
+| `instrument_swap_tach_new.png` | 193 x 193 | 420, 252 | Tachometer (Piper 450 640) new |
+| `instrument_swap_cable.png` | 107 x 47 | 378, 272 | Tach shaft-and-housing nut on the back of the gauge (Piper 486 565): unscrew it to free the tach |
+
+## Wood prop bolts: torque and safety
+`jobs/prop_bolts/` · mockups: `reference/prop_bolts_start.png`, `reference/prop_bolts_end.png`
+
+**Flow**
+
+1. Look at the `hub_old`: a dark gap means the wood has shrunk and the bolts are loose.
+2. Cut the safety `wire`. Torque the six bolts in the star `order`, a little at a time, until `hub_new`.
+3. Safety-wire the bolts in pairs.
+
+**Pieces** (suggested center on the 1000 x 560 scene; a file listed twice is placed twice)
+
+| File | Size | Suggested center (x, y) | What it is |
+|---|---|---|---|
+| `backgrounds/prop_bolts_bg.png` | 1000 x 560 | fills the scene | Cub nose head-on with the wood Sensenich prop and its steel face plate; six prop bolts on a 52 px circle (fasteners drawn by the game) |
+| `prop_bolts_wire.png` | 108 x 104 | 409, 284 | Safety wire through the prop bolts in pairs (cut it, torque, re-wire) |
+| `prop_bolts_hub_old.png` | 173 x 173 | 410, 280 | Hub seat with a dark gap where the shrunken wood has pulled away (bolts loose) |
+| `prop_bolts_hub_new.png` | 173 x 173 | 410, 280 | Hub seat snug after torquing |
+| `prop_bolts_order.png` | 110 x 98 | 429, 300 | Torque order overlay (star pattern), shown while torquing |

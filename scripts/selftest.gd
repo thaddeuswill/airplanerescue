@@ -37,6 +37,7 @@ func run(main, args: PackedStringArray) -> void:
 			g._assign_faults(job, Array(a.trim_prefix("--faults=").split(",")))
 	job.faults = job.faults.filter(func(id): return not g.FAULTS[id].get("ground", false))  # grounding has its own test
 	job.preheated = true  # the cold-start rule has its own test
+	job.fabric_bad = -1  # a failed punch test grounds the plane; that has its own test
 	for a in args:
 		if a.begins_with("--city="):  # pick the field, e.g. a plains town to see trees
 			job.city = a.trim_prefix("--city=")
@@ -492,6 +493,14 @@ func _scene_tests() -> bool:
 	g._ground_job()
 	ok = ok and g.current_job == null and not g.jobs.has(gj) and g.money > m0 and g.logbook.size() == logs + 1 and g.logbook[-1].grounded
 	g.logbook.resize(logs)
+	g._close_panel()
+	# A fabric spot that punches through grounds the plane.
+	var fj: Dictionary = fake.call(["fabric_test"])
+	fj.fabric_bad = 1
+	fj.found["fabric_test"] = true
+	g._repair("fabric_test")
+	g.panel.solve()
+	ok = ok and fj.faults.has("fabric_rot") and fj.found.has("fabric_rot")
 	g._close_panel()
 	# Cold soak: no run-up until it's preheated.
 	var cj: Dictionary = fake.call([])

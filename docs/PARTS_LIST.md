@@ -28,7 +28,7 @@ Part numbers marked **yes** under *From the book* were read from Continental's C
 | 40327 | Piston, 6.3:1 compression | $85 | cylinder 5 | yes | compression |
 | 638109 | Ring, top compression | $9 | cylinder 6 | yes | compression |
 | AR-4120 | Gasket, rocker cover | $4 | cylinder 7 |  | compression |
-| 24890A4 | Gasket and connector set | $150 |  | yes | oil_leak |
+| 24890A2 | Gasket and connector set | $150 |  | yes | oil_leak |
 | A21599 | Lifter assembly, hydraulic | $28 | cylinder 8 | yes | pre_oil, storage |
 | AR-4122 | Seal, pushrod housing | $2 | cylinder 9 |  |  |
 | 3577 | Gasket, oil sump | $5 | sump 1 | yes | oil_change |
@@ -36,8 +36,8 @@ Part numbers marked **yes** under *From the book* were read from Continental's C
 | 20522 | Washer, plain | $1 | sump 3 | yes |  |
 | 532432 | Plug, drain, drilled head | $6 | sump 4 | yes | oil_change |
 | AN900-10 | Gasket, copper-asbestos, drain plug | $1 | sump 5 | yes | oil_change |
-| AR-4312 | Screen, oil suction | $24 | sump 6 |  | oil_change, oil_screen |
-| AR-4313 | Gasket, suction screen | $2 | sump 7 |  | oil_change, oil_screen |
+| A3568 | Screen, oil suction | $24 | sump 6 |  | oil_change, oil_screen |
+| 22350 | Gasket, suction screen | $2 | sump 7 |  | oil_change, oil_screen |
 | AR-4310 | Oil gauge and cap | $14 | sump 8 |  | oil_change |
 | 24321 | Seal, crankshaft oil | $16 |  | yes |  |
 | 5484 | Gasket, crankcase cover | $6 |  | yes | mag_timing |

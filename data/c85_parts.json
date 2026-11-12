@@ -14,7 +14,7 @@
   "fuel": "80/87 avgas (100LL is fine)",
   "oil": "4-1/2 qt; SAE 40 above 40 F, SAE 20 below",
   "starter": "12 V starter and generator (the -12 has both; the -8 has neither)",
-  "sources": "FAA TCDS E-233; Continental C75/C85/C90/O-200 Illustrated Parts Catalog X-30017A (1979)"
+  "sources": "FAA TCDS E-233; Continental C75/C85/C90/O-200 Illustrated Parts Catalog X-30017A (1979); part numbers rechecked against the 1979 catalog text"
  },
  "sections": [
   {
@@ -432,7 +432,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "lead_42",
@@ -449,7 +450,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "plug",
@@ -519,7 +521,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "base_packing",
@@ -534,7 +537,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "nut_38",
@@ -549,7 +553,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "nut_716",
@@ -564,7 +569,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "piston",
@@ -581,7 +587,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "ring_top",
@@ -598,7 +605,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "rocker_gasket",
@@ -619,8 +627,8 @@
   },
   {
    "id": "gasket_set",
-   "no": "24890A4",
-   "name": "Gasket and connector set",
+   "no": "24890A2",
+   "name": "Gasket and rubber connector set (-12 models)",
    "section": "engine",
    "price": 150,
    "blurb": "Engine gasket set with rubber intake connectors: rocker covers, sump, accessory case.",
@@ -630,7 +638,8 @@
    "jobs": [],
    "fault": "oil_leak",
    "verified": true,
-   "icon": "res://textures/icon_oil_leak.png"
+   "icon": "res://textures/icon_oil_leak.png",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "lifter",
@@ -648,7 +657,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "pushrod_seal",
@@ -680,7 +690,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "sump_nut",
@@ -695,7 +706,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "washer",
@@ -710,7 +722,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "drain_plug",
@@ -727,7 +740,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": "res://textures/work/oil_change_plug.png"
+   "icon": "res://textures/work/oil_change_plug.png",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "drain_gasket",
@@ -744,12 +758,13 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "oil_screen",
-   "no": "AR-4312",
-   "name": "Screen, oil suction",
+   "no": "A3568",
+   "name": "Screen assembly, oil",
    "section": "engine",
    "price": 24,
    "blurb": "Pull it every oil change and look for metal before it goes back in.",
@@ -761,13 +776,14 @@
     "oil_screen"
    ],
    "fault": "",
-   "verified": false,
-   "icon": "res://textures/work/oil_change_screen_new.png"
+   "verified": true,
+   "icon": "res://textures/work/oil_change_screen_new.png",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "screen_gasket",
-   "no": "AR-4313",
-   "name": "Gasket, suction screen",
+   "no": "22350",
+   "name": "Gasket, oil screen housing",
    "section": "engine",
    "price": 2,
    "blurb": "Under the suction screen's hex head.",
@@ -779,8 +795,9 @@
     "oil_screen"
    ],
    "fault": "",
-   "verified": false,
-   "icon": ""
+   "verified": true,
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "dipstick",
@@ -812,7 +829,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "case_cover_gasket",
@@ -829,7 +847,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "oil_qt",
@@ -862,7 +881,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "carb_gasket",
@@ -879,7 +899,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "air_box",
@@ -896,7 +917,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "air_box_gasket",
@@ -913,7 +935,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "intake_pipe",
@@ -928,7 +951,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "hose_15",
@@ -945,7 +969,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "hose_175",
@@ -962,7 +987,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "hose_clamp",
@@ -979,7 +1005,8 @@
    ],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "primer_jet",
@@ -994,7 +1021,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "air_filter",
@@ -1198,7 +1226,8 @@
    "jobs": [],
    "fault": "starter",
    "verified": true,
-   "icon": "res://textures/icon_starter.png"
+   "icon": "res://textures/icon_starter.png",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "generator",
@@ -1213,7 +1242,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "regulator",
@@ -1228,7 +1258,8 @@
    "jobs": [],
    "fault": "",
    "verified": true,
-   "icon": ""
+   "icon": "",
+   "source": "Continental C75/C85/C90/O-200 Illustrated Parts Catalog, April 1979 (checked against the scan)"
   },
   {
    "id": "battery",

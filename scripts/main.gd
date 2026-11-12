@@ -720,8 +720,62 @@ func _repair(id: String) -> void:
 	_open_work(id, func(): _work_done(id))
 
 
+var _last_work: Array = []  # [scene, on_done] of the work scene last opened
+
+
+# ---------- the service manual (scripts/manual.gd, data/c85_manual.json) ----------
+
+const ManualUI := preload("res://scripts/manual.gd")
+const PartsBook := preload("res://scripts/parts_book.gd")
+var parts_book := PartsBook.new()
+var manual_data := ManualUI.load_data("res://data/c85_manual.json")
+var parts_data := ManualUI.load_data("res://data/c85_parts.json")
+var _manual_back := false  # opened from a work scene: closing it goes back there
+
+
+## The page for what you're working on: the scene in front of you, else the first open fault.
+func _manual_job() -> String:
+	if panel is Work:
+		return panel.fault
+	if current_job:
+		for id in current_job.faults:
+			var t := _test_for(current_job, id)
+			if t != "" and current_job.get("sym", {}).has(id):
+				return t
+			if current_job.found.has(id) and not current_job.fixed.has(id):
+				return id
+	return ""
+
+
+func _open_manual(job := "") -> void:
+	_manual_back = panel is Work
+	var fresh := not (panel is ManualUI)
+	if panel:  # keep the work scene's state; just put it away
+		panel.queue_free()
+		panel = null
+	var m := ManualUI.new()
+	m.setup(manual_data, sound.pen, job, parts_data)
+	m.close_requested.connect(_close_manual)
+	ui.add_child(m)
+	panel = m
+	panel_kind = "manual"
+	panel_closable = true
+	if fresh:
+		m.fade_in()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
+
+
+func _close_manual() -> void:
+	_close_panel()
+	if _manual_back and _last_work.size() == 2 and current_job:
+		_open_work(_last_work[0], _last_work[1])
+	_manual_back = false
+
+
 ## Any work scene: a repair, a troubleshooting test, or the hand-prop drill.
 func _open_work(scene: String, on_done: Callable) -> void:
+	_last_work = [scene, on_done]
 	_close_panel()
 	var w = Work.new()
 	w.setup(self, scene, current_job)
@@ -1459,7 +1513,7 @@ func _setup_input() -> void:
 		"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN],
 		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
 		"jump": [KEY_SPACE], "interact": [KEY_E],
-		"wallet": [KEY_TAB], "clipboard": [KEY_J], "logbook": [KEY_L],
+		"wallet": [KEY_TAB], "clipboard": [KEY_J], "logbook": [KEY_L], "manual": [KEY_M],
 	}
 	for action in keys:
 		if InputMap.has_action(action):
@@ -1509,7 +1563,7 @@ func _process(delta: float) -> void:
 
 
 func _input(e: InputEvent) -> void:  # before the GUI, so Tab isn't eaten by focus navigation
-	for kind in ["wallet", "clipboard", "logbook"]:
+	for kind in ["wallet", "clipboard", "logbook", "manual"]:
 		if e.is_action_pressed(kind):
 			_pocket(kind)
 			get_viewport().set_input_as_handled()
@@ -1522,12 +1576,17 @@ func _unhandled_input(e: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 	if e.is_action_pressed("interact") and panel and panel_closable:  # E toggles panels shut too
-		_close_panel()
+		if panel_kind == "manual":
+			_close_manual()
+		else:
+			_close_panel()
 		close_frame = Engine.get_process_frames()
 		return
 	if e.is_action_pressed("ui_cancel"):
 		if panel:
-			if panel_closable:
+			if panel_kind == "manual":
+				_close_manual()
+			elif panel_closable:
 				_close_panel()
 		elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -1582,7 +1641,7 @@ func _setup_pockets() -> void:
 	strip.offset_top = -48
 	strip.offset_bottom = -12
 	strip.add_theme_constant_override("separation", 18)
-	for p in [["wallet", "Tab", "Wallet"], ["clipboard", "J", "Clipboard"], ["logbook", "L", "Logbook"]]:
+	for p in [["wallet", "Tab", "Wallet"], ["clipboard", "J", "Clipboard"], ["logbook", "L", "Logbook"], ["manual", "M", "Manual"]]:
 		var tex := "res://textures/ui/%s.png" % p[0]
 		if ResourceLoader.exists(tex):
 			var icon := TextureRect.new()
@@ -1611,7 +1670,10 @@ func _pocket(kind: String) -> void:
 	if ferry or (panel and not panel_closable):
 		return
 	if panel and panel_kind == kind:
-		_close_panel()
+		if kind == "manual":
+			_close_manual()
+		else:
+			_close_panel()
 		return
 	match kind:
 		"wallet": _open_wallet()
@@ -1621,6 +1683,9 @@ func _pocket(kind: String) -> void:
 			else:
 				_open_panel("Clipboard", [["No plane at this field. Take a call on the hangar RADIO."]])
 		"logbook": _open_logbook()
+		"manual":
+			_open_manual(_manual_job())
+			return  # _open_manual sets panel_kind
 	panel_kind = kind
 
 
@@ -1635,7 +1700,7 @@ func _open_wallet() -> void:
 	for t in tools:
 		have.append(Work.TOOLS[t])
 	rows.append(["Tool roll: " + (", ".join(have) if have.size() > 0 else "empty")])
-	rows.append(["Materials: " + ", ".join(["Safety wire", "Cotter pin", "Penetrant"].map(func(k): return "%s %d" % [k, inventory.get(k, 0)]))])
+	rows.append(["Materials: " + ", ".join(SUPPLIES.keys().filter(func(k): return SUPPLIES[k].has("qty")).map(func(k): return "%s %d" % [k, inventory.get(k, 0)]))])
 	rows.append(["Graphics: %s" % graphics.capitalize(), "Switch to " + ("Low" if graphics == "high" else "High"),
 		_toggle_graphics, true])
 	rows.append(["", "Start a new career", _confirm_restart, true])
@@ -2122,6 +2187,9 @@ func _open_shop() -> void:
 			continue
 		listed[f.part] = true
 		var tag := "   << NEEDED" if needed.has(f.part) else ""
+		var no := parts_book.no_for_fault(id)
+		if no != "":
+			tag = "  (P/N %s)%s" % [no, tag]
 		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
 		var price := _price(id)
 		if _stocked(id):

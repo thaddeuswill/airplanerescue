@@ -69,6 +69,12 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "logbook")
 	g._pocket("logbook")  # same key again puts it away
 	pockets_ok = pockets_ok and g.panel == null
+	# The service manual opens (to the contents here) and every spread builds.
+	g._pocket("manual")
+	pockets_ok = pockets_ok and g.panel_kind == "manual" and g.manual_data.get("pages", []).size() > 0
+	await _snap(shot, "manual")
+	g._pocket("manual")
+	pockets_ok = pockets_ok and g.panel == null
 	var first_zone: String = g.FAULTS[job.faults[0]].zone
 	if not job.washed:  # grime hides everything until it's washed
 		await _snap(shot, "grimy")
@@ -550,4 +556,8 @@ func _scene_shots(prefix: String) -> void:
 			if w.els.filter(func(e): return e.type != "view" and e.type != "fastener" and w.st[e.id] != w._initial(e)).size() * 2 >= w.els.filter(func(e): return e.type != "view" and e.type != "fastener").size():
 				break
 		await _snap(prefix, scene + "_b", 0.3)
+		g._close_panel()
+	for job in ["", "spark_test", "oil_change"]:  # the service manual: contents and two job pages
+		g._open_manual(job)
+		await _snap(prefix, "manual_" + (job if job != "" else "contents"), 0.6)
 		g._close_panel()

@@ -59,6 +59,11 @@ var tick_t := 0.0
 var note := ""
 var font := ThemeDB.fallback_font
 var toolbar: HBoxContainer
+## Nothing wrong here (or nothing you can see yet): good parts, finished tasks, nothing to buy.
+## You can still take it apart and look; it never "finishes".
+var healthy := false
+var back_button: Button  # opened from a station: the way back to it, across from the tool roll
+var shared: Array = []  # the engine cowling and its screws: one state across every engine scene
 
 
 func setup(m, scene_id: String, j: Dictionary) -> void:
@@ -71,9 +76,19 @@ func setup(m, scene_id: String, j: Dictionary) -> void:
 	def = scenes()[scene_id]
 	art = def.get("art", scene_id)
 	els = def.els.duplicate()
+	var is_fault: bool = job.get("faults", []).has(scene_id)
+	healthy = m.FAULTS.has(scene_id) and not (is_fault and (job.found.has(scene_id) or m._how(job, scene_id) == "walk"))
+	if healthy or (is_fault and not job.found.has(scene_id)):
+		title_name = m.PLACES.get(scene_id, title_name)  # the place, not the diagnosis
+	if healthy:
+		part_name = ""
+	if job.work.has(scene_id) and job.work[scene_id].get("_healthy", false) != healthy:
+		job.work.erase(scene_id)  # it was fine when you looked; now there's work to do (or the reverse)
 	if not job.work.has(scene_id):
-		job.work[scene_id] = {"_paid": false}
+		job.work[scene_id] = {"_paid": false, "_healthy": healthy}
 	st = job.work[scene_id]
+	if healthy:
+		st._fod = false
 	if not st.has("_fod") and scene_id != "fod" and els.any(func(e): return e.id == "cowl"):
 		st._fod = m.rng.randf() < FOD_CHANCE
 	if st.get("_fod", false):  # drawn under the cowling: you only see it with the cowl off
@@ -83,6 +98,23 @@ func setup(m, scene_id: String, j: Dictionary) -> void:
 		by_id[e.id] = e
 		if e.type != "view" and not st.has(e.id):  # also fills in pieces added since a save
 			st[e.id] = _initial(e)
+	if by_id.has("cowl") and by_id.cowl.type == "cover":
+		shared = ["cowl"] + _fasteners("cowl").map(func(f): return f.id)
+		var c: Dictionary = job.work.get_or_add("_cowl", {})
+		for id in shared:
+			if c.has(id):
+				st[id] = c[id]
+			else:
+				c[id] = st[id]
+	if m.station_zone != "":
+		var back := Button.new()
+		back.text = "Back to the " + m.ZONES[m.station_zone].name
+		back.focus_mode = Control.FOCUS_NONE
+		back.add_theme_font_size_override("font_size", 15)
+		back.pressed.connect(func(): m._open_station(m.station_zone))
+		back.custom_minimum_size = Vector2(0, 48)  # same height as the tool roll it sits across from
+		back_button = back
+		add_child(back)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)  # offsets too, or it stays 64x64 and misses clicks
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	toolbar = HBoxContainer.new()
@@ -131,12 +163,31 @@ func _origin() -> Vector2:
 
 # ---------- rules ----------
 
-func done() -> bool:
-	return els.all(func(e): return _complete(e))
+## The job here is finished. The shared cowling doesn't count (it closes once, for the whole
+## engine) unless `all`: everything back together, cowling included.
+func done(all := false) -> bool:
+	return els.all(func(e): return (not all and e.id in shared) or _complete(e))
 
 
 func _initial(e: Dictionary) -> String:
+	if healthy and e.type != "cover":
+		return {"fastener": "tight", "part": "new", "task": "done"}[e.type]
 	return e.get("start", {"fastener": "tight", "cover": "on", "part": "old", "task": "todo"}[e.type])
+
+
+## Something here is apart and not finished: the shared cowling can't close over it.
+func _apart() -> bool:
+	return els.any(func(e): return e.type != "view" and not e.id in shared and not e.has("trap") \
+		and st[e.id] != _initial(e) and not _complete(e))
+
+
+func _sync_shared() -> void:
+	if shared.is_empty():
+		return
+	var c: Dictionary = job.work._cowl
+	for id in shared:
+		c[id] = st[id]
+	c.get_or_add("apart", {})[fault] = _apart()
 
 
 func _complete(e: Dictionary) -> bool:
@@ -211,6 +262,11 @@ func action(e: Dictionary) -> Dictionary:
 				if waiting.size() > 0:
 					a.why = "Finish the %s before this goes back." % waiting[0].name
 					return a
+				if e.id == "cowl":  # one cowling for the whole engine: nothing else can be left apart under it
+					var apart: Array = job.work.get("_cowl", {}).get("apart", {}).keys().filter(func(k): return k != fault and job.work._cowl.apart[k])
+					if apart.size() > 0:
+						a.why = "Finish up at %s first: it's still apart under there." % main.PLACES.get(apart[0], apart[0]).to_lower()
+						return a
 				if _out_of(e) != "":
 					a.why = _out_of(e)
 					return a
@@ -237,7 +293,7 @@ func action(e: Dictionary) -> Dictionary:
 				if req != "":
 					a.why = req
 					return a
-				if e.get("free", false):  # cleaned and refitted: nothing to buy, nothing to pick up
+				if e.get("free", false) or healthy:  # cleaned and refitted, or the good one going back
 					a.merge({"verb": "install", "tool": t, "hold": hold_s}, true)
 					return a
 				if not st._paid and main.inventory.get(part_name, 0) <= 0:
@@ -313,7 +369,7 @@ func perform(e: Dictionary, v: String) -> bool:
 		"on": st[e.id] = "on"
 		"remove": st[e.id] = "out"
 		"install":
-			if not st._paid and not e.get("free", false):
+			if not st._paid and not e.get("free", false) and not healthy:
 				main.inventory[part_name] -= 1
 				st._paid = true
 			st[e.id] = "new"
@@ -342,10 +398,11 @@ func perform(e: Dictionary, v: String) -> bool:
 		main.inventory[e.uses] -= 1  # a fresh length of safety wire, a new cotter pin, a squirt of penetrant
 	if v in ["torque", "install", "on"]:
 		main.sound.clink()
+	_sync_shared()
 	if not main._work_time(DAYS[v] + extra):
 		return false
 	hover = _hit(get_local_mouse_position() - _origin())  # what was under the cursor may have moved
-	if done():
+	if done() and not healthy:
 		if st.get("_fod", false) and st.get("fod", "") != "done":
 			job["fod"] = true  # closed up with the socket still in there: it rattles on the run-up
 			st._fod = false
@@ -361,7 +418,7 @@ func solve() -> bool:
 	holding = true  # the test fits parts straight from the bench
 	var placed := {}  # covers put back mid-job: don't take them off again
 	for _i in 3000:
-		if done():
+		if done(true):
 			return true
 		var apart := els.any(func(e): return (e.type == "part" and st[e.id] != "new") \
 			or (e.type == "task" and st[e.id] != "done" and not e.has("trap")))
@@ -374,7 +431,7 @@ func solve() -> bool:
 			return false
 		if r == "!":
 			return false  # the owner gave up mid-job
-	return done()
+	return done(true)
 
 
 ## One move: the first piece that can make progress. Returns its id, "" if none, "!" if the job ended.
@@ -449,6 +506,8 @@ func _notification(what: int) -> void:
 		Input.set_custom_mouse_cursor(null)  # back to the normal pointer outside the scene
 	if what == NOTIFICATION_RESIZED and toolbar:
 		toolbar.position = _origin() + Vector2(0, H + 8)
+	if what == NOTIFICATION_RESIZED and back_button:
+		back_button.position = _origin() + Vector2(W - back_button.get_combined_minimum_size().x, H + 8)
 
 
 var _settle := 3  # redraw the first few frames so freshly uploaded art shows without a mouse move
@@ -564,7 +623,7 @@ func _draw() -> void:
 	_draw_notes()
 	draw_set_transform(Vector2.ZERO)
 	draw_string(font, Vector2(o.x, 30), "%s  -  %s" % [title_name, def.title], HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(0.98, 0.94, 0.85))
-	draw_string(font, Vector2(o.x, 54), "Hover a piece to see what it needs. Hold the mouse to turn. Wheel: switch tools. Esc: step away (work is kept).",
+	draw_string(font, Vector2(o.x, 54), "Hover a piece to see what it needs. Hold the mouse to turn. Wheel: switch tools. " + ("Esc: back to the %s." % main.ZONES[main.station_zone].name if main.station_zone != "" else "Esc: step away (work is kept)."),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.85, 0.82, 0.75))
 	if holding and _tex("icon_" + fault):  # the part rides along with the cursor until it's fitted
 		draw_texture_rect(_tex("icon_" + fault), Rect2(get_local_mouse_position() + Vector2(30, -10), Vector2(64, 64)), false)
@@ -606,6 +665,8 @@ func _draw_notes() -> void:
 
 
 func _draw_piece(e: Dictionary) -> void:
+	if healthy and (e.type == "view" or (e.type == "task" and st[e.id] == "done")):
+		return  # nothing wrong to show, and no reading to give
 	if e.type == "view":
 		var v: String = main.view_art(fault, e.id)
 		if v == "":
@@ -753,7 +814,7 @@ func _draw_hover(e: Dictionary) -> void:
 	var line: String = e.name if e.type != "fastener" else by_id[e.host].name + " " + e.kind
 	if e.type == "task":
 		line = e.label
-		if st[e.id] == "done" and e.get("note", false):
+		if st[e.id] == "done" and e.get("note", false) and not healthy:
 			line = main.reading(fault, e.id)
 	var how := ""
 	if a.verb != "" and not main.guide("medium"):  # hard: what you'd do, not what to do it with

@@ -92,6 +92,18 @@ func run(main, args: PackedStringArray) -> void:
 	var ok: bool = pockets_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return g.FAULTS[id].zone == first_zone))
 	for z in g.ZONES:
 		g._inspect_zone(z)
+	if shot != "":  # the engine opened up, and one place in it with the way back
+		g._open_station("engine")
+		await _snap(shot, "station")
+		g.station_open("engine", "magneto")
+		await _snap(shot, "station_place")
+		g._close_panel()
+		g.station_zone = ""
+	if not g.guide("medium"):  # hard: no clues; you find things by opening up the right place
+		for id in job.faults:
+			if g._how(job, id) == "walk" and g.PLACES.has(id):
+				g.station_open(g.FAULTS[id].zone, id)
+		g._close_panel()
 	# The walk-around finds what you can see; the rest shows on a run-up or in troubleshooting.
 	ok = ok and job.checked.size() == g.ZONES.size() and job.faults.all(func(id): return job.found.has(id) == (g._how(job, id) == "walk"))
 	_chk(ok, 68)
@@ -535,6 +547,31 @@ func _scene_tests() -> bool:
 	_run_up()
 	ok = ok and sj.get("runup", "") == "dead" and sj.faults.size() == before
 	g._close_panel()
+	# Stations: every place at the engine, one cowling shared across them. A place with nothing
+	# wrong shows good parts and never "finishes"; a visible fault is found by opening its place.
+	var stj: Dictionary = fake.call(["spark_plugs", "bird_nest"])
+	stj.found["spark_plugs"] = true
+	var places: Array = g.station_places("engine")
+	ok = ok and places.size() >= 20 and not places.has("fod") and places.has("compression")
+	g.station_open("engine", "magneto")
+	var hw = g.panel
+	ok = ok and hw is Work and hw.healthy and hw.part_name == "" and hw.title_name == g.PLACES.magneto and hw.done(true)
+	for f in hw.els.filter(func(e): return e.type == "fastener" and e.host == "cowl"):
+		hw.perform(f, "loosen")
+		hw.perform(f, "out")
+	hw.perform(hw.by_id.cowl, "off")
+	ok = ok and not stj.fixed.has("magneto") and g.panel == hw  # looking at a good part doesn't end anything
+	g.station_open("engine", "bird_nest")
+	ok = ok and stj.found.has("bird_nest") and g.panel.st.cowl == "off"  # seen, and the cowl's still off
+	g.station_open("engine", "spark_plugs")
+	var sw = g.panel
+	ok = ok and sw.st.cowl == "off" and not sw.healthy
+	g.station_open("engine", "bird_nest")
+	ok = ok and g.panel.solve() and stj.fixed.has("bird_nest")
+	g.station_open("engine", "spark_plugs")
+	ok = ok and g.panel.solve() and stj.fixed.has("spark_plugs") and g.cowl_closed(stj)
+	g._close_panel()
+	g.station_zone = ""
 	# Easy: the boss won't let you start what you know isn't ready, and nothing breaks.
 	g.difficulty = "easy"
 	var ej: Dictionary = fake.call(["pre_oil"])

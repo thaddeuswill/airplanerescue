@@ -661,13 +661,21 @@ func _inspect_zone(zone: String) -> void:
 		_advance(0.05)
 		if not current_job:  # the owner gave up while you were looking
 			return
-		var seen: PackedStringArray = []
-		for id in current_job.faults:
-			if FAULTS[id].zone == zone and _how(current_job, id) == "walk":  # the rest show on the run-up or in tests
-				current_job.found[id] = true
-				seen.append(clue(id))
-		_say(("%s: %s." % [ZONES[zone].name.capitalize(), "; ".join(seen)]) if seen.size() > 0
-			else "%s: nothing wrong you can see." % ZONES[zone].name.capitalize())
+		if not guide("medium"):  # hard: no clues. Open it up and look.
+			var plain: PackedStringArray = []  # except what has no place to open: a struck prop, kerosene in the sump
+			for id in current_job.faults:
+				if FAULTS[id].zone == zone and _how(current_job, id) == "walk" and not PLACES.has(id):
+					current_job.found[id] = true
+					plain.append(clue(id))
+			_say("You look over the %s.%s" % [ZONES[zone].name, (" " + "; ".join(plain).capitalize() + ".") if plain.size() > 0 else " To see more, open it up."])
+		else:
+			var seen: PackedStringArray = []
+			for id in current_job.faults:
+				if FAULTS[id].zone == zone and _how(current_job, id) == "walk":  # the rest show on the run-up or in tests
+					current_job.found[id] = true
+					seen.append(clue(id))
+			_say(("%s: %s." % [ZONES[zone].name.capitalize(), "; ".join(seen)]) if seen.size() > 0
+				else "%s: nothing wrong you can see." % ZONES[zone].name.capitalize())
 	if current_job:
 		_open_inspection()
 
@@ -812,6 +820,116 @@ func _repair(id: String) -> void:
 var _last_work: Array = []  # [scene, on_done] of the work scene last opened
 
 
+# ---------- stations: a spot opened up, every place you can work there (scripts/station.gd) ----------
+
+const Station := preload("res://scripts/station.gd")
+var station_zone := ""  # the station a work scene was opened from: Esc goes back there
+
+## What each place is called on its station tile: the place or the job, never the diagnosis.
+const PLACES := {
+	"propeller": "Prop hub & blades", "prop_dress": "Blade leading edges", "prop_track": "Track the blades", "prop_bolts": "Prop bolts",
+	"spark_plugs": "Spark plugs", "oil_leak": "Rocker cover gaskets", "bird_nest": "Top of the engine", "starter": "Starter",
+	"magneto": "Swap a magneto", "fuel_line": "Fuel line, firewall", "pre_oil": "Pre-oil", "spark_test": "Spark test",
+	"cold_cylinder": "Cold cylinder check", "compression": "Compression test", "reading_plugs": "Read the plugs",
+	"oil_screen": "Oil screen", "hot_mag": "Magneto P-leads", "fuel_vent": "Fuel cap vent", "water_fuel": "Sump the gascolator",
+	"oil_change": "Change the oil", "fuel_strainer": "Fuel strainer", "exhaust_check": "Muffler & heat muff",
+	"air_filter": "Air filter & carb heat", "mag_timing": "Magneto timing", "baffles": "Baffles & fins",
+	"storage": "Depreserve the engine", "ign_lead": "Ignition leads", "stuck_valve": "Rocker arms & valves",
+	"worn_rings": "Pull a cylinder", "relief_valve": "Oil relief valve", "fod": "Under the cowl",
+	"tire": "Tire & tube", "bungee": "Shock cords", "brakes": "Brake shoes", "brake_bleed": "Bleed the brakes",
+	"battery": "Battery", "windshield": "Windshield", "avionics": "Radio & antenna", "stale_fuel": "Fuel tank",
+	"door_pin": "Door hinge pins", "wire_chafe": "Wiring behind the panel", "brake_master": "Brake master cylinders",
+	"instrument_swap": "Tachometer", "primer_leak": "Primer", "compass": "Swing the compass", "pitot_static": "Pitot-static lines",
+	"weight_balance": "Weigh it", "control_cables": "Rudder cables", "tailwheel": "Tailwheel", "elevator_cable": "Elevator cable",
+	"trim_cable": "Trim cable", "brace_wires": "Tail tie rods", "tie_down": "Tie-downs", "aileron_rigging": "Aileron cables",
+	"wing_rig": "Wing rigging", "fabric_test": "Fabric punch test",
+}
+
+
+## Every place at this spot: its work scenes and tests (the socket hunt only once there's a socket).
+func station_places(zone: String) -> Array:
+	var out := []
+	for id in Work.scenes():
+		var z: String = FAULTS[id].zone if FAULTS.has(id) else (TESTS[id].zone if TESTS.has(id) else "")
+		if z == zone and PLACES.has(id) and (id != "fod" or current_job.faults.has("fod")):
+			out.append(id)
+	return out
+
+
+func station_title(zone: String) -> String:
+	return "%s  -  %s, opened up" % [current_job.type, ZONES[zone].name.capitalize()]
+
+
+func station_status(zone: String) -> String:
+	if zone != "engine":
+		return "Day %d. Owner waits %d more day(s)." % [floori(day), maxi(0, ceili(current_job.deadline - day))]
+	var c := "Cowling on and screwed down." if cowl_closed(current_job) else "Cowling's off."
+	return "Day %d. %s" % [floori(day), c + (" Put it back before you leave the engine." if guide("medium") and not cowl_closed(current_job) else "")]
+
+
+## Easy marks each tile: "!" work waiting, "OK" done.
+func station_mark(id: String) -> String:
+	var job: Dictionary = current_job
+	if not guide("easy") or not job.faults.has(id) or not job.found.has(id):
+		return ""
+	return "OK" if job.fixed.has(id) else "!"
+
+
+## The shared engine cowling: on, and every screw tight.
+func cowl_closed(job: Dictionary) -> bool:
+	var c: Dictionary = job.work.get("_cowl", {})
+	return c.get("cowl", "on") == "on" and range(6).all(func(k): return c.get("cowl_f%d" % k, "tight") == "tight")
+
+
+func _open_station(zone: String) -> void:
+	if not current_job.get("washed", true):
+		_say("It's caked in grime and lichen. Wash it down first.")
+		return
+	if not current_job.checked.has(zone):
+		_inspect_zone(zone)  # looking it over first: counts as checking the spot
+		if not current_job:
+			return
+	standing_at = zone
+	station_zone = zone
+	_close_panel()
+	var st = Station.new()
+	st.setup(self, zone)
+	ui.add_child(st)
+	panel = st
+	panel_closable = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
+
+
+## Opens one place from a station. A fault you can see is found by looking at it; one inside a
+## part (a bad mag, a sticking valve) looks fine until a run-up or a test has found it.
+func station_open(zone: String, id: String) -> void:
+	var job: Dictionary = current_job
+	standing_at = zone
+	station_zone = zone
+	if TESTS.has(id):
+		_run_test(id)
+		return
+	if job.faults.has(id) and not job.found.has(id) and _how(job, id) == "walk":
+		job.found[id] = true
+		_save_game()
+	_open_work(id, func(): _station_done(id))
+
+
+func _station_done(id: String) -> void:
+	var job: Dictionary = current_job
+	if job.faults.has(id) and job.found.has(id) and not job.fixed.has(id):
+		_work_done(id)
+
+
+## After a job, a test or a call: back to the station you came from, else the work order.
+func _back(zone: String) -> void:
+	if station_zone != "":
+		_open_station(station_zone)
+	else:
+		_open_inspection(zone)
+
+
 # ---------- the service manual (scripts/manual.gd, data/c85_manual.json) ----------
 
 const ManualUI := preload("res://scripts/manual.gd")
@@ -901,7 +1019,7 @@ func _work_done(id: String) -> void:
 		visuals[id] = _part_visual(id, true)
 	_say("Fixed: " + FAULTS[id].name)
 	sound.pen()  # signed off on the work order
-	_open_inspection(FAULTS[id].zone)
+	_back(FAULTS[id].zone)
 
 
 # ---------- troubleshooting ----------
@@ -951,7 +1069,7 @@ func _run_test(t: String) -> void:
 		_advance(0.05)
 		if current_job:
 			_say("Everything reads normal. That's not where the trouble is.")
-			_open_inspection(standing_at))
+			_back(standing_at))
 
 
 ## Hard: try to start it if it's never run; otherwise it's your signature on the logbook.
@@ -995,7 +1113,7 @@ func _call(id: String, key: String) -> void:
 		job.get_or_add("dnote", {})[id] = "%s: cylinder %d. Next, a %s on it." % [why, job.get("cyl", 0) + 1, TESTS[job.diag[id][step]].name.to_lower()]
 		_say(job.dnote[id])
 	_save_game()
-	_open_inspection(standing_at)
+	_back(standing_at)
 
 
 ## A hot magneto fires the engine while you turn the prop by hand. Returns [message, days lost].
@@ -1345,6 +1463,9 @@ func _sign_off() -> void:
 	var pay: int = job.reward
 	for id in missed:
 		pay -= FAULTS[id].cost * 2 + 200
+	var open_cowl := not cowl_closed(job)
+	if open_cowl:
+		pay -= 200  # flew it off with the cowling loose
 	if missed.any(func(id): return FAULTS[id].get("ground", false)):
 		pay = 0  # flew off with metal in the oil or a struck prop
 	pay = maxi(0, pay)
@@ -1356,10 +1477,13 @@ func _sign_off() -> void:
 	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": pay,
 		"work": job.faults.map(func(id): return ("Comeback: " if id in missed else "") + FAULTS[id].name), "years": job.get("years", 0),
 		"fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "days": day - job.get("arrived", day)})
-	if missed.is_empty():
+	var found_later: Array = missed.map(func(id): return FAULTS[id].name.to_lower())
+	if open_cowl:
+		found_later.append("the engine cowling not screwed down")
+	if found_later.is_empty():
 		_say("The %s is back in the air! Owner paid $%d." % [job.type, pay])
 	else:
-		_say("A comeback: the owner's next mechanic found %s. Owner paid $%d of $%d." % [", ".join(missed.map(func(id): return FAULTS[id].name.to_lower())), pay, job.reward])
+		_say("A comeback: the owner's next mechanic found %s. Owner paid $%d of $%d." % [", ".join(found_later), pay, job.reward])
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
 	sound.chime()  # a new call on the radio
@@ -1761,6 +1885,11 @@ func _unhandled_input(e: InputEvent) -> void:
 		if panel:
 			if panel_kind == "manual":
 				_close_manual()
+			elif panel is Work and station_zone != "":
+				_open_station(station_zone)
+			elif panel is Station:
+				station_zone = ""
+				_open_inspection(standing_at)
 			elif panel_closable:
 				_close_panel()
 		elif Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -2208,12 +2337,15 @@ func _refresh_markers() -> void:
 ## `at` is the spot you're standing at: you can only start work there (repairs at their own
 ## spot, the run-up and take-off from the cabin). From the clipboard ("") it's read-only.
 func _open_inspection(at := standing_at) -> void:
+	station_zone = ""
 	var job: Dictionary = current_job
 	var rows := [["Owner reports: " + _symptoms(job)],
 		["Owner waits %d more day(s)" % maxi(0, ceili(job.deadline - day))],
 		["Walk-around: %d of %d spots checked" % [job.checked.size(), ZONES.size()]]]
 	if job.get("annual", false):
 		rows.append(["Annual inspection: no complaints to go on. Find what you find."])
+	if at != "" and job.get("washed", true):
+		rows.append(["Open it up and work on anything at the %s." % ZONES[at].name, "Open up the " + ZONES[at].name, func(): _open_station(at), true])
 	if CITIES[job.city][2] == "snow" and not job.get("preheated", false):
 		rows.append(["Cold-soaked below 20 F: preheat before any run-up.", "Preheat the engine" if at == "engine" else "", _preheat, at == "engine"])
 	for id in job.faults:
@@ -2243,13 +2375,9 @@ func _open_inspection(at := standing_at) -> void:
 			continue
 		var need := "No part needed" if f.part == "" else "Needs %s (have %d)" % [f.part, inventory.get(f.part, 0)]
 		if at == f.zone:
-			rows.append(["%s\n%s" % [f.name, need], "Work on it", func(): _repair(id), true, icon])
+			rows.append(["%s\n%s" % [f.name, need], "Work on it", func(): station_open(at, id), true, icon])
 		else:
 			rows.append(["%s\n%s%s" % [f.name, need, (". Work on it at the %s." % ZONES[f.zone].name) if guide("medium") else "."], "", null, false, icon])
-	if not guide("medium") and at != "":  # hard: every test you could run here
-		for t in TESTS:
-			if TESTS[t].zone == at:
-				rows.append(["", "Run the " + TESTS[t].name.to_lower(), func(): _run_test(t), true])
 	if not job.get("washed", true):
 		rows.append(["Sat %d years: filthy, lichen on the wings." % job.years, "Wash it down" if at != "" else "", _wash, at != ""])
 	var ran: bool = job.get("runup", "") == "ran"
@@ -2265,7 +2393,9 @@ func _open_inspection(at := standing_at) -> void:
 	if at != "":
 		rows.append(["Parked %s." % ("in the hangar" if in_hangar else "on the apron"),
 			"Roll it out to the apron" if in_hangar else "Push it into the hangar", _toggle_parked, true])
-	var done: bool = all_checked and job.fixed.size() == job.faults.size()
+	var done: bool = all_checked and job.fixed.size() == job.faults.size() and cowl_closed(job)
+	if all_checked and job.fixed.size() == job.faults.size() and not cowl_closed(job) and guide("medium"):
+		rows.append(["The engine cowling's still off: close it up at the engine before you sign it off."])
 	var ready: bool = done and fuel >= 0.5 and not in_hangar
 	if not guide("medium"):  # hard: signing off is your call, and so is what's wrong with it
 		if at == "cabin" and fuel >= 0.5 and not in_hangar:

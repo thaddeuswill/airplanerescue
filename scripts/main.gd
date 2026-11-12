@@ -285,6 +285,7 @@ var ui: CanvasLayer
 var hud: Control  # the pocket strip (wallet, clipboard, logbook keys)
 var prompt: Label
 var msg: Label
+var msg_card: PanelContainer
 var cross: Label
 var panel: Control
 var panel_closable := true
@@ -1565,6 +1566,17 @@ const C_AMBER := Color("8B6914")
 static var TYPE_FONT := _type_font()
 
 
+## Body text on the paper panels: the same typewriter face at book weight, so the bold title,
+## the fault names and the buttons stand out from it.
+static var BODY_FONT := _body_font()
+
+
+static func _body_font() -> SystemFont:
+	var f := _type_font()
+	f.font_weight = 400
+	return f
+
+
 static func _type_font() -> SystemFont:
 	var f := SystemFont.new()
 	f.font_names = PackedStringArray(["Courier New", "Courier Prime", "Courier", "Nimbus Mono PS", "monospace"])
@@ -1654,6 +1666,7 @@ func _open_menu() -> void:
 	_menu_camera()
 	_menu_select(_menu.sel)
 	msg.text = ""
+	msg_card.visible = false
 
 
 func _menu_text(parent: Control, text: String, size: int, color: Color, at: Vector2) -> Label:
@@ -1844,8 +1857,11 @@ func _process(delta: float) -> void:
 	_animate_birds()
 	if msg_time > 0.0:
 		msg_time -= delta
+		# Over a work scene or a station: up in the title strip, clear of the bench and the scene.
+		msg_card.position.y = 4.0 if (panel is Work or panel is Station) else 74.0
 		if msg_time <= 0.0:
 			msg.text = ""
+			msg_card.visible = false
 	if is_instance_valid(_menu_cam) and panel_kind == "menu":
 		_menu_drift(delta)
 	if ferry:
@@ -1925,11 +1941,28 @@ func _setup_ui() -> void:
 	cross.text = "+"
 	prompt = _label(22, HORIZONTAL_ALIGNMENT_CENTER, VERTICAL_ALIGNMENT_BOTTOM)
 	prompt.offset_bottom = -120
-	msg = _label(22, HORIZONTAL_ALIGNMENT_CENTER, VERTICAL_ALIGNMENT_TOP)
-	msg.offset_top = 70
-	msg.offset_left = 160  # long messages wrap instead of running off both edges
-	msg.offset_right = -160
+	# What you see and hear: a dark card in the top-right corner, where the paper panels (left) and
+	# the work scenes' titles don't reach. Brought to the front each time, so no panel covers it.
+	msg_card = PanelContainer.new()
+	var card := StyleBoxFlat.new()
+	card.bg_color = Color(C_EARTH, 0.94)
+	card.border_color = Color(C_BRASS, 0.7)
+	card.border_width_left = 4
+	card.set_content_margin_all(14)
+	msg_card.add_theme_stylebox_override("panel", card)
+	msg_card.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	msg_card.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	msg_card.position += Vector2(-20, 74)
+	msg_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	msg_card.visible = false
+	msg = Label.new()
+	msg.add_theme_font_override("font", TYPE_FONT)
+	msg.add_theme_font_size_override("font_size", 17)
+	msg.add_theme_color_override("font_color", C_PAPER)
+	msg.custom_minimum_size.x = 440
 	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	msg_card.add_child(msg)
+	ui.add_child(msg_card)
 
 
 func _label(size: int, h: HorizontalAlignment, v: VerticalAlignment) -> Label:
@@ -2071,7 +2104,10 @@ func _open_logbook() -> void:
 
 func _say(text: String) -> void:
 	msg.text = text
-	msg_time = 5.0
+	msg_card.visible = text != ""
+	msg_card.size = Vector2.ZERO  # shrink to the new text
+	msg_card.move_to_front()  # over whatever panel is open
+	msg_time = 4.0 + text.length() / 40.0  # long run-up reports stay up long enough to read
 
 
 ## Vintage tool-catalog look: dark ink on paper, toolbox-red buttons.
@@ -2138,17 +2174,35 @@ func _open_panel(title: String, rows: Array, closable := true, paper := "paper_c
 		l.custom_minimum_size.x = 420
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		var acts: bool = r.size() > 1 and r[1] != ""
+		if not acts:  # information, not something to do: book weight, softer ink
+			l.add_theme_font_override("font", BODY_FONT)
+			l.add_theme_color_override("font_color", Color(C_EARTH, 0.78))
 		hb.add_child(l)
 		if r.size() > 1 and r[1] != "":
 			var b := Button.new()
 			b.text = r[1]
 			b.pressed.connect(r[2])
 			b.disabled = not r[3]
+			b.size_flags_vertical = Control.SIZE_SHRINK_CENTER  # its own height, centered on its row
 			hb.add_child(b)
-	if closable:
+	if closable:  # the way out, not the thing to do: small, outlined, bottom right
 		var c := Button.new()
 		c.text = "Close (Esc)"
 		c.pressed.connect(_close_panel)
+		c.size_flags_horizontal = Control.SIZE_SHRINK_END
+		for state in ["normal", "hover", "pressed"]:
+			var line := StyleBoxFlat.new()
+			line.bg_color = Color(C_EARTH, {"normal": 0.0, "hover": 0.08, "pressed": 0.16}[state])
+			line.border_color = Color(C_EARTH, 0.55)
+			line.set_border_width_all(1)
+			line.set_corner_radius_all(3)
+			line.set_content_margin_all(5)
+			line.content_margin_left = 12
+			line.content_margin_right = 12
+			c.add_theme_stylebox_override(state, line)
+		for col in ["font_color", "font_hover_color", "font_pressed_color"]:
+			c.add_theme_color_override(col, C_EARTH)
 		vb.add_child(c)
 	if stamp != "":
 		var s := TextureRect.new()

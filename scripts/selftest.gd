@@ -18,11 +18,20 @@ func run(main, args: PackedStringArray) -> void:
 		if a.begins_with("--shot="):
 			shot = a.trim_prefix("--shot=")
 	var edges_ok = _edge_tests()
+	var scenes_ok = _scene_tests()
 	var job: Dictionary = g.jobs[0]
-	if "--all-faults" in args:  # every broken part on one plane, for screenshots
-		job.faults = g.FAULTS.keys()
+	if "--all-faults" in args:  # every broken part one plane can have at once, for screenshots
+		var excl: Array = g.PLANE_TYPES.filter(func(t): return t[0] == job.type)[0][2]
+		g._assign_faults(job, g.FAULTS.keys().filter(func(id): return not g.FAULTS[id].get("ground", false) \
+			and id != "fod" and not id in excl and id != "storage_return"))
 		job.years = 9  # a long-sat plane: grime, stale fuel, dry engine, stuck door
 		job.washed = false
+		job.annual = false
+	for a in args:
+		if a.begins_with("--faults="):  # a chosen set, e.g. --faults=weight_balance,tire
+			g._assign_faults(job, Array(a.trim_prefix("--faults=").split(",")))
+	job.faults = job.faults.filter(func(id): return not g.FAULTS[id].get("ground", false))  # grounding has its own test
+	job.preheated = true  # the cold-start rule has its own test
 	for a in args:
 		if a.begins_with("--city="):  # pick the field, e.g. a plains town to see trees
 			job.city = a.trim_prefix("--city=")
@@ -67,14 +76,17 @@ func run(main, args: PackedStringArray) -> void:
 	var ok: bool = pockets_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return g.FAULTS[id].zone == first_zone))
 	for z in g.ZONES:
 		g._inspect_zone(z)
-	# The walk-around finds what you can see; the rest only shows on a run-up.
-	ok = ok and job.checked.size() == g.ZONES.size() and job.faults.all(func(id): return job.found.has(id) != (id in g.RUNUP_FAULTS))
-	g._run_up()
+	# The walk-around finds what you can see; the rest shows on a run-up or in troubleshooting.
+	ok = ok and job.checked.size() == g.ZONES.size() and job.faults.all(func(id): return job.found.has(id) == (g._how(job, id) == "walk"))
+	_chk(ok, 68)
+	_run_up()
 	# A clean start hears every run-up fault; a dead battery or starter cuts the test short.
-	ok = ok and job.faults.filter(func(id): return id in g.RUNUP_FAULTS).all(func(id):
+	ok = ok and job.faults.filter(func(id): return g._how(job, id) == "runup").all(func(id):
 		return job.found.has(id) or job.runup == "dead")
+	_chk(ok, 72)
 	if job.faults.has("battery"):
 		ok = ok and job.runup == "dead"  # dead battery: nothing to hear past the master switch
+		_chk(ok, 75)
 	# Save, scramble, load: everything comes back and the job here is still the one you're on.
 	g._save_game()
 	var before = [g.money, g.day, g.jobs.size(), g.current_job.city, g.current_job.checked.size()]
@@ -91,6 +103,7 @@ func run(main, args: PackedStringArray) -> void:
 	torn.store_string("not a save")
 	torn.close()
 	ok = ok and g._load_game() and not g.save_locked
+	_chk(ok, 92)
 	job = g.current_job
 	# A save from a newer game is left alone: not loaded, and never autosaved over.
 	var newer_save = FileAccess.open(g.save_path, FileAccess.WRITE)
@@ -99,8 +112,10 @@ func run(main, args: PackedStringArray) -> void:
 	DirAccess.remove_absolute(g.save_path + ".bak")
 	var money_before = g.money
 	ok = ok and not g._load_game() and g.save_locked and g.money == money_before
+	_chk(ok, 100)
 	g._save_game()
 	ok = ok and int(g._read_save(g.save_path).version) == g.SAVE_VERSION + 1  # still the newer file
+	_chk(ok, 102)
 	g.save_locked = false
 	g._save_game()
 	g._load_field(g.location, job)
@@ -108,12 +123,21 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "shop")
 	# Work scenes: with no tools nothing comes apart; with tools but no part it stalls at the
 	# empty slot; with both, the whole job gets done bolt by bolt.
-	var id0: String = job.faults[0]
+	# A job whose first fixable scene has bolts to turn (a few, like weight and balance, need no tools).
+	var bolted: Array = job.faults.filter(func(id): return Work.scenes()[id].els.any(func(e): return e.type == "fastener" \
+		and Work.scenes()[id].els.any(func(h): return h.id == e.host and h.get("needs", []).is_empty() and h.get("start", "on") == "on")))
+	if bolted.is_empty():
+		job.faults.append("tire")
+		job.found["tire"] = true  # added after the walk-around: as if you'd spotted it
+		bolted = ["tire"]
+	var id0: String = bolted[0]
 	g.tools.clear()
 	g._repair(id0)
 	ok = ok and g.panel is Work
+	_chk(ok, 120)
 	await _snap(shot, "work_" + id0)
 	ok = ok and not g.panel.solve() and not job.fixed.has(id0)
+	_chk(ok, 122)
 	for t in Work.TOOLS:
 		if t != "hand":
 			g.tools[t] = true
@@ -137,11 +161,13 @@ func run(main, args: PackedStringArray) -> void:
 	release.pressed = false
 	w._gui_input(release)
 	ok = ok and w.st[f0.id] == "loose"
+	_chk(ok, 145)
 	if w.st[f0.id] != "loose":
 		print("MOUSE HOLD did not loosen ", f0.id, ": ", w.st[f0.id], " hover=", w.hover, " hold=", w.hold, " pressing=", w.pressing, " held_done=", w.held_done, " tool=", w.tool, " action=", w.action(f0))
 	if g.FAULTS[id0].part != "":
 		g.inventory.erase(g.FAULTS[id0].part)
 		ok = ok and not g.panel.solve() and not job.fixed.has(id0)
+		_chk(ok, 150)
 		await _snap(shot, "work_apart")
 	# Out of a material (here cotter pins / safety wire / penetrant): the job stalls at that step.
 	var uses_any: bool = g.panel.els.any(func(e): return e.get("uses", "") != "")
@@ -151,25 +177,46 @@ func run(main, args: PackedStringArray) -> void:
 		for mtl in ["Safety wire", "Cotter pin", "Penetrant"]:
 			g.inventory[mtl] = 0
 		ok = ok and not g.panel.solve() and not job.fixed.has(id0)
+		_chk(ok, 159)
 	for mtl in ["Safety wire", "Cotter pin", "Penetrant"]:
 		g.inventory[mtl] = 99
-	for id in job.faults:
-		var part: String = g.FAULTS[id].part
-		if part != "":
-			g.inventory[part] = 1
-		if id != id0:
+	g._close_panel()
+	# Fix what's found, run it up to hear more, troubleshoot what it tells you, repeat.
+	for _round in 4:
+		for id in job.faults.duplicate():
+			if not job.found.has(id) or job.fixed.has(id):
+				continue
+			var part: String = g.FAULTS[id].part
+			if part != "":
+				g.inventory[part] = 1
 			g._repair(id)
 			await _snap(shot, "work_" + id, 0.1)
-		var solved: bool = g.panel.solve()
-		ok = ok and solved and job.fixed.has(id)
-		if not solved:
-			print("WORK STUCK on ", id)
-	g._run_up()  # everything fixed: it should fire up and run clean now
-	ok = ok and job.runup == "ran"
+			var solved: bool = g.panel.solve()
+			if g.FAULTS[id].get("quiz", false):
+				solved = solved and _answer_quiz(id)
+			ok = ok and solved and job.fixed.has(id)
+			_chk(ok, 178)
+			if not solved:
+				print("WORK STUCK on ", id)
+		_run_up()
+		for id in job.faults:
+			while g._test_for(job, id) != "" and job.sym.has(id):
+				var diag_ok: bool = _troubleshoot(id)
+				ok = ok and diag_ok
+				_chk(ok, 186)
+				if not diag_ok:
+					print("TROUBLESHOOTING STUCK on ", id, " at ", g._test_for(job, id))
+					break
+	g._close_panel()
+	if not (job.runup == "ran" and job.fixed.size() == job.faults.size()):
+		print("NOT DONE: runup=", job.get("runup"), " fixed=", job.fixed.keys(), " faults=", job.faults, " found=", job.found.keys())
+	ok = ok and job.runup == "ran" and job.fixed.size() == job.faults.size()
+	_chk(ok, 193)
 	# Hangar: push it in (it moves inside, nose to the door), the truck refuses to fuel it
 	# indoors, then roll it back out.
 	g._move_plane("hangar")
 	ok = ok and g.plane.position.distance_to(g.HANGAR_SPOT) < 0.5 and g._fuel_plane() == 0
+	_chk(ok, 198)
 	if shot != "":
 		g.player.position = g.HANGAR_SPOT + Vector3(6, 0.1, 9)
 		g.player.look_at(g.HANGAR_SPOT + Vector3(0, 0.1, 0), Vector3.UP)
@@ -178,10 +225,12 @@ func run(main, args: PackedStringArray) -> void:
 		await _snap(shot, "in_hangar")
 	g._move_plane("apron")
 	ok = ok and g.plane.position.distance_to(Vector3(0, 0, 8)) < 0.5
+	_chk(ok, 206)
 	# Fuel truck: low tanks block the take-off until it's fueled.
 	job.fuel = 0.1
 	var fuel_cost: int = g._fuel_plane()
 	ok = ok and fuel_cost > 0 and job.fuel == 1.0
+	_chk(ok, 210)
 	start -= fuel_cost
 	if shot != "":
 		g._open_truck()
@@ -231,6 +280,7 @@ func run(main, args: PackedStringArray) -> void:
 			await _snap(shot, "tree%d" % i)
 		g._load_field(g.location, job)  # put the player back by the plane
 	ok = ok and job.fixed.size() == job.faults.size()
+	_chk(ok, 259)
 	# Fly it out for real: hold throttle, pull back once past rotate speed.
 	g._start_ferry()
 	Input.action_press("move_forward")
@@ -245,12 +295,14 @@ func run(main, args: PackedStringArray) -> void:
 	Input.action_release("move_forward")
 	Input.action_release("move_back")
 	ok = ok and g.ferry == null and g.rescued == 1 and g.money == start + job.reward and g.jobs.size() == g.MAX_JOBS
+	_chk(ok, 275)
 	ok = ok and g.logbook.size() == 1 and g.logbook[0].has("parts")  # the cost sheet was written
+	_chk(ok, 276)
 	if shot != "":
 		g._pocket("logbook")
 		await _snap(shot, "logbook_after")
-	print("SELF-TEST ", "PASS" if ok and edges_ok else "FAIL", " edges=", edges_ok, " faults=", job.faults, " day=%.1f" % g.day)
-	get_tree().quit(0 if ok else 1)
+	print("SELF-TEST ", "PASS" if ok and edges_ok and scenes_ok else "FAIL", " edges=", edges_ok, " scenes=", scenes_ok, " faults=", job.faults, " day=%.1f" % g.day)
+	get_tree().quit(0 if ok and edges_ok and scenes_ok else 1)
 
 
 ## Money and deadline edges, run at home before the main test; restores what it touches.
@@ -324,3 +376,131 @@ func _snap(prefix: String, name: String, wait := 0.4) -> void:
 		return
 	await get_tree().create_timer(wait).timeout
 	get_viewport().get_texture().get_image().save_png("%s_%s.png" % [prefix, name])
+
+
+## Run-up through the real path; on a hand-propped plane that's the starting drill first.
+func _run_up() -> void:
+	g._run_up()
+	if g.panel is Work:
+		g.panel.solve()
+
+
+## One troubleshooting step: open the test, do it, make a wrong call (nothing moves), then the right one.
+func _troubleshoot(id: String) -> bool:
+	var job: Dictionary = g.current_job
+	var t: String = g._test_for(job, id)
+	var step: int = job.get("dstep", {}).get(id, 0)
+	g._diagnose(id)
+	if not (g.panel is Work) or not g.panel.solve():
+		return false
+	var right: String = g._answer(id, t)
+	var wrong: Array = g.TESTS[t].options.filter(func(o): return o[1] != right)
+	g._call(id, wrong[0][1])
+	var stayed: bool = g._test_for(job, id) == t and job.get("dstep", {}).get(id, 0) == step
+	g._call(id, right)
+	return stayed and g._test_for(job, id) != t
+
+
+## The weight-and-balance sum: the options must include the right CG.
+func _answer_quiz(id: String) -> bool:
+	var wb: Dictionary = g.current_job.wb
+	var cg: float = wb.t * 187.5 / float(wb.l + wb.r + wb.t)
+	g.current_job.fixed[id] = true
+	return wb.opts.any(func(v): return absf(v - cg) < 0.01)
+
+
+## Every work scene, fresh, on a plane of its own: it can be finished with the full kit, traps
+## don't count, each test's readings lead to the right call for every fault it can find,
+## grounding a plane pays and ends the job, and a cold engine needs preheating.
+func _scene_tests() -> bool:
+	var saved = [g.money, g.jobs, g.current_job, g.day, g.tools, g.inventory]
+	var ok := true
+	g.tools = {}
+	for t in Work.TOOLS:
+		if t != "hand":
+			g.tools[t] = true
+	g.inventory = {"Safety wire": 99, "Cotter pin": 99, "Penetrant": 99}
+	for id in g.FAULTS:
+		if g.FAULTS[id].part != "":
+			g.inventory[g.FAULTS[id].part] = 5
+	var fake = func(faults: Array, type := "Test") -> Dictionary:
+		var j := {"city": g.location, "type": type, "faults": [], "fixed": {}, "found": {}, "checked": {}, "work": {},
+			"reward": 1000, "deadline": g.day + 60, "spent": {"fuel": 0, "parts": 0, "mail": 0}}
+		g._assign_faults(j, faults)
+		g.jobs = [j]
+		g.current_job = j
+		return j
+	for scene in Work.scenes():
+		if scene in g.TESTS:
+			continue  # driven below, through each fault it can find
+		var j: Dictionary = fake.call([scene] if g.FAULTS.has(scene) else [])
+		j.found[scene] = true
+		if scene == "hand_prop":
+			g._open_work(scene, func(): pass)
+		else:
+			g._repair(scene)
+		var w = g.panel
+		var solved: bool = w is Work and w.solve() and w.done()
+		if not solved:
+			print("SCENE STUCK: ", scene)
+			if w is Work:
+				for e in w.els:
+					if e.type != "view":
+						print("   ", e.id, " ", w.st[e.id], " ", w.action(e))
+		ok = ok and solved
+		if w is Work:
+			var traps: Array = w.els.filter(func(e): return e.has("trap"))
+			if traps.size() > 0:  # a trap costs time, never completes
+				var d0: float = g.day
+				ok = ok and w.perform(traps[0], "do") and w.st[traps[0].id] == "todo" and g.day > d0
+		g._close_panel()
+	# Every test chain, for every fault that uses it.
+	for id in g.FAULTS:
+		for chain in g.FAULTS[id].get("diags", []):
+			var j: Dictionary = fake.call([])
+			j.faults = [id]
+			j.diag = {id: chain}
+			j.sym[id] = true
+			for t in chain:
+				if not _troubleshoot(id):
+					print("TEST STUCK: ", id, " ", chain)
+					ok = false
+					break
+			ok = ok and j.found.has(id)
+			g._close_panel()
+	# Grounding: a found prop strike pays a fee, logs it and ends the job.
+	var gj: Dictionary = fake.call(["prop_strike"])
+	gj.found["prop_strike"] = true
+	var m0: int = g.money
+	var logs: int = g.logbook.size()
+	g._ground_job()
+	ok = ok and g.current_job == null and not g.jobs.has(gj) and g.money > m0 and g.logbook.size() == logs + 1 and g.logbook[-1].grounded
+	g.logbook.resize(logs)
+	g._close_panel()
+	# Cold soak: no run-up until it's preheated.
+	var cj: Dictionary = fake.call([])
+	cj.city = g.CITIES.keys().filter(func(c): return g.CITIES[c][2] == "snow")[0]
+	g._run_up()
+	ok = ok and not cj.has("runup")
+	g._preheat()
+	_run_up()
+	ok = ok and cj.get("runup", "") == "ran"
+	g._close_panel()
+	g.money = saved[0]
+	g.jobs = saved[1]
+	g.current_job = saved[2]
+	g.day = saved[3]
+	g.tools = saved[4]
+	g.inventory = saved[5]
+	if not ok:
+		print("SCENE TESTS FAILED")
+	return ok
+
+
+var _said := false
+
+
+func _chk(ok: bool, where: int) -> void:
+	if not ok and not _said:
+		_said = true
+		print("FIRST FAILED CHECK at run() line ", where)

@@ -41,46 +41,160 @@ const REGIONS := {
 	"snow": {"tex": "ground_snow", "ground": Color(0.92, 0.94, 0.97), "prop": "snowpine", "count": 1000, "grass": 0, "wheat": 0},
 }
 # symptom: what the owner reports on the radio. zone: where on the plane you find it.
+# Faults are found one of three ways: seen on the walk-around (CLUES), heard on the run-up
+# (RUNUP_FAULTS), or tracked down with troubleshooting tests ("diags": possible chains of
+# TESTS; one is picked per job). "ground": no field fix, the engine has to come out.
+# Values and procedures: JOBS_ATA.md (AC 43.13-1B, the J3C-65 manual, Continental M-0).
 const FAULTS := {
 	"tire": {"name": "Flat main tire", "part": "Tire & tube", "cost": 180, "zone": "gear_l", "symptom": "sits low on the left side"},
 	"brakes": {"name": "Rusted brake disc", "part": "Brake disc", "cost": 260, "zone": "gear_r", "symptom": "grinds when it taxis"},
 	"battery": {"name": "Dead battery", "part": "Battery", "cost": 350, "zone": "battery", "symptom": "won't crank, everything's dead"},
-	"spark_plugs": {"name": "Fouled spark plugs", "part": "Spark plug set", "cost": 220, "zone": "engine", "symptom": "runs rough, puffs black smoke"},
+	"spark_plugs": {"name": "Worn-out spark plugs", "part": "Spark plug set", "cost": 220, "zone": "engine", "symptom": "runs rough, puffs black smoke",
+		"diags": [["spark_test"], ["reading_plugs"]]},
 	"oil_leak": {"name": "Oil leak", "part": "Gasket kit", "cost": 150, "zone": "engine", "symptom": "oil spots under the nose"},
 	"bird_nest": {"name": "Bird nest on the cowling", "part": "", "cost": 0, "zone": "engine", "symptom": "birds flying out of the cowling"},
-	"fuel_line": {"name": "Leaking fuel line", "part": "Fuel line kit", "cost": 300, "zone": "wing_l", "symptom": "smells of avgas under the wing"},
+	"fuel_line": {"name": "Leaking fuel line", "part": "Fuel line kit", "cost": 300, "zone": "engine", "symptom": "smells of avgas around the firewall"},
 	"windshield": {"name": "Cracked windshield", "part": "Windshield", "cost": 900, "zone": "cabin", "symptom": "got caught in a hailstorm"},
 	"starter": {"name": "Seized starter", "part": "Starter motor", "cost": 1100, "zone": "engine", "symptom": "the starter just clicks"},
 	"control_cables": {"name": "Jammed rudder cables", "part": "Control cable set", "cost": 650, "zone": "tail", "symptom": "rudder pedals are stiff"},
-	"magneto": {"name": "Bad magneto", "part": "Magneto", "cost": 1400, "zone": "engine", "symptom": "dies on the mag check"},
+	"magneto": {"name": "Bad magneto", "part": "Magneto", "cost": 1400, "zone": "engine", "symptom": "dies on the mag check", "diags": [["spark_test"]]},
 	"avionics": {"name": "Broken radio antenna", "part": "Antenna & radio", "cost": 1800, "zone": "cabin", "symptom": "radio's dead, can't raise anyone"},
-	"propeller": {"name": "Damaged propeller", "part": "Propeller", "cost": 2600, "zone": "prop", "symptom": "hit a fence post taxiing"},
+	"propeller": {"name": "Cracked propeller", "part": "Propeller", "cost": 2600, "zone": "prop", "symptom": "found a crack in the prop at preflight"},
 	# Neglect jobs: only planes that sat for years get these (see _spawn_job).
-	"stale_fuel": {"name": "Stale fuel in the tanks", "part": "Fresh avgas", "cost": 90, "zone": "wing_l", "symptom": "hasn't had fresh gas in years"},
+	"stale_fuel": {"name": "Stale fuel in the tank", "part": "Fresh avgas", "cost": 90, "zone": "cabin", "symptom": "hasn't had fresh gas in years"},
 	"pre_oil": {"name": "Dry engine: pre-oil before start", "part": "", "cost": 0, "zone": "engine", "symptom": "hasn't been started in years"},
 	"door_pin": {"name": "Door pin rusted solid", "part": "Door pin & cotter", "cost": 120, "zone": "cabin", "symptom": "can't even get the door open"},
+	"storage_return": {"name": "Engine pickled for storage", "part": "", "cost": 0, "zone": "engine", "symptom": "the engine was put up properly for storage"},
+	"oil_change": {"name": "Oil long overdue", "part": "4 qt aviation oil", "cost": 40, "zone": "engine", "symptom": "nobody remembers the last oil change"},
+	"bungee": {"name": "Tired shock cords", "part": "Bungee cords", "cost": 90, "zone": "gear_l", "symptom": "sags on its gear and bangs on landing"},
+	"tie_down": {"name": "Rotten tie-downs", "part": "", "cost": 0, "zone": "tail", "symptom": "it's been rocking at its tie-downs all season"},
+	# Tracked down with troubleshooting tests.
+	"ign_lead": {"name": "Chafed ignition lead", "part": "Ignition lead", "cost": 85, "zone": "engine", "symptom": "drops a lot of rpm on one mag", "diags": [["spark_test"]]},
+	"primer_leak": {"name": "Leaking primer", "part": "Primer seal kit", "cost": 45, "zone": "cabin", "symptom": "runs rich and sooty", "diags": [["reading_plugs"]]},
+	"stuck_valve": {"name": "Sticking valve", "part": "Rocker cover gasket", "cost": 25, "zone": "engine", "symptom": "shakes at every rpm",
+		"diags": [["cold_cylinder", "compression"]]},
+	"worn_rings": {"name": "Worn rings, low cylinder", "part": "Cylinder assembly", "cost": 1600, "zone": "engine", "symptom": "shakes and burns oil",
+		"diags": [["cold_cylinder", "compression"], ["reading_plugs", "compression"]]},
+	"relief_valve": {"name": "Sticking oil relief valve", "part": "", "cost": 0, "zone": "engine", "symptom": "oil pressure sags", "diags": [["oil_screen"]]},
+	"cam_wear": {"name": "Steel in the oil: cam or lifters", "part": "", "cost": 0, "zone": "engine", "symptom": "oil pressure sags", "diags": [["oil_screen"]], "ground": true},
+	"piston_scuff": {"name": "Aluminum in the oil: a piston", "part": "", "cost": 0, "zone": "engine", "symptom": "oil pressure sags", "diags": [["oil_screen"]], "ground": true},
+	"bronze_bushing": {"name": "Bronze in the oil: pin bushings", "part": "", "cost": 0, "zone": "engine", "symptom": "oil pressure sags", "diags": [["oil_screen"]], "ground": true},
+	# Heard on the run-up.
+	"hot_mag": {"name": "Hot magneto (broken P-lead)", "part": "P-lead", "cost": 30, "zone": "engine", "symptom": "no drop at all on the mag check"},
+	"mag_timing": {"name": "Magneto timing drifted", "part": "", "cost": 0, "zone": "engine", "symptom": "sluggish and runs hot"},
+	"brake_bleed": {"name": "Air in the brake line", "part": "Brake fluid", "cost": 12, "zone": "gear_r", "symptom": "the right brake pedal goes soft"},
+	"wire_splice": {"name": "Chafed wire behind the panel", "part": "", "cost": 0, "zone": "cabin", "symptom": "the radio cuts out over bumps"},
+	# Seen on the walk-around.
+	"exhaust": {"name": "Cracked muffler", "part": "Muffler", "cost": 380, "zone": "engine", "symptom": "the cabin smells of exhaust and the owner gets headaches"},
+	"air_filter": {"name": "Clogged air filter", "part": "Air filter", "cost": 30, "zone": "engine", "symptom": "down on power, slow to climb"},
+	"baffles": {"name": "Packed fins, loose baffle seal", "part": "Baffle seal strip", "cost": 25, "zone": "engine", "symptom": "oil temperature climbs past 220"},
+	"fuel_vent": {"name": "Plugged fuel tank vent", "part": "", "cost": 0, "zone": "engine", "symptom": "starts, runs a minute, then quits"},
+	"water_fuel": {"name": "Water in the fuel", "part": "", "cost": 0, "zone": "engine", "symptom": "coughs and quits once it's warm"},
+	"fuel_strainer": {"name": "Clogged fuel strainer", "part": "Strainer gasket", "cost": 8, "zone": "engine", "symptom": "loses power at full throttle"},
+	"aileron_rig": {"name": "Ailerons out of rig", "part": "", "cost": 0, "zone": "wing_l", "symptom": "flies with the left wing low"},
+	"wing_rig": {"name": "Wings out of rig", "part": "", "cost": 0, "zone": "wing_l", "symptom": "won't fly straight hands-off"},
+	"elevator_cable": {"name": "Frayed elevator cable", "part": "Elevator cable", "cost": 120, "zone": "tail", "symptom": "the stick feels notchy fore and aft"},
+	"trim_cable": {"name": "Slipping trim cable", "part": "", "cost": 0, "zone": "tail", "symptom": "the trim crank spins and nothing happens"},
+	"tail_brace": {"name": "Kinked tail brace wire", "part": "Brace wire", "cost": 65, "zone": "tail", "symptom": "the tail shakes in gusts"},
+	"tailwheel": {"name": "Sloppy tailwheel", "part": "Tailwheel springs", "cost": 35, "zone": "tail", "symptom": "the tailwheel shimmies and won't steer"},
+	"prop_nick": {"name": "Stone nick in the prop", "part": "", "cost": 0, "zone": "prop", "symptom": "picked up a stone on the gravel strip"},
+	"prop_track": {"name": "Prop out of track", "part": "", "cost": 0, "zone": "prop", "symptom": "shakes the whole panel at cruise"},
+	"compass": {"name": "Compass way off", "part": "", "cost": 0, "zone": "cabin", "symptom": "the compass is twenty degrees out"},
+	"pitot_static": {"name": "Leaking static line", "part": "Static hose", "cost": 15, "zone": "cabin", "symptom": "the airspeed and altimeter wander"},
+	"weight_balance": {"name": "Weight and balance out of date", "part": "", "cost": 0, "zone": "cabin", "symptom": "new tires and seat cushions, and paperwork from 1946", "quiz": true},
+	"jet_fuel": {"name": "Run on jet fuel", "part": "", "cost": 0, "zone": "engine", "symptom": "the line boy fueled it with Jet-A and they ran it", "ground": true},
+	"prop_strike": {"name": "Prop strike", "part": "", "cost": 0, "zone": "prop", "symptom": "nosed over in soft mud; the prop hit and the engine stopped dead", "ground": true},
+	# Only ever added by the run-up: you closed the cowl on a dropped socket.
+	"fod": {"name": "Socket loose under the cowl", "part": "", "cost": 0, "zone": "engine", "symptom": ""},
 }
-const NEGLECT_FAULTS := ["stale_fuel", "pre_oil", "door_pin"]
+const NEGLECT_FAULTS := ["stale_fuel", "pre_oil", "door_pin", "storage_return", "oil_change", "bungee", "tie_down"]
+const GROUND_FAULTS := ["jet_fuel", "prop_strike"]  # the oil-screen ones come up through diagnosis
 # How you find each fault. Seen on the walk-around (clue = what you notice at that spot), or only
-# heard/felt on the run-up from the cockpit.
-const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs"]
+# heard/felt on the run-up from the cockpit. magneto and spark_plugs are here for saves made
+# before troubleshooting existed; new jobs track those down with tests.
+const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_splice"]
+
+# Troubleshooting tests (M-0 Chapter 8). clue: what the run-up tells you; symptom: what the
+# owner says on the radio; options: [what you call, its key]. TEST_KEY maps a fault to the
+# right key ("@cyl": the cold cylinder, "@valve": which valve is sticking).
+const TESTS := {
+	"spark_test": {"name": "Spark test", "zone": "engine", "symptom": "drops a lot of rpm on the left mag",
+		"clue": "Big drop on the left mag and it runs rough on it. Plug, lead or magneto?",
+		"ask": "What's killing the left mag?",
+		"options": [["Not one plug fires: the magneto", "magneto"], ["Same lead dead with a good plug: the ignition lead", "lead"],
+			["A good plug fires on that lead: the spark plugs", "plugs"]]},
+	"reading_plugs": {"name": "Reading the plugs", "zone": "engine", "symptom": "runs rough and puffs smoke",
+		"clue": "Rough and smoky at idle. Pull the plugs and read them",
+		"ask": "What do the plugs say?",
+		"options": [["Thin, worn electrodes: replace the set", "worn"], ["Dry black soot on every one: running rich, check the primer", "rich"],
+			["One cylinder's plugs wet with oil: test that cylinder", "oily"]]},
+	"cold_cylinder": {"name": "Cold cylinder hunt", "zone": "engine", "symptom": "shakes at every rpm",
+		"clue": "Rough on both mags at every rpm: one cylinder isn't pulling its weight",
+		"ask": "Which cylinder isn't firing?",
+		"options": [["Cylinder 1", "c0"], ["Cylinder 2", "c1"], ["Cylinder 3", "c2"], ["Cylinder 4", "c3"]]},
+	"compression": {"name": "Compression test", "zone": "engine", "symptom": "",
+		"clue": "",
+		"ask": "Where's the air getting out?",
+		"options": [["Hiss at the exhaust: an exhaust valve", "exhaust"], ["Hiss at the air filter: an intake valve", "intake"],
+			["Hiss at the oil filler: the rings", "rings"]]},
+	"oil_screen": {"name": "Oil screen check", "zone": "engine", "symptom": "oil pressure sags once it's warm",
+		"clue": "Oil pressure sags to 20 once it's warm; the manual wants 30. Pull the oil screen",
+		"ask": "What's in the screen?",
+		"options": [["Clean: it's the relief valve", "clean"], ["Steel, sticks to the magnet: cam or lifters", "steel"],
+			["Bright aluminum: a piston", "aluminum"], ["Gold bronze: piston pin bushings", "bronze"]]},
+}
+const TEST_KEY := {
+	"spark_test": {"magneto": "magneto", "ign_lead": "lead", "spark_plugs": "plugs"},
+	"reading_plugs": {"spark_plugs": "worn", "primer_leak": "rich", "worn_rings": "oily"},
+	"cold_cylinder": {"stuck_valve": "@cyl", "worn_rings": "@cyl"},
+	"compression": {"stuck_valve": "@valve", "worn_rings": "rings"},
+	"oil_screen": {"relief_valve": "clean", "cam_wear": "steel", "piston_scuff": "aluminum", "bronze_bushing": "bronze"},
+}
 const CLUES := {
 	"tire": "the left tire is squashed flat on its rim",
 	"brakes": "orange rust and deep grooves on the right brake disc",
 	"oil_leak": "fresh oil dripping off the bottom of the cowling",
 	"bird_nest": "straw poking out of the cowl inlet, and chirping inside",
-	"fuel_line": "a blue stain and a sharp avgas smell under the wing root",
+	"fuel_line": "a blue stain and a sharp avgas smell at the firewall",
 	"windshield": "a long crack right across the windshield",
 	"control_cables": "the rudder flops loose; its cables feel slack",
-	"propeller": "a prop tip split and splintered, the blade edge chewed up",
+	"propeller": "a crack running in from one blade tip",
 	"battery": "Master ON: nothing. No ammeter flicker, no lights. Battery's dead",
 	"starter": "Starter just clicks and won't turn the prop over",
 	"avionics": "Radio's dead silent, not even a hiss. The antenna's snapped too",
 	"magneto": "Mag check: big drop on the left mag, the engine nearly quits",
 	"spark_plugs": "Runs rough on both mags and puffs black smoke",
 	"stale_fuel": "the sumped fuel smells like varnish and comes out dark",
-	"pre_oil": "an engine that sat this long can't be cranked dry: pull the plugs and pre-oil it first",
+	"pre_oil": "an engine that sat this long can't be cranked dry: pre-oil it first",
 	"door_pin": "the cabin door won't budge; the handle moves but the pin doesn't",
+	"storage_return": "a tag on the prop: DO NOT TURN PROPELLER - ENGINE PRESERVED, and red streamers on plugs in the exhaust",
+	"oil_change": "the dipstick oil is black as tar",
+	"bungee": "the gear sags and the shock cords are cracked and sun-checked",
+	"tie_down": "the tie-down ropes are rotted through and it's weathervaning in the gusts",
+	"hot_mag": "Mag check: no drop at all on the right mag. It's hot: the prop is live even with the switch OFF",
+	"mag_timing": "Slow to pick up and the oil temperature climbs: the timing's off",
+	"brake_bleed": "Holding the brakes for the run-up, the right pedal sinks to the floor",
+	"wire_splice": "Tap the panel and the radio cuts out",
+	"exhaust": "a crack along the muffler seam, with gray-white exhaust streaks",
+	"air_filter": "the air filter is packed with chaff and the carb heat door hangs half open",
+	"baffles": "mud dauber nests packed in the cylinder fins and a baffle seal flapping loose",
+	"fuel_vent": "the fuel cap's vent tube is plugged with a mud dauber nest",
+	"water_fuel": "a sump sample comes up with clear water beads under the fuel",
+	"fuel_strainer": "the strainer bowl is full of rust-colored sediment",
+	"aileron_rig": "with the stick centered, the left aileron hangs below the wing's trailing edge",
+	"wing_rig": "sighting down the wings, the left one sits flatter than the right",
+	"elevator_cable": "a broken strand at the elevator horn terminal",
+	"trim_cable": "turn the trim crank and the stabilizer doesn't move",
+	"tail_brace": "a kinked tail brace wire, with plier marks on it",
+	"tailwheel": "the tailwheel flops side to side and a steering spring hangs loose",
+	"prop_nick": "a stone nick in one blade's leading edge",
+	"prop_track": "sighting across the prop, one tip sits ahead of the other",
+	"compass": "the compass reads 25 degrees off the runway heading",
+	"pitot_static": "the static hose behind the panel is cracked and stiff",
+	"weight_balance": "the weight and balance in the logbook predates the big tires and the cushions",
+	"jet_fuel": "the sump cup smells of kerosene, and the owner says they ran it like that",
+	"prop_strike": "a prop tip broken off, mud on the cowl: it nosed over and the engine stopped dead",
+	"fod": "CLANK: something loose rattles under the cowl as it fires. A dropped tool?",
 }
 # Walk-around inspection spots, in plane-local coords (nose -Z), probed from the plane model.
 const ZONES := {
@@ -97,7 +211,7 @@ const ZONES := {
 # manual it has no electrical system (hand-propped, no battery, starter or radio) and its brakes
 # are expander units inside the wheel, not discs.
 const PLANE_TYPES := [["High-wing trainer", 1500, []],
-	["Rag-wing taildragger", 2000, ["battery", "starter", "avionics", "brakes"]],
+	["Rag-wing taildragger", 2000, ["battery", "starter", "avionics", "brakes", "wire_splice"]],
 	["Bush plane", 2500, []], ["Vintage tourer", 3000, []], ["Utility hauler", 3500, []]]
 
 
@@ -300,36 +414,88 @@ func _spawn_job() -> void:
 	if near.size() > 0 and not jobs.any(func(j): return j.city != location and miles(location, j.city) < NEAR_MILES):
 		options = near
 	var t: Array = PLANE_TYPES[rng.randi() % PLANE_TYPES.size()]
-	var ids := FAULTS.keys().filter(func(id): return not id in NEGLECT_FAULTS and not id in t[2])
+	var ids := FAULTS.keys().filter(func(id): return not id in NEGLECT_FAULTS and not id in GROUND_FAULTS and id != "fod" \
+		and not id in t[2] and not FAULTS[id].get("ground", false))
 	ids.shuffle()
-	var faults := ids.slice(0, 1 + rng.randi() % mini(4, 2 + rescued / 3))
+	var picks := ids.slice(0, 1 + rng.randi() % mini(4, 2 + rescued / 3))
 	# Some planes were just parked; others sat in the weather for years (Rebuild Rescue style):
-	# grimy, stale gas, a dry engine, maybe a door rusted shut. Those pay more.
+	# grimy, stale gas, a dry or pickled engine, old oil, tired cords, maybe a door rusted shut.
 	var years := 0 if rng.randf() < 0.45 else rng.randi_range(2, 15)
 	if years >= 2:
-		faults.append("stale_fuel")
+		picks += ["stale_fuel", "oil_change"]
+		if rng.randf() < 0.3:
+			picks.append("tie_down")
 	if years >= 5:
-		faults.append("pre_oil")
-	if years >= 8 and rng.randf() < 0.6:
-		faults.append("door_pin")
-	var cost := 0
-	for id in faults:
-		cost += FAULTS[id].cost
-	jobs.append({"city": options[rng.randi() % options.size()], "type": t[0], "faults": faults,
-		"fixed": {}, "found": {}, "checked": {}, "work": {}, "years": years, "washed": years == 0,
+		picks.append("storage_return" if rng.randf() < 0.3 else "pre_oil")  # some owners pickled it properly
+	if years >= 8:
+		if rng.randf() < 0.6:
+			picks.append("door_pin")
+		if rng.randf() < 0.5:
+			picks.append("bungee")
+	if rng.randf() < 0.06:  # now and then a plane that can't be fixed where it sits
+		picks.push_front(GROUND_FAULTS[rng.randi() % GROUND_FAULTS.size()])
+	var job := {"city": options[rng.randi() % options.size()], "type": t[0], "years": years, "washed": years == 0,
+		"fixed": {}, "found": {}, "checked": {}, "work": {}, "annual": rng.randf() < 0.15,
 		"spent": {"fuel": 0, "parts": 0, "mail": 0}, "fuel": rng.randf_range(0.03, 0.3), "parked": "apron",
-		"reward": int(round((t[1] + cost * 2.0 + years * 150) / 50.0)) * 50,
-		"deadline": day + 7 + rng.randi() % 9})
+		"deadline": day + 7 + rng.randi() % 9}
+	_assign_faults(job, picks)
+	var cost := 0
+	for id in job.faults:
+		cost += FAULTS[id].cost + (60 if job.diag.has(id) else 0)  # troubleshooting pays too
+	job.reward = int(round((t[1] + cost * 2.0 + years * 150 + (250 if job.annual else 0)) / 50.0)) * 50
+	jobs.append(job)
+
+
+## Sets a job's faults, picking a troubleshooting chain for each fault that needs one. Two
+## faults never share a test (their readings would contradict), so a clash drops the second.
+## Also rolls the hidden details the tests read: the bad cylinder, lead and valve.
+func _assign_faults(job: Dictionary, picks: Array) -> void:
+	job.faults = []
+	job.diag = {}
+	job.dstep = {}
+	job.sym = {}
+	job.cyl = rng.randi() % 4
+	job.lead = rng.randi() % 4
+	job.valve = ["exhaust", "intake"][rng.randi() % 2]
+	var tl := 52 + rng.randi() % 14
+	job.wb = {"l": 290 + rng.randi() % 16, "r": 288 + rng.randi() % 16, "t": tl}
+	var used := {}
+	for id in picks:
+		if id in job.faults:
+			continue
+		var chains: Array = FAULTS[id].get("diags", [])
+		if chains.size() > 0:
+			var free := chains.filter(func(c): return not c.any(func(t): return used.has(t)))
+			if free.is_empty():
+				continue
+			var chain: Array = free[rng.randi() % free.size()]
+			for t in chain:
+				used[t] = true
+			job.diag[id] = chain
+		job.faults.append(id)
+
+
+## How a fault in this job gets found: "walk" (walk-around), "runup", or "diag" (tests).
+func _how(job: Dictionary, id: String) -> String:
+	if job.get("diag", {}).has(id):
+		return "diag"
+	return "runup" if id in RUNUP_FAULTS else "walk"
 
 
 ## What the owner tells you on the radio: every fault's symptom, in random order.
 func _symptoms(job: Dictionary) -> String:
-	var s: PackedStringArray = []
-	for id in job.faults:
-		s.append(FAULTS[id].symptom)
-	var t := "; ".join(s)
 	var years: int = job.get("years", 0)
 	var sat := (" Sat out in the weather %d years." % years) if years > 0 else ""
+	if job.get("annual", false):  # no complaints: it's your job to find what's wrong
+		return "\"Annual's due. Go over it nose to tail and sign it off.\"" + sat
+	var s: PackedStringArray = []
+	for id in job.faults:
+		var sym: String = TESTS[job.diag[id][0]].symptom if job.get("diag", {}).has(id) else FAULTS[id].symptom
+		if sym != "" and not sym in s:
+			s.append(sym)
+	if s.is_empty():
+		s.append("just get it flying")
+	var t := "; ".join(s)
 	return "\"" + t[0].to_upper() + t.substr(1) + ".\"" + sat
 
 
@@ -436,7 +602,7 @@ func _inspect_zone(zone: String) -> void:
 			return
 		var seen: PackedStringArray = []
 		for id in current_job.faults:
-			if FAULTS[id].zone == zone and not id in RUNUP_FAULTS:  # the rest only show on the run-up
+			if FAULTS[id].zone == zone and _how(current_job, id) == "walk":  # the rest show on the run-up or in tests
 				current_job.found[id] = true
 				seen.append(CLUES[id])
 		_say(("%s: %s." % [ZONES[zone].name.capitalize(), "; ".join(seen)]) if seen.size() > 0
@@ -472,8 +638,24 @@ func _grime(on: bool) -> void:
 
 
 ## Sit in and run the engine up: master, crank, radio, mag check. What you hear and feel finds
-## the faults a walk-around can't. A dead battery or starter stops the test there.
+## the faults a walk-around can't. A dead battery or starter stops the test there. On a Cub
+## there's no starter: you swing the prop yourself first (the hand_prop scene).
 func _run_up() -> void:
+	var job: Dictionary = current_job
+	var broken := func(id): return job.faults.has(id) and not job.fixed.has(id)
+	if CITIES[job.city][2] == "snow" and not job.get("preheated", false):
+		_say("It's well below 20 F and the engine's cold-soaked: the oil's like tar. Preheat it first (at the engine).")
+		_open_inspection("cabin")
+		return
+	var blocked: bool = ["door_pin", "pre_oil", "storage_return", "battery"].any(func(id): return broken.call(id))
+	if _hand_propped(job) and not blocked:
+		job.work.erase("hand_prop")  # the starting drill, fresh every time
+		_open_work("hand_prop", _run_up_result)
+		return
+	_run_up_result()
+
+
+func _run_up_result() -> void:
 	var job: Dictionary = current_job
 	_advance(0.04)
 	if not current_job:
@@ -489,6 +671,9 @@ func _run_up() -> void:
 	elif broken.call("pre_oil"):  # cranking a dry engine that sat for years wipes the cam
 		hear.call("pre_oil")
 		job.runup = "dead"
+	elif broken.call("storage_return"):  # preservative oil in the cylinders: hydraulic lock waiting to happen
+		hear.call("storage_return")
+		job.runup = "dead"
 	elif broken.call("battery"):
 		hear.call("battery")
 		job.runup = "dead"
@@ -499,9 +684,20 @@ func _run_up() -> void:
 			hear.call("starter")
 			job.runup = "dead"
 		else:
-			for id in ["magneto", "spark_plugs"]:
-				if broken.call(id):
+			for id in ["magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_splice"]:
+				if broken.call(id) and _how(job, id) == "runup":
 					hear.call(id)
+			for id in job.faults:  # trouble you can hear but not yet name: troubleshoot it
+				if _how(job, id) == "diag" and not job.found.has(id) and not job.get("sym", {}).has(id):
+					job.sym[id] = true
+					heard.append(TESTS[job.diag[id][0]].clue)
+			if job.get("fod", false):
+				job.fod = false
+				if not job.faults.has("fod"):
+					job.faults.append("fod")
+					job.fixed.erase("fod")
+					job.work.erase("fod")
+				hear.call("fod")
 			if heard.is_empty():
 				heard.append("Chocks in, switch on, and it fires on the second pull. 2,100 rpm: under 75 drop on each mag, oil pressure above 30"
 					if _hand_propped(job) else "Fires right up, smooth on both mags, oil pressure in the green")
@@ -511,12 +707,27 @@ func _run_up() -> void:
 	_open_inspection("cabin")
 
 
+## Below 20 F the whole engine needs warming, not just enough to fire (M-0 7-4.1).
+func _preheat() -> void:
+	_advance(0.15)
+	if not current_job:
+		return
+	current_job.preheated = true
+	_say("Engine cover on, the heater ducted in under it for a couple of hours. The oil's thin again.")
+	_open_inspection(standing_at)
+
+
 ## Opens the 2D work scene for this fault: real tools, every screw and bolt (scripts/work.gd).
 func _repair(id: String) -> void:
+	_open_work(id, func(): _work_done(id))
+
+
+## Any work scene: a repair, a troubleshooting test, or the hand-prop drill.
+func _open_work(scene: String, on_done: Callable) -> void:
 	_close_panel()
 	var w = Work.new()
-	w.setup(self, id, current_job)
-	w.finished.connect(func(): _work_done(id))
+	w.setup(self, scene, current_job)
+	w.finished.connect(on_done)
 	ui.add_child(w)
 	panel = w
 	panel_closable = true
@@ -534,15 +745,302 @@ func _work_time(days: float) -> bool:
 
 
 func _work_done(id: String) -> void:
+	if FAULTS[id].get("quiz", false) and not current_job.fixed.has(id):
+		_quiz(id)  # the work's done; now the sum
+		return
 	current_job.fixed[id] = true
 	if id == "stale_fuel":
 		current_job.fuel = 1.0  # you refilled it with fresh 100LL
 	_refresh_parts_table()
-	visuals[id].queue_free()
-	visuals[id] = _part_visual(id, true)
+	if visuals.has(id):
+		visuals[id].queue_free()
+		visuals[id] = _part_visual(id, true)
 	_say("Fixed: " + FAULTS[id].name)
 	sound.pen()  # signed off on the work order
 	_open_inspection(FAULTS[id].zone)
+
+
+# ---------- troubleshooting ----------
+
+## The test this fault is waiting on, or "" once it's found.
+func _test_for(job: Dictionary, id: String) -> String:
+	var chain: Array = job.get("diag", {}).get(id, [])
+	var step: int = job.get("dstep", {}).get(id, 0)
+	return chain[step] if step < chain.size() and not job.found.has(id) else ""
+
+
+## Which fault a test is tracking down in this job ("" if none: then it reads healthy).
+func _cause(test: String) -> String:
+	if not current_job:
+		return ""
+	for id in current_job.faults:
+		if _test_for(current_job, id) == test:
+			return id
+	return ""
+
+
+func _answer(id: String, test: String) -> String:
+	var k: String = TEST_KEY[test].get(id, "")
+	if k == "@cyl":
+		return "c%d" % current_job.get("cyl", 0)
+	if k == "@valve":
+		return current_job.get("valve", "exhaust")
+	return k
+
+
+func _diagnose(id: String) -> void:
+	var t := _test_for(current_job, id)
+	_open_work(t, func():
+		current_job.get_or_add("dready", {})[id] = true
+		_verdict(id))
+
+
+## What do you make of it? The right call moves you on; a wrong one costs time.
+func _verdict(id: String) -> void:
+	var t := _test_for(current_job, id)
+	var rows: Array = [[TESTS[t].ask]]
+	for o in TESTS[t].options:
+		rows.append(["", o[0], func(): _call(id, o[1]), true])
+	rows.append(["", "Look at it again", func(): _diagnose(id), true])
+	_open_panel(TESTS[t].name, rows, true, "paper_catalog")
+
+
+func _call(id: String, key: String) -> void:
+	var job: Dictionary = current_job
+	var t := _test_for(job, id)
+	if key != _answer(id, t):
+		_advance(0.05)
+		if not current_job:
+			return
+		_say("That doesn't square with what you saw. Look again.")
+		_verdict(id)
+		return
+	job.get_or_add("dready", {}).erase(id)
+	job.work.erase(t)
+	var step: int = job.get_or_add("dstep", {}).get(id, 0) + 1
+	job.dstep[id] = step
+	if step >= job.diag[id].size():
+		job.found[id] = true
+		_say("That's it: %s." % FAULTS[id].name)
+		sound.pen()
+	else:
+		var why := "Its plugs are wet with oil" if t == "reading_plugs" else "It runs cold"
+		job.get_or_add("dnote", {})[id] = "%s: cylinder %d. Next, a %s on it." % [why, job.get("cyl", 0) + 1, TESTS[job.diag[id][step]].name.to_lower()]
+		_say(job.dnote[id])
+	_save_game()
+	_open_inspection(standing_at)
+
+
+## A hot magneto fires the engine while you turn the prop by hand. Returns [message, days lost].
+func turn_prop() -> Array:
+	var job = current_job
+	if job == null or not job.faults.has("hot_mag") or job.fixed.has("hot_mag") \
+			or job.work.get("hot_mag", {}).get("plead", "") == "new" or rng.randf() > 0.5:
+		return ["", 0.0]
+	var first: bool = not job.found.has("hot_mag")
+	job.found["hot_mag"] = true
+	return ["It KICKED! The engine fired%s. The blade cracked your knuckles: half a day lost to a bandaged hand." %
+		(" with the switch OFF: the mag is hot, its P-lead isn't grounding it" if first else " on the hot mag again"), 0.5]
+
+
+## The test readings and painted states a work scene shows, worked out from this job.
+func reading(scene: String, eid: String) -> String:
+	var job: Dictionary = current_job if current_job else {}
+	var cause := _cause(scene)
+	var cyl: int = job.get("cyl", 0)
+	match scene:
+		"spark_test":
+			var fire := _sparks(cause, eid == "turn2")
+			if eid == "turn1":
+				var dead := range(4).filter(func(i): return not fire[i])
+				return "All four plugs spark." if dead.is_empty() else ("Not one plug sparks." if dead.size() == 4
+					else "Plug %s doesn't spark; the rest do." % ", ".join(dead.map(func(i): return str(i + 1))))
+			return "Good plug on that lead: it sparks." if fire.all(func(f): return f) else "Good plug on that lead: still nothing."
+		"cold_cylinder":
+			if cause == "":
+				return "Every mark melted: all four are firing."
+			return "Marks melted on every stack but %d. Cylinder %d isn't firing." % [cyl + 1, cyl + 1]
+		"compression":
+			var i := int(eid.substr(1))
+			if cause == "" or i != cyl:
+				return "Cylinder %d: 76/80. Healthy." % (i + 1)
+			var place: String = {"exhaust": "the exhaust", "intake": "the air filter", "rings": "the oil filler"}[_answer(cause, "compression")]
+			return "Cylinder %d: 48/80, and air hissing out at %s." % [i + 1, place]
+		"reading_plugs":
+			var c := int(eid.substr(1))
+			var look: String = {"tan": "tan, light gray: healthy", "black": "dry black soot", "oily": "wet and oily", "eroded": "thin, worn electrodes"}[_plug_look(cause, c)]
+			return "Cyl %d %s: %s" % [c + 1, "top" if eid[0] == "t" else "bottom", look]
+		"oil_screen":
+			var metal: String = {"cam_wear": "steel", "piston_scuff": "aluminum", "bronze_bushing": "bronze"}.get(cause, "")
+			if eid == "rinse":
+				return {"": "Sludge rinses off and the towel stays clean. The screen's fine.", "steel": "Gray slivers on the towel.",
+					"aluminum": "Bright silvery flakes on the towel.", "bronze": "Gold-colored flakes on the towel."}[metal]
+			return "They jump to the magnet: steel." if metal == "steel" else "Nothing sticks to the magnet."
+		"water_fuel":
+			return {"sump1": "Clear beads of water under the blue in the cup.", "sump2": "All blue now: no water."}[eid]
+		"fuel_vent":
+			return "Air whistles through: the vent's clear."
+		"hot_mag":
+			return "Switch OFF: no spark. The P-lead grounds the mag."
+		"pre_oil":
+			return "Oil runs at all four rocker arms."
+		"oil_change":
+			return "A few fine flakes, nothing on the magnet: normal wear."
+		"exhaust":
+			return "Bubbles streaming from the seam: it's cracked through."
+		"bungee":
+			return "Green and red threads: made in a year ending 1 or 6, third quarter. Well past five years: replace them."
+		"aileron_rig":
+			return "Trailing edges in line, two threads showing at each turnbuckle."
+		"wing_rig":
+			return {"string": "1-3/8 in over the center section. It wants 2-1/8.", "string2": "2-1/8 in. Dihedral's right.",
+				"level": "Bubble off toward the trailing edge: the wash-out's wrong.", "rear": "Bubble centered."}[eid]
+		"trim_cable":
+			return "The crank turns the stabilizer, no slip."
+		"tail_brace":
+			return "Stabilizer level, threads showing through each nipple."
+		"prop_nick":
+			return "No crack under the etch. It's clean."
+		"prop_track":
+			return {"t1": "Blade 1 just touches the block.", "t2": "Blade 2 passes 3/16 in clear. The limit is 1/16.",
+				"t3": "Within 1/32 in. In track."}[eid]
+		"mag_timing":
+			return {"tdc": "#1 at top center on its compression stroke.", "rotate": "The light comes on at 30 degrees before top center."}[eid]
+		"brake_bleed":
+			return "Pedal's firm, no fade."
+		"storage_return":
+			return "Preservative oil spits out of the plug holes."
+		"compass":
+			return {"n": "Facing north it reads 018.", "e": "Facing east it reads 097.", "s": "Facing south it reads 186: took out half, 183.",
+				"w": "Facing west it reads 276: took out half, 273.", "swing": "Every 30 degrees, worst error 4. Under the 10 degree limit. Card filled in."}[eid]
+		"pitot_static":
+			return {"static1": "Lost 300 ft in a minute. The limit is 100.", "static2": "Lost 40 ft in a minute: good.",
+				"pitot": "Held 150 knots, lost 3 in a minute: good."}[eid]
+		"weight_balance":
+			var wb: Dictionary = job.get("wb", {"l": 295, "r": 293, "t": 58})
+			return {"l": "Left main: %d lb." % wb.l, "r": "Right main: %d lb." % wb.r,
+				"t": "Tail: %d lb. Tail scale is 187.5 in behind the main axle." % wb.t}[eid]
+		"wire_splice":
+			return "Wiggle test: the radio stays on."
+		"fod":
+			return "A 7/16 socket, wedged behind the number 3 baffle."
+	return ""
+
+
+func view_art(scene: String, eid: String) -> String:
+	var job: Dictionary = current_job if current_job else {}
+	var w: Dictionary = job.get("work", {}).get(scene, {})
+	var cause := _cause(scene)
+	var cyl: int = job.get("cyl", 0)
+	match scene:
+		"spark_test":
+			var phase := "turn2" if w.get("turn2") == "done" else ("turn1" if w.get("turn1") == "done" else "")
+			if phase == "" or w.get("replug") == "done":
+				return ""
+			return "work/spark_test_spark" if _sparks(cause, phase == "turn2")[int(eid.substr(5))] else ""
+		"cold_cylinder":
+			if w.get("pencil") != "done":
+				return ""
+			var melted: bool = w.get("run") == "done" and (cause == "" or int(eid.substr(4)) != cyl)
+			return "work/cold_cylinder_" + ("melted" if melted else "mark")
+		"compression":
+			var last: String = w.get("_last", "")
+			if not last.begins_with("p") or w.get("hose") != "on":
+				return ""
+			var bad: bool = cause != "" and int(last.substr(1)) == cyl
+			if eid == "tester":
+				return "work/compression_tester_" + ("low" if bad else "good")
+			return "work/compression_hiss" if bad and eid == "hiss_" + _answer(cause, "compression") else ""
+		"reading_plugs":
+			return "work/reading_plugs_" + _plug_look(cause, int(eid.substr(1)))
+		"oil_screen":
+			var metal: String = {"cam_wear": "steel", "piston_scuff": "aluminum", "bronze_bushing": "bronze"}.get(cause, "")
+			match eid:
+				"screen":
+					if w.get("pull") != "done" or w.get("back") == "done":
+						return ""
+					return "work/oil_screen_screen_" + ("clean" if w.get("rinse") == "done" else "dirty")
+				"metal":
+					return "work/oil_screen_metal_" + metal if metal != "" and w.get("rinse") == "done" else ""
+				"magnet_v":
+					return "work/oil_screen_magnet_" + ("steel" if metal == "steel" and w.get("magnet") == "done" else "bare")
+		"water_fuel":
+			return "work/water_fuel_cup_" + ("clean" if w.get("sump2") == "done" else "water")
+	return ""
+
+
+## Which of the four plugs spark: a dead mag fires none; a bad lead or plug kills one, and a
+## good plug on that lead only fixes it if the plug was the problem.
+func _sparks(cause: String, good_plug: bool) -> Array:
+	var lead: int = current_job.get("lead", 0) if current_job else 0
+	match cause:
+		"magneto": return [false, false, false, false]
+		"ign_lead": return range(4).map(func(i): return i != lead)
+		"spark_plugs": return range(4).map(func(i): return good_plug or i != lead)
+	return [true, true, true, true]
+
+
+func _plug_look(cause: String, c: int) -> String:
+	match cause:
+		"spark_plugs": return "eroded"
+		"primer_leak": return "black"
+		"worn_rings": return "oily" if c == current_job.get("cyl", 0) else "tan"
+	return "tan"
+
+
+## Names and parts for the work-scene title and bench.
+func scene_info(id: String) -> Dictionary:
+	if FAULTS.has(id):
+		return {"name": FAULTS[id].name, "part": FAULTS[id].part}
+	if TESTS.has(id):
+		return {"name": TESTS[id].name, "part": ""}
+	return {"name": {"hand_prop": "Hand-propping it"}.get(id, id.capitalize()), "part": ""}
+
+
+## Weight and balance: the work gives you three scale readings; the sum is yours.
+func _quiz(id: String) -> void:
+	var wb: Dictionary = current_job.wb
+	var cg: float = wb.t * 187.5 / float(wb.l + wb.r + wb.t)
+	if not wb.has("opts"):
+		var o := [cg, cg * 1.2, cg * 0.8]
+		o.shuffle()
+		wb.opts = o
+	var rows: Array = [["Empty weight %d lb. Datum: the main axle; the tail scale sits 187.5 in aft.\nWhere's the empty-weight CG?" % (wb.l + wb.r + wb.t)]]
+	for v in wb.opts:
+		rows.append(["", "%.1f in aft of the axle" % v, func():
+			if absf(v - cg) < 0.01:
+				current_job.fixed[id] = true
+				_say("CG %.1f in aft of the axle. New weight and balance written up and signed." % cg)
+				sound.pen()
+				_open_inspection(FAULTS[id].zone)
+			else:
+				_advance(0.05)
+				if current_job:
+					_say("That doesn't balance. Moment is weight times arm; divide by the total.")
+					_quiz(id), true])
+	_open_panel("Weight and balance", rows, true, "paper_catalog")
+
+
+## No field fix (prop strike, wrong fuel, metal in the oil): tell the owner, bill your time, move on.
+func _ground_job() -> void:
+	var job: Dictionary = current_job
+	var fee := int(round((80 + job.reward * 0.15) / 10.0)) * 10
+	money += fee
+	var why: Array = job.faults.filter(func(id): return FAULTS[id].get("ground", false) and job.found.has(id))
+	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": fee, "grounded": true,
+		"work": why.map(func(id): return "Grounded: " + FAULTS[id].name), "years": job.get("years", 0),
+		"fuel": job.spent.get("fuel", 0), "parts": job.spent.get("parts", 0), "days": day - job.get("arrived", day)})
+	jobs.erase(job)
+	current_job = null
+	if plane:
+		plane.queue_free()
+		plane = null
+	while jobs.size() < MAX_JOBS:
+		_spawn_job()
+	_say("Grounded the %s and told the owner straight. They paid $%d for the diagnosis." % [job.type, fee])
+	sound.pen()
+	_save_game()
+	_open_travel()
 
 
 func _buy(part: String, cost: int, mail := false) -> void:
@@ -648,6 +1146,10 @@ func _can_finish_here() -> bool:
 		var f: Dictionary = FAULTS[id]
 		if current_job.fixed.has(id):
 			continue
+		if f.get("ground", false):
+			return true  # grounding it pays a fee, so it's never a dead end
+		for t in current_job.get("diag", {}).get(id, []):
+			tools_needed.merge(Work.needs_for(t)[0])
 		if f.part != "" and inventory.get(f.part, 0) == 0:
 			need += _price(id)
 		var n: Array = Work.needs_for(id)
@@ -1151,7 +1653,8 @@ func _open_logbook() -> void:
 	for i in range(logbook.size() - 1, -1, -1):
 		var e: Dictionary = logbook[i]
 		var net: int = e.pay - e.get("fuel", 0) - e.get("parts", 0)
-		rows.append(["Day %d  %s  -  %s%s\n%s\nPaid $%d - fuel $%d - parts $%d = %s$%d   (%.1f days on site)" % [e.day, e.city, e.type,
+		rows.append(["Day %d  %s  -  %s%s%s\n%s\nPaid $%d - fuel $%d - parts $%d = %s$%d   (%.1f days on site)" % [e.day, e.city, e.type,
+			"  (GROUNDED)" if e.get("grounded", false) else "",
 			(", sat %d yrs" % e.years) if e.get("years", 0) > 0 else "", ", ".join(e.work), e.pay, e.get("fuel", 0), e.get("parts", 0),
 			"" if net >= 0 else "-", absi(net), e.get("days", 0.0)]])
 	if logbook.is_empty():
@@ -1445,10 +1948,29 @@ func _open_inspection(at := standing_at) -> void:
 	var rows := [["Owner reports: " + _symptoms(job)],
 		["Owner waits %d more day(s)" % maxi(0, ceili(job.deadline - day))],
 		["Walk-around: %d of %d spots checked" % [job.checked.size(), ZONES.size()]]]
+	if job.get("annual", false):
+		rows.append(["Annual inspection: no complaints to go on. Find what you find."])
+	if CITIES[job.city][2] == "snow" and not job.get("preheated", false):
+		rows.append(["Cold-soaked below 20 F: preheat before any run-up.", "Preheat the engine" if at == "engine" else "", _preheat, at == "engine"])
 	for id in job.faults:
+		var t := _test_for(job, id)
+		if t != "" and job.get("sym", {}).has(id):  # heard it, can't name it yet
+			var what: String = job.get("dnote", {}).get(id, TESTS[job.diag[id][0]].clue)
+			var tz: String = TESTS[t].zone
+			if job.get("dready", {}).has(id):
+				rows.append(["%s\n%s done: make your call." % [what, TESTS[t].name], "Make the call", func(): _verdict(id), true])
+			elif at == tz:
+				rows.append(["%s\nNext: %s." % [what, TESTS[t].name.to_lower()], "Run the " + TESTS[t].name.to_lower(), func(): _diagnose(id), true])
+			else:
+				rows.append(["%s\nNext: %s, at the %s." % [what, TESTS[t].name.to_lower(), ZONES[tz].name]])
+			continue
 		if not job.found.has(id):
 			continue
 		var f: Dictionary = FAULTS[id]
+		if f.get("ground", false):
+			rows.append(["%s\nNo field fix: the engine comes out for a teardown. Ground it and call the owner." % f.name,
+				"Ground it" if at != "" else "", _ground_job, at != ""])
+			continue
 		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
 		if job.fixed.has(id):
 			rows.append(["OK  -  " + f.name, "", null, false, icon])
@@ -1505,6 +2027,8 @@ const SUPPLIES := {
 	"ratchet": {"name": "Ratchet & sockets", "cost": 140, "tool": true},
 	"torque": {"name": "Torque wrench", "cost": 260, "tool": true},
 	"pliers": {"name": "Safety-wire pliers", "cost": 75, "tool": true},
+	"tester": {"name": "Differential compression tester", "cost": 180, "tool": true},
+	"timing": {"name": "Timing light", "cost": 90, "tool": true},
 	"Safety wire": {"name": "Safety wire (spool, 10 uses)", "cost": 25, "qty": 10},
 	"Cotter pin": {"name": "Cotter pins (box of 10)", "cost": 15, "qty": 10},
 	"Penetrant": {"name": "Penetrant (can, 3 uses)", "cost": 12, "qty": 3},
@@ -1566,10 +2090,12 @@ func _open_shop() -> void:
 			if not current_job.fixed.has(id):
 				needed[FAULTS[id].part] = true
 	var rows := []
+	var listed := {}
 	for id in FAULTS:
 		var f: Dictionary = FAULTS[id]
-		if f.part == "":
+		if f.part == "" or listed.has(f.part):
 			continue
+		listed[f.part] = true
 		var tag := "   << NEEDED" if needed.has(f.part) else ""
 		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
 		var price := _price(id)

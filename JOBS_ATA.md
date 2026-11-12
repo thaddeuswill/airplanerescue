@@ -17,7 +17,7 @@ Things to know before building from this:
 
 1. **Parts 1 to 3 of the AC are not in the repo yet.** They hold Chapters 1 to 5 and most of 6: wood, fabric, plastics and windshields, metal structure and welding, inspection methods, and corrosion treatment of aluminum. Every job that depends on them is marked `NEED (AC parts 1-3)`.
 2. **The game now follows the manuals on these points:**
-   - The rag-wing taildragger (the Cub) no longer gets `battery`, `starter`, `avionics` or `brakes` jobs. It has no electrical system (Cub p.34) and its brakes are expander units, not discs. Its run-up is a hand-prop start.
+   - The Cub now runs a **Continental C85-12** (the C-85 update): the -12 has a starter and generator, so `battery`, `starter` and `avionics` jobs apply. A flat battery means hand-propping it (the Cub manual's drill). It still never gets the disc `brakes` job: its brakes are expander tubes.
    - Tire pressure is 15 psi, after seating the beads at 35 (Cub p.19).
    - The ferry flight reads miles per hour and lifts off at about 40 (Cub p.41).
    - The propeller fault is "damaged", not "bent": the Cub's prop is wood.
@@ -172,9 +172,9 @@ Everything the Cub manual gives, in one place. These fill the airframe gaps for 
 - Every 20 hours: all of the above, drain the tank, check elevator and rudder controls for corrosion, lubricate controls and gear, check brakes, pull the exhaust shrouds and check for scale, cracks and leaks, check engine controls and piping, clean the engine bay, check tailwheel play and lubricate it, open the tailpost cover and check the elevator cable ends and trim screw, clean and re-oil the carburetor air filter.
 - Every 100 hours: the CAA Form 319 periodic inspection.
 
-## Continental A-65 values
+## Continental A-65 and C-85 values
 
-From the Continental M-0 manual. Section and table numbers are M-0's.
+From the Continental M-0 manual. Section and table numbers are M-0's. The game's Cub now has a C85-12; where the two differ, the C-85 figure is given too: 85 hp at 2,575 rpm, 4-1/2 qt of oil, magneto timing 28 degrees BTC right and 30 left (Table 6-8). Part numbers are checked against the 1979 Continental C75/C85/C90/O-200 parts catalog (`data/c85_parts.json`, `docs/PARTS_LIST.md`).
 
 **Limits and intervals.**
 - Time between overhauls: 1,800 hours or 12 years (6-3).
@@ -183,7 +183,7 @@ From the Continental M-0 manual. Section and table numbers are M-0's.
 - Oil grade today: SAE 50 above 40 °F, SAE 30 below, or multi-viscosity (3-1). The 1946 Cub manual's grades are the period-correct ones.
 
 **Ignition.**
-- Magneto timing: 30 degrees before top center, both magnetos (Table 6-8). Timing that drifts more than 4 degrees between inspections means cam or point wear.
+- Magneto timing: A-65, 30 degrees before top center on both magnetos; C-85, 28 right and 30 left (Table 6-8). The game uses 28. Timing that drifts more than 4 degrees between inspections means cam or point wear.
 - Spark plug gap: 0.016 to 0.021 in (Table 6-9).
 - Spark plug torque: 300 to 360 in-lb (18 mm plug, Appendix B).
 - Mag check, general rule: at 1,700 rpm, no more than 150 rpm drop and no more than 50 rpm difference between the two (6-4.7.5). The Cub's own tighter figure is 75 rpm at 2,100. **No drop at all means a magneto that cannot be switched off**: the engine can fire if the prop is moved by hand. Grounded until fixed.
@@ -232,7 +232,7 @@ From the Continental M-0 manual. Section and table numbers are M-0's.
 
 ## Troubleshooting chains
 
-From M-0 Chapter 8, carbureted engines only, reworded. Each is a symptom the owner could report on the radio, then the checks in the order the manual gives them: cheapest first, and the first one that fails is the fault. This is the shape a diagnosis mechanic in the game could take. Steps marked (electric) do not apply to a hand-propped Cub.
+From M-0 Chapter 8, carbureted engines only, reworded. Each is a symptom the owner could report on the radio, then the checks in the order the manual gives them: cheapest first, and the first one that fails is the fault. This is the shape a diagnosis mechanic in the game could take. Steps marked (electric) only apply to planes with a starter (every type now, including the C85-12 Cub).
 
 **Won't start (8-1.1, 8-5, 8-6, 8-2.1).**
 1. Switches: fuel on, throttle a quarter open, ignition on both.

@@ -119,6 +119,14 @@ const GROUND_FAULTS := ["jet_fuel", "prop_strike"]  # the oil-screen ones come u
 # How you find each fault. Seen on the walk-around (clue = what you notice at that spot), or only
 # heard/felt on the run-up from the cockpit. magneto and spark_plugs are here for saves made
 # before troubleshooting existed; new jobs track those down with tests.
+## Running the engine with this work still undone breaks something: [fault it breaks, what you
+## see]. Only for things the walk-around shows and the radio call hints at, so you're always
+## warned first. The owner doesn't pay for damage you did. (docs/quick-specs/run-it-unready-2026-11-12.md)
+const RUNUP_DAMAGE := {
+	"pre_oil": ["worn_rings", "It fired dry. A screech for the first seconds before the oil got there: cylinder %d's wall and rings are scuffed. That's a new cylinder"],
+	"prop_bolts": ["propeller", "The prop worked on its loose bolts: the wood's charred at the flange and the bolt holes are oval. It's scrap"],
+	"bird_nest": ["baffles", "Smoke from the cowl: the nest caught on the exhaust and scorched the baffle seals"],
+}
 const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_chafe", "instrument_swap"]
 
 # Troubleshooting tests (M-0 Chapter 8). clue: what the run-up tells you; symptom: what the
@@ -661,7 +669,7 @@ func _run_up() -> void:
 		_say("It's well below 20 F and the engine's cold-soaked: the oil's like tar. Preheat it first (at the engine).")
 		_open_inspection("cabin")
 		return
-	var blocked: bool = ["door_pin", "pre_oil", "storage"].any(func(id): return broken.call(id))
+	var blocked: bool = ["door_pin", "storage"].any(func(id): return broken.call(id))
 	if (_hand_propped(job) or broken.call("battery")) and not blocked:  # flat battery: swing it by hand
 		job.work.erase("hand_prop")  # the starting drill, fresh every time
 		_open_work("hand_prop", _run_up_result)
@@ -682,9 +690,6 @@ func _run_up_result() -> void:
 	if broken.call("door_pin"):  # you can't run it up from outside
 		hear.call("door_pin")
 		job.runup = "dead"
-	elif broken.call("pre_oil"):  # cranking a dry engine that sat for years wipes the cam
-		hear.call("pre_oil")
-		job.runup = "dead"
 	elif broken.call("storage"):  # preservative oil in the cylinders: hydraulic lock waiting to happen
 		hear.call("storage")
 		job.runup = "dead"
@@ -697,6 +702,12 @@ func _run_up_result() -> void:
 			hear.call("starter")
 			job.runup = "dead"
 		else:
+			for cause in RUNUP_DAMAGE:  # it ran before the work it needed: now something's broken
+				if broken.call(cause):
+					job.found[cause] = true
+					var hurt := _run_damage(job, cause)
+					if hurt != "":
+						heard.append(hurt)
 			for id in ["magneto", "spark_plugs", "hot_mag", "mag_timing", "brake_bleed", "wire_chafe", "instrument_swap"]:
 				if broken.call(id) and _how(job, id) == "runup":
 					hear.call(id)
@@ -717,6 +728,25 @@ func _run_up_result() -> void:
 	_say(". ".join(heard) + ("." if job.runup == "ran" else ". Can't run it up until that's fixed."))
 	_save_game()
 	_open_inspection("cabin")
+
+
+## Breaks what running with `cause` undone breaks: added found (no troubleshooting), or broken
+## again if you'd already fixed it, so its part is bought and fitted a second time. Returns what
+## you saw, or "" if it was broken already.
+func _run_damage(job: Dictionary, cause: String) -> String:
+	var hit: String = RUNUP_DAMAGE[cause][0]
+	if job.faults.has(hit) and not job.fixed.has(hit):
+		return ""
+	if not job.faults.has(hit):
+		job.faults.append(hit)
+	job.fixed.erase(hit)
+	job.work.erase(hit)  # a fresh repair, from the start
+	job.found[hit] = true
+	if visuals.has(hit):
+		visuals[hit].queue_free()
+		visuals[hit] = _part_visual(hit, false)
+	var msg: String = RUNUP_DAMAGE[cause][1]
+	return msg % (job.get("cyl", 0) + 1) if "%d" in msg else msg
 
 
 ## Below 20 F the whole engine needs warming, not just enough to fire (M-0 7-4.1).
@@ -975,7 +1005,7 @@ func reading(scene: String, eid: String) -> String:
 			return {"t1": "Blade 1 just touches the block.", "t2": "Blade 2 passes 3/16 in clear. The limit is 1/16.",
 				"t3": "Within 1/32 in. In track."}[eid]
 		"mag_timing":
-			return {"tdc": "Pointer on 28 degrees before top center, #1 on compression.", "rotate": "The light comes on right at 28 degrees BTC."}[eid]
+			return {"tdc": "Pointer on 30 degrees before top center, #1 on compression.", "rotate": "The light comes on right at 30 degrees BTC. That's the left mag's number; the right one fires at 28."}[eid]
 		"brake_bleed":
 			return "Clear fluid, no bubbles in the jar. Pedal's firm."
 		"storage":

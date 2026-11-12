@@ -97,7 +97,7 @@ func run(main, args: PackedStringArray) -> void:
 	ok = ok and job.faults.filter(func(id): return g._how(job, id) == "runup").all(func(id):
 		return job.found.has(id) or job.runup == "dead")
 	_chk(ok, 72)
-	if job.faults.has("battery") and not job.faults.any(func(id): return id in ["door_pin", "pre_oil", "storage"]):
+	if job.faults.has("battery") and not job.faults.any(func(id): return id in ["door_pin", "storage"]):
 		ok = ok and job.runup == "ran" and job.found.has("battery")  # flat battery: you hand-prop it
 		_chk(ok, 75)
 	# Save, scramble, load: everything comes back and the job here is still the one you're on.
@@ -511,6 +511,22 @@ func _scene_tests() -> bool:
 	g._preheat()
 	_run_up()
 	ok = ok and cj.get("runup", "") == "ran"
+	g._close_panel()
+	# Running it unready breaks things: a dry start scuffs a cylinder, loose prop bolts wreck the
+	# prop, and a part you'd already fitted (the baffle seal) burns again. Found, no troubleshooting.
+	var dj: Dictionary = fake.call(["pre_oil", "prop_bolts", "bird_nest", "baffles"])
+	dj.preheated = true
+	dj.fixed["baffles"] = true
+	_run_up()
+	ok = ok and dj.get("runup", "") == "ran" and ["worn_rings", "propeller", "baffles"].all(func(id):
+		return dj.faults.has(id) and dj.found.has(id) and not dj.fixed.has(id))
+	g._close_panel()
+	# A pickled engine can't fire (dehydrator plugs in the holes): it refuses, and nothing breaks.
+	var sj: Dictionary = fake.call(["storage"])
+	sj.preheated = true
+	var before: int = sj.faults.size()
+	_run_up()
+	ok = ok and sj.get("runup", "") == "dead" and sj.faults.size() == before
 	g._close_panel()
 	g.money = saved[0]
 	g.jobs = saved[1]

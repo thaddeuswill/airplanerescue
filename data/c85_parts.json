@@ -8,7 +8,7 @@
   "compression": "6.3 : 1",
   "dry_weight": "180 lb",
   "ignition": "Two magnetos, two plugs per cylinder; left mag has the impulse coupling",
-  "timing": "28 deg BTC",
+  "timing": "Right mag 28 deg BTC, left 30",
   "lifters": "Hydraulic",
   "carburetor": "Float type, MA-3 series",
   "fuel": "80/87 avgas (100LL is fine)",

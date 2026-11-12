@@ -180,13 +180,13 @@ From the Continental M-0 manual. Section and table numbers are M-0's. The game's
 - Time between overhauls: 1,800 hours or 12 years (6-3).
 - Oil change: every 25 hours or 4 months with the A-65's reusable oil screen; 50 hours with a spin-on filter (3-2). Drain within 30 minutes of shutdown.
 - Fuel: 80/87 minimum, 100LL approved (7-2.2).
-- Oil grade today: SAE 50 above 40 °F, SAE 30 below, or multi-viscosity (3-1). The 1946 Cub manual's grades are the period-correct ones.
+- Oil grade today: SAE 50 above 40 °F, SAE 30 below, or multi-viscosity (3-1). For the C-85 itself the overhaul manual (Aug 2011, Table XVIII) says SAE 40 above 40 °F and SAE 20 below, the lighter one when it's near the line. The game's manual uses that. The 1946 Cub manual's grades are the period-correct ones.
 
 **Ignition.**
-- Magneto timing: A-65, 30 degrees before top center on both magnetos; C-85, 28 right and 30 left (Table 6-8). The game uses 28. Timing that drifts more than 4 degrees between inspections means cam or point wear.
+- Magneto timing: A-65, 30 degrees before top center on both magnetos; C-85, 28 right and 30 left (Table 6-8; the C-85 overhaul manual's Table X agrees). The magneto and mag-timing jobs both work on the left mag, so both time it to 30. Timing that drifts more than 4 degrees between inspections means cam or point wear.
 - Spark plug gap: 0.016 to 0.021 in (Table 6-9).
 - Spark plug torque: 300 to 360 in-lb (18 mm plug, Appendix B).
-- Mag check, general rule: at 1,700 rpm, no more than 150 rpm drop and no more than 50 rpm difference between the two (6-4.7.5). The Cub's own tighter figure is 75 rpm at 2,100. **No drop at all means a magneto that cannot be switched off**: the engine can fire if the prop is moved by hand. Grounded until fixed.
+- Mag check, general rule: at 1,700 rpm, no more than 150 rpm drop and no more than 50 rpm difference between the two (6-4.7.5). The Cub's own tighter figure is 75 rpm at 2,100, and the C-85 overhaul manual's ground test (7A d) says the same: 75 rpm at most from BOTH to L or R. The game uses 75. **No drop at all means a magneto that cannot be switched off**: the engine can fire if the prop is moved by hand. Grounded until fixed.
 - Rough after running on one mag: 2,200 rpm on both, lean to peak for ten seconds, back to rich.
 
 **Spark plug service (6-4.9.2).**

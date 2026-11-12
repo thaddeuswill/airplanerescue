@@ -92,12 +92,12 @@
     "Displacement": "188 cu in",
     "Bore x stroke": "4-1/16 in x 3-5/8 in",
     "Compression": "6.3 : 1",
-    "Timing": "28 deg BTC",
+    "Timing": "Right mag 28 deg BTC, left mag 30",
     "Plug gap": ".016 to .021 in",
     "Plug torque": "300 to 360 in-lb",
     "Oil": "4-1/2 qt; SAE 40 above 40 F, SAE 20 below",
     "Fuel": "80/87 avgas (100LL is fine)",
-    "Mag drop": "125 rpm max, 50 rpm max between mags"
+    "Mag drop": "75 rpm max on either mag"
    },
    "caution": "",
    "figure": "",
@@ -1074,10 +1074,10 @@
    "ata": "74",
    "title": "Timing the magnetos",
    "job": "mag_timing",
-   "summary": "Each mag must fire exactly 28 degrees before top center.",
+   "summary": "The right mag fires the upper plugs at 28 degrees before top center, the left mag the lower plugs at 30.",
    "steps": [
     "Cowl off. Clip the timing light to the mag's P-lead terminal and to ground.",
-    "Bring No. 1 up on compression. Back up, then come forward slowly to 28 deg BTC on the marks.",
+    "Bring No. 1 up on compression. Back up past the mark, then come forward slowly to the mag's number on the marks: 28 deg BTC for the right mag, 30 for the left.",
     "The light should come on right as you reach the mark. Early or late: loosen the mag hold-down nuts and rotate the mag.",
     "Tighten, check again, both mags."
    ],
@@ -1091,7 +1091,8 @@
     "condenser"
    ],
    "specs": {
-    "Timing": "28 deg BTC"
+    "Right mag": "28 deg BTC (upper plugs)",
+    "Left mag": "30 deg BTC (lower plugs)"
    },
    "caution": "",
    "figure": "fig_ignition",

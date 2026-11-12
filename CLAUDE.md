@@ -64,6 +64,9 @@ Each scene is a list of elements: `fastener`, `cover`, `part`, `task` or `view`.
 - Real values beat game feel. Where the manuals disagree, the Continental/Piper manual for that
   airplane wins over AC 43.13-1B. Contradictions found so far are resolved in `JOBS_ATA.md`.
 - Faults with `"ground": true` have no field fix: the plane is grounded and the owner called.
+- Guessing costs time only: a wrong verdict or quiz answer advances the clock. Running the engine
+  with "don't run it yet" work undone breaks a part you pay for (`RUNUP_DAMAGE` in `main.gd`,
+  `docs/quick-specs/run-it-unready-2026-11-12.md`).
 - Saves: `SAVE_VERSION` in `main.gd`. Bump it when the layout changes and add the step to `_migrate`.
   A save from a newer build is never overwritten.
 - The updater only runs files from this repo's own release downloads.
@@ -72,12 +75,13 @@ Each scene is a list of elements: `fastener`, `cover`, `part`, `task` or `view`.
 
 ## Open decisions (need a value from the user)
 
-Missing manual values are listed under "Values still needed" at the bottom of `JOBS_ATA.md`. Game
-choices still open at the time of writing: mag timing (the game uses 28° BTC on both mags; the C85's
-left mag is 30°), the mag-drop limits used by the run-up, prop track tolerance (1/8 in or 1/16 in), oil grades by
-temperature, the penalty for guessing verdicts, how consumables are paid for, and the art for steps
-1-5 of the accuracy audit (two-cylinder spark plug and pre-oil backgrounds, brake drum pieces,
-plane body, cowling, cockpit panel, seat).
+Missing manual values are listed under "Values still needed" at the bottom of `JOBS_ATA.md`. Still
+open at the time of writing: whether consumables (safety wire, gaskets, dope) come out of the job's
+pay, and the art for steps 1-5 of the accuracy audit (two-cylinder spark plug and pre-oil
+backgrounds, brake drum pieces, plane body, cowling, cockpit panel, seat).
+
+Settled from the manuals: C-85 mag timing right 28°, left 30° (the timing jobs work on the left mag);
+mag drop 75 rpm max; prop track 1/16 in; oil SAE 40 above 40 °F, SAE 20 below.
 
 ## Conventions
 

@@ -425,7 +425,7 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 **Flow**
 
 1. Cowl off, clip on the `leads`.
-2. Turn the prop toward 28° BTC (C-85) on the `marks`. The `light` goes from `off` to `on` when the points open.
+2. Turn the prop toward 30° BTC (C-85 left mag) on the `marks`. The `light` goes from `off` to `on` when the points open.
 3. If it lights early or late, loosen the mag and rotate it, then check again.
 
 **Pieces** (suggested center on the 1000 x 560 scene; a file listed twice is placed twice)
@@ -436,7 +436,7 @@ Example: in fuel_strainer, `fuel_strainer_bowl_old.png` and `fuel_strainer_bowl_
 | `mag_timing_light_off.png` | 150 x 100 | 195, 160 | Timing light, lamps dark |
 | `mag_timing_light_on.png` | 150 x 100 | 195, 160 | Timing light, left lamp lit: points just opened |
 | `mag_timing_leads.png` | 320 x 52 | 428, 190 | Timing light clips: one to the magneto P-lead, one to ground |
-| `mag_timing_marks.png` | 260 x 40 | 260, 280 | Degree marks with the 28° line in red; bring the pointer to it while turning the prop |
+| `mag_timing_marks.png` | 260 x 40 | 260, 280 | Degree marks with the 30° line in red (left mag); bring the pointer to it while turning the prop |
 | `mag_timing_cowl.png` | 756 x 296 | 420, 190 | Cowling |
 
 ## Dressing a prop nick (metal props only)

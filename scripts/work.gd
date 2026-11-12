@@ -1262,9 +1262,10 @@ static func _more_jobs(s: Dictionary, engine_deco: Array, wheel_deco: Array, win
 		_part("flapper", "Carb heat flapper", _c(232, 250, 70, 90), []),
 		_cover("cover", "Filter cover", afc)] + _corners("cover", afc, "screw", "screwdriver", 14.0)}
 
-	# Mag timing (C-85: 28 deg BTC): leads on, turn the prop to the mark, rotate the mag till the light comes on.
+	# Mag timing, left mag (C-85: left 30 deg BTC, right 28; overhaul manual Table X): leads on, turn the
+	# prop to the mark, rotate the mag till the light comes on.
 	var mg := Rect2(330, 150, 170, 140)
-	var mt := [_task("tdc", "Prop forward to 28 deg on the marks", _c(260, 280, 260, 40), "hand", ["cowl"], {"turns_prop": true, "note": true, "fixture": true, "art": "marks", "hold": 2.0}),
+	var mt := [_task("tdc", "Prop forward to 30 deg on the marks", _c(260, 280, 260, 40), "hand", ["cowl"], {"turns_prop": true, "note": true, "fixture": true, "art": "marks", "hold": 2.0}),
 		_task("rotate", "Rotate the mag till the light comes on", Rect2(40, 330, 260, 46), "timing", ["cowl", "clamp"], {"requires": ["tdc"], "with": ["leads", "light"], "note": true, "hold": 2.5}),
 		_task("back", "Turn it backward to get there", Rect2(40, 386, 260, 40), "hand", ["cowl"], {"trap": "Never back up: turn the crank in its normal direction when timing, or gear backlash throws the reading off (M-0 6-4.9)."}),
 		_cover("light", "Timing light", _c(195, 160, 150, 100), ["cowl"], {"dyn": true, "start": "off", "rest": "off", "verb_on": "Set the timing light where you can see it", "verb_off": "Put the timing light away"}),
@@ -1272,7 +1273,7 @@ static func _more_jobs(s: Dictionary, engine_deco: Array, wheel_deco: Array, win
 		_cover("clamp", "Magneto clamp", mg, ["cowl"], {"col": Color(0.15, 0.15, 0.17, 0.6), "verb_off": "Slack the clamp so the mag turns", "verb_on": "Snug the clamp"})] \
 		+ _at("clamp", [Vector2(mg.position.x + 16, mg.end.y - 16), Vector2(mg.end.x - 16, mg.end.y - 16)], "nut", "ratchet") + _cowl()
 	_torque_on(mt, "clamp")  # 100-120 in-lb
-	s.mag_timing = {"title": "Rear accessory case, timing", "els": mt}
+	s.mag_timing = {"title": "Rear accessory case, timing the left mag", "els": mt}
 
 	# Dressing a stone nick out of a metal blade.
 	s.prop_dress = {"title": "Prop blade on the bench", "els": [

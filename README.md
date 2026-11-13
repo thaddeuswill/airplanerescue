@@ -7,16 +7,17 @@ Open the folder in Godot 4.7 (Import → select `project.godot`) and press F5.
 
 **Controls:** WASD to move, mouse to look, Space to jump, E to interact (and to close panels), Esc to close a panel or free the mouse.
 **Title screen:** the hangar interior behind a text menu (W/S or arrows, Enter): Continue, New career, Graphics (High/Low for weaker PCs), Quit. Message of the day bottom left (Q/E pages, V hides). Flying to a job shows a travel card while the field loads.
-**Pockets:** Tab opens your wallet (cash, day, parts, tools, start over), J the clipboard (the work order), L the logbook (every rescue). The game autosaves and picks up where you left off.
-**Ferry flight:** hold W for throttle, and at 55 knots hold S to lift off.
+**Pockets:** Tab opens your wallet (cash, day, parts, tools, start over), J the clipboard (the work order), L the logbook (every rescue), M the service manual (opens to whatever you're working on; closing it puts you back in the job). The game autosaves and picks up where you left off.
+**Ferry flight:** hold W for throttle, and at 40 mph hold S to lift off.
 
 ## Install and updates
-- **Build the installer:** `powershell -ExecutionPolicy Bypass -File tools/build_release.ps1`, which writes `dist\AirplaneRescue-<version>-setup.exe`. It needs the Godot 4.7.2 Windows export templates and Inno Setup 6 (both already installed on the dev PC). The installer is per user (no admin prompt), adds Start menu and optional desktop shortcuts, and comes with an uninstaller. Saves live in AppData and survive updates and uninstalls.
+- **Mac:** download `AirplaneRescue-<version>-mac.zip`, unzip it and drag **Airplane Rescue** into Applications. It runs on Intel and Apple Silicon Macs (macOS 11 or later on Apple Silicon). The app isn't signed with an Apple developer ID, so the first launch is blocked: open it once, then go to System Settings, Privacy & Security, and click **Open Anyway** (on older macOS, right-click the app and choose Open). After that it opens normally. When a newer version is out, the game offers it and opens the download in your browser.
+- **Build the installer:** `powershell -ExecutionPolicy Bypass -File tools/build_release.ps1`, which writes `dist\AirplaneRescue-<version>-setup.exe` and the Mac zip `dist\AirplaneRescue-<version>-mac.zip`. It needs the Godot 4.7.2 Windows export templates and Inno Setup 6 (both already installed on the dev PC). The installer is per user (no admin prompt), adds Start menu and optional desktop shortcuts, and comes with an uninstaller. Saves live in AppData and survive updates and uninstalls.
 - **Auto-update:** on launch, the installed game asks GitHub for the latest release of `thaddeuswill/airplanerescue`. If the release tag (for example `v0.9.1`) is newer than `application/config/version` in `project.godot` and has a `*-setup.exe` attached, the game offers "Install now". It saves, downloads the setup, installs silently and relaunches. It only runs files from this repo's own release downloads.
 - **To ship an update:**
   1. Bump `config/version` in `project.godot`.
   2. Run the build script.
-  3. Create a GitHub release tagged `v<version>` and attach the setup .exe.
+  3. Create a GitHub release tagged `v<version>` and attach the setup .exe and the -mac.zip.
 
 ## Loop
 1. **Take a call.** The **MAP** on the hangar workbench shows rescue calls, with the owner's symptoms ("runs rough, oil spots under the nose"), the pay, the distance, and how many days the owner will wait. Flying there costs fuel and days.
@@ -38,7 +39,11 @@ Rescue 10 planes to win. Owners scrap their planes if you're too late. One call 
 
 ## Layout
 - `scripts/main.gd`: game state, world and plane building, panels
-- `scripts/work.gd`: the 2D work scenes (rules, drawing, and all 13 jobs as data)
+- `scripts/work.gd`: the 2D work scenes (rules, drawing, and every job as data: 57 scenes)
+- `scripts/manual.gd`, `scripts/parts_book.gd`: the M-key service manual and parts book, read from `data/c85_manual.json` and `data/c85_parts.json`
+- `tools/art_list.gd`: lists every work-scene piece and whether its art exists
+- `docs/`: art guides for the job scenes and the parts list
+- `CLAUDE.md`: how to run, test and extend the project (for Claude Code and contributors)
 - `scripts/gauge.gd`: round cockpit dials drawn into the Cub's panel
 - `scripts/updater.gd`: checks GitHub Releases and installs newer versions
 - `scripts/chart.gd`: the rescue map's navigation chart overlay
@@ -57,7 +62,9 @@ Rescue 10 planes to win. Owners scrap their planes if you're too late. One call 
 - Plane: Piper J-3 Cub for FlightGear by Don Lavelle (model), David Megginson and Jim Wilson, GPLv3 ([source](https://github.com/wlbragg/J3Cub)). Source files and license are in `models_raw/j3cub_fg/`.
 - `ART_DIRECTION.md`, `TEXTURES.md`, `MODELS.md`: art direction and asset lists
 - `prototype/index.html`: the original 2D browser prototype
+- `JOBS_ATA.md`: every job on the airplane by ATA code, with real-world values and what is still missing
+- `reference/`: the FAA source documents behind it
 
-Self-test (`scripts/selftest.gd`): `godot --headless --path . -- --self-test [--all-faults] [--city=Omaha] [--seed=N] [--shot=prefix]`. Each result prints its city and seed, so a failure can be replayed.
+Self-test (`scripts/selftest.gd`): `godot --headless --path . -- --self-test [--all-faults] [--faults=a,b] [--city=Omaha] [--seed=N] [--shot=prefix] [--scene-shots=prefix[:scene,scene]]`
 
 Before a release, also run `godot --headless --path . -- --self-test --all-fields`: it flies a forced landing at every field.

@@ -3,7 +3,7 @@ extends Node
 ## the throttle, mags to both, hold the starter. Get that wrong and it won't catch: no fuel, no
 ## spark, flooded (clear it with the throttle open), or a hung start (catches, hangs at low rpm and
 ## dies unless you ease in throttle). Then fly it: W/S throttle, A/D rudder against the swing,
-## Down arrow to rotate at 55 kt. Emits `finished` once climbing out.
+## Down arrow to rotate at 40 mph. Emits `finished` once climbing out.
 ## A fault you never found (`trouble`) strikes on the roll, or in the climb, where you lose the
 ## engine: Up arrow lowers the nose, Down flares. Emits `failed` with "abort", "landed" or "crash".
 
@@ -15,12 +15,12 @@ const LINE_UP_X := 70.0    # runway runs along X at z=20; the plane points -X do
 const RUNWAY_END_X := -78.0
 const RUNWAY_Z := 20.0
 const HALF_WIDTH := 6.5    # meters of asphalt each side of the centerline
-const ROTATE := 28.0       # m/s, about 55 knots
+const ROTATE := 17.5       # m/s: the Cub lifts off at about 39 mph (owner's manual)
 const TOP_SPEED := 42.0
 const DONE_ALT := 35.0     # meters climbed before the job counts as delivered
 const TROUBLE_ROLL := 15.0  # m/s: a bad tire or brake shows itself here
 const TROUBLE_ALT := 20.0  # meters: everything else waits until you're committed
-const STALL := 20.0        # m/s, about 39 knots: the nose drops on its own below this
+const STALL := 16.0        # m/s, about 36 mph: the nose drops on its own below this
 const SAFE_SINK := 3.5     # m/s at touchdown, the most the gear can take
 const MAGS := ["OFF", "LEFT", "RIGHT", "BOTH"]
 const CATCH_AFTER := 1.6   # seconds of cranking before it fires or doesn't
@@ -44,16 +44,16 @@ var _bank := 0.0
 
 var mode := "fly"  # "runup": start it on the chocks, check the mags, shut down
 var no_start := ""  # run-up: "battery" or "starter" keeps it from cranking
-var drops := Vector2i(75, 90)  # run-up: rpm lost on the left and right mag alone
+var drops := Vector2i(35, 50)  # run-up: rpm lost on the left and right mag alone
 var radio_dead := false
-var carb_drop := 75  # run-up: rpm lost with carb heat pulled
+var carb_drop := 50  # run-up: rpm lost with carb heat pulled
 var carb_heat := false
 var _seen := [-1, -1, -1]  # the drops the pilot has held long enough to read: left, right, carb heat
 var _mag_t := 0.0
 var _done_t := -1.0
 var _warned := false
 var _radio_told := false
-const RUNUP_RPM := 1700.0
+const RUNUP_RPM := 2100.0  # the Cub's mag check (JOBS_ATA.md)
 var state := "off"  # off, hung, run
 var fuel_on := false
 var master := false
@@ -152,7 +152,7 @@ func checklist() -> String:
 	var box := func(on: bool) -> String: return "[x]" if on else "[  ]"
 	if mode == "runup" and state == "run":
 		var shown := func(i: int) -> String: return "-" if _seen[i] < 0 else "%d rpm" % _seen[i]
-		return "RUN-UP\n%s  W/S  Hold %d rpm: now %d\n%s  I  Left mag drop: %s\n%s  I  Right mag drop: %s\n%s  H  Carb heat drop: %s\n%s  I H  Back to BOTH, heat off\nMags: 175 drop max, 50 apart\nCarb heat: should drop some" % [
+		return "RUN-UP\n%s  W/S  Hold %d rpm: now %d\n%s  I  Left mag drop: %s\n%s  I  Right mag drop: %s\n%s  H  Carb heat drop: %s\n%s  I H  Back to BOTH, heat off\nMags: 75 drop max (C-85)\nCarb heat: about 50 drop" % [
 			box.call(_at_rpm()), RUNUP_RPM, rpm, box.call(_seen[0] >= 0), shown.call(0), box.call(_seen[1] >= 0), shown.call(1),
 			box.call(_seen[2] >= 0), shown.call(2), box.call(mags == 3 and not carb_heat and not _seen.has(-1))]
 	return "BEFORE START\n%s  F  Fuel: %s\n%s  M  Master: %s\n%s  P  Prime 2-5 strokes: %d\n%s  W/S  Throttle cracked: %d%%\n%s  I  Mags: %s\nHold SPACE: starter" % [
@@ -302,10 +302,10 @@ func _at_rpm() -> bool:
 	return absf(650.0 + throttle * 1700.0 - RUNUP_RPM) <= 100.0
 
 
-## On the chocks at 1700: switch to each mag alone and read the drop off the tach.
+## On the chocks at 2,100: switch to each mag alone and read the drop off the tach.
 func _runup(delta: float) -> void:
 	var drop: int = (0 if mags == 3 else (drops.x if mags == 1 else drops.y)) + (carb_drop if carb_heat else 0)
-	var rough := 40.0 if drop > 150 else 0.0
+	var rough := 40.0 if drop > 75 and not carb_heat else 0.0
 	rpm = lerpf(rpm, 650.0 + throttle * 1700.0 - drop + sin(Time.get_ticks_msec() * 0.03) * rough, minf(1.0, delta * 3.0))
 	_spin(delta)
 	main.sound.engine = clampf(rpm / 2350.0, 0.0, 1.0)
@@ -367,17 +367,17 @@ func _fly(delta: float) -> void:
 		trouble = ""  # the report blames the hill, not a fault that hadn't struck yet
 		_end("crash")
 		return
-	var kt := speed * 1.94
+	var mph := speed * 2.237  # the Cub's airspeed dial reads miles per hour
 	var hint := "W: throttle up. A/D: rudder, hold the centerline."
 	if on_grass:
 		hint = "Off the runway! Rudder back to the asphalt."
-	elif kt >= 55 and on_ground:
-		hint = "55 kt: Down arrow to rotate."
+	elif mph >= 40 and on_ground:
+		hint = "40 mph: Down arrow to rotate."
 	elif not on_ground:
 		hint = "Climbing out..."
-	elif kt > 15:
+	elif mph > 17:
 		hint = "Up arrow lifts the tail. A/D: rudder, she'll swing left."
-	main.prompt.text = "%d kt     %d ft     %d rpm\n%s" % [kt, alt * 3.28, rpm, hint]
+	main.prompt.text = "%d mph     %d ft     %d rpm\n%s" % [mph, alt * 3.28, rpm, hint]
 	if trouble != "":
 		var t: Dictionary = main.TROUBLE[trouble]
 		if t.roll and speed >= TROUBLE_ROLL:
@@ -417,7 +417,7 @@ func _forced_landing(delta: float) -> void:
 	_spin(delta)
 	main.sound.engine = 0.1 + 0.08 * sin(Time.get_ticks_msec() * 0.012)  # coughing, not running
 	main.update_gauges(speed, alt, rpm)
-	main.prompt.text = "ENGINE TROUBLE     %d kt     %d ft\nUp arrow: nose down, keep above 45 kt.   Down arrow: flare just before the ground." % [speed * 1.94, alt * 3.28]
+	main.prompt.text = "ENGINE TROUBLE     %d mph     %d ft\nUp arrow: nose down, keep above 45 mph.   Down arrow: flare just before the ground." % [speed * 2.237, alt * 3.28]
 	if alt <= maxf(0.0, main.terrain.height(plane.position.x, plane.position.z)):
 		_end("landed" if speed * sin(-pitch) < SAFE_SINK and speed >= 15.0 else "crash")
 

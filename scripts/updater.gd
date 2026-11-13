@@ -1,9 +1,10 @@
 extends Node
 ## Auto-update from GitHub Releases. On launch (installed builds only) it asks GitHub for the
 ## latest release of the game's repo; if its tag (v1.2.3) is newer than this build's
-## application/config/version and it has a "*-setup.exe" attached, it offers to install it.
-## Yes: download the setup into user://update/, start it silently, quit. Saves are in user://
-## (AppData), so the installer never touches them.
+## application/config/version and it has this platform's download attached ("*-setup.exe" on
+## Windows, "*-mac.zip" on a Mac), it offers it. Windows: download the setup into user://update/,
+## start it silently, quit. Mac: open the download in the browser (the app is unsigned, so the
+## player drags the new one into Applications). Saves are in user://, so updates never touch them.
 
 signal available(version: String, notes: String)  # main shows the offer; call install() on yes
 
@@ -37,7 +38,7 @@ func _on_latest(result: int, code: int, _headers: PackedStringArray, body: Packe
 		return
 	for a in data.get("assets", []):
 		var url: String = str(a.get("browser_download_url", ""))
-		if url.begins_with(ASSET_PREFIX) and url.ends_with("-setup.exe"):
+		if url.begins_with(ASSET_PREFIX) and url.ends_with(asset_suffix()):
 			setup_url = url
 			setup_name = str(a.get("name", "AirplaneRescue-setup.exe")).get_file()
 			available.emit(tag, str(data.get("body", "")))
@@ -49,6 +50,11 @@ static func clean() -> void:
 	if DirAccess.dir_exists_absolute("user://update"):
 		for f in DirAccess.get_files_at("user://update"):
 			DirAccess.remove_absolute("user://update/" + f)
+
+
+## The release file this platform installs from.
+static func asset_suffix() -> String:
+	return "-mac.zip" if OS.has_feature("macos") else "-setup.exe"
 
 
 ## True if version a is newer than b ("1.10.0" > "1.9.3"). Missing parts count as 0.
@@ -65,6 +71,10 @@ static func newer(a: String, b: String) -> bool:
 
 ## Downloads the setup and hands over to it. done(ok, message) reports a failure (on success the game quits).
 func install(done: Callable) -> void:
+	if OS.has_feature("macos"):  # no silent installer for an unsigned app: hand the zip to the browser
+		OS.shell_open(setup_url)
+		done.call(true, "The new version is downloading in your browser. Unzip it and drag Airplane Rescue into Applications, replacing the old one. Your saved game stays.")
+		return
 	DirAccess.make_dir_recursive_absolute("user://update")
 	var path := ProjectSettings.globalize_path("user://update/" + setup_name)
 	var dl := HTTPRequest.new()

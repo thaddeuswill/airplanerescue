@@ -1,0 +1,1986 @@
+{
+ "engine": {
+  "model": "Continental C85-12",
+  "type": "Four-cylinder, horizontally opposed, air-cooled",
+  "power": "85 hp at 2575 rpm",
+  "displacement": "188 cu in",
+  "bore_stroke": "4-1/16 in x 3-5/8 in",
+  "compression": "6.3 : 1",
+  "dry_weight": "180 lb",
+  "ignition": "Two magnetos, two plugs per cylinder; left mag has the impulse coupling",
+  "timing": "Right mag 28 deg BTC, left 30",
+  "lifters": "Hydraulic",
+  "carburetor": "Float type, MA-3 series",
+  "fuel": "80/87 avgas (100LL is fine)",
+  "oil": "4-1/2 qt; SAE 40 above 40 F, SAE 20 below",
+  "starter": "12 V starter and generator (the -12 has both; the -8 has neither)",
+  "sources": "FAA TCDS E-233; Continental C75/C85/C90/O-200 Illustrated Parts Catalog X-30017A (1979)"
+ },
+ "sections": [
+  {
+   "id": "ignition",
+   "tab": "Ignition",
+   "head": "Section 74: Ignition"
+  },
+  {
+   "id": "engine",
+   "tab": "Engine",
+   "head": "Engine: cylinders, oil, exhaust"
+  },
+  {
+   "id": "induction",
+   "tab": "Fuel & Air",
+   "head": "Fuel system and induction"
+  },
+  {
+   "id": "airframe",
+   "tab": "Airframe",
+   "head": "Airframe, gear and electrical"
+  }
+ ],
+ "figures": {
+  "fig_cylinder": {
+   "title": "Figure 1. Cylinder assembly",
+   "image": "res://textures/manual/fig_cylinder.png",
+   "items": [
+    {
+     "index": 1,
+     "part": "cyl_assy",
+     "no": "641917A2",
+     "name": "Cylinder and valve assembly",
+     "qty": 1
+    },
+    {
+     "index": 2,
+     "part": "base_packing",
+     "no": "21477",
+     "name": "Packing, cylinder base",
+     "qty": 1
+    },
+    {
+     "index": 3,
+     "part": "nut_38",
+     "no": "531003",
+     "name": "Nut, flanged hex, 3/8 in",
+     "qty": 8
+    },
+    {
+     "index": 4,
+     "part": "nut_716",
+     "no": "531001",
+     "name": "Nut, flanged hex, 7/16 in",
+     "qty": 16
+    },
+    {
+     "index": 5,
+     "part": "piston",
+     "no": "40327",
+     "name": "Piston, 6.3:1 compression",
+     "qty": 1
+    },
+    {
+     "index": 6,
+     "part": "ring_top",
+     "no": "638109",
+     "name": "Ring, top compression",
+     "qty": 1
+    },
+    {
+     "index": 7,
+     "part": "rocker_gasket",
+     "no": "AR-4120",
+     "name": "Gasket, rocker cover",
+     "qty": 4
+    },
+    {
+     "index": 8,
+     "part": "lifter",
+     "no": "A21599",
+     "name": "Lifter assembly, hydraulic",
+     "qty": 8
+    },
+    {
+     "index": 9,
+     "part": "pushrod_seal",
+     "no": "AR-4122",
+     "name": "Seal, pushrod housing",
+     "qty": 16
+    }
+   ]
+  },
+  "fig_sump": {
+   "title": "Figure 2. Oil sump assembly",
+   "image": "res://textures/manual/fig_sump.png",
+   "items": [
+    {
+     "index": 1,
+     "part": "sump_gasket",
+     "no": "3577",
+     "name": "Gasket, oil sump",
+     "qty": 1
+    },
+    {
+     "index": 2,
+     "part": "sump_nut",
+     "no": "22661",
+     "name": "Nut, elastic stop",
+     "qty": 6
+    },
+    {
+     "index": 3,
+     "part": "washer",
+     "no": "20522",
+     "name": "Washer, plain",
+     "qty": 6
+    },
+    {
+     "index": 4,
+     "part": "drain_plug",
+     "no": "532432",
+     "name": "Plug, drain, drilled head",
+     "qty": 1
+    },
+    {
+     "index": 5,
+     "part": "drain_gasket",
+     "no": "AN900-10",
+     "name": "Gasket, copper-asbestos, drain plug",
+     "qty": 1
+    },
+    {
+     "index": 6,
+     "part": "oil_screen",
+     "no": "AR-4312",
+     "name": "Screen, oil suction",
+     "qty": 1
+    },
+    {
+     "index": 7,
+     "part": "screen_gasket",
+     "no": "AR-4313",
+     "name": "Gasket, suction screen",
+     "qty": 1
+    },
+    {
+     "index": 8,
+     "part": "dipstick",
+     "no": "AR-4310",
+     "name": "Oil gauge and cap",
+     "qty": 1
+    }
+   ]
+  },
+  "fig_induction": {
+   "title": "Figure 3. Carburetor and induction",
+   "image": "res://textures/manual/fig_induction.png",
+   "items": [
+    {
+     "index": 1,
+     "part": "carb",
+     "no": "627367",
+     "name": "Carburetor, MA-3 float type",
+     "qty": 1
+    },
+    {
+     "index": 2,
+     "part": "carb_gasket",
+     "no": "21051",
+     "name": "Gasket, carburetor to manifold",
+     "qty": 1
+    },
+    {
+     "index": 3,
+     "part": "air_box",
+     "no": "A40793",
+     "name": "Air intake assembly",
+     "qty": 1
+    },
+    {
+     "index": 4,
+     "part": "air_box_gasket",
+     "no": "21323",
+     "name": "Gasket, air intake",
+     "qty": 1
+    },
+    {
+     "index": 5,
+     "part": "intake_pipe",
+     "no": "21182",
+     "name": "Pipe, intake",
+     "qty": 4
+    },
+    {
+     "index": 6,
+     "part": "hose_15",
+     "no": "21185",
+     "name": "Connector, hose, 1-1/2 in",
+     "qty": 8
+    },
+    {
+     "index": 7,
+     "part": "hose_175",
+     "no": "22800",
+     "name": "Connector, hose, 1-3/4 in",
+     "qty": 8
+    },
+    {
+     "index": 8,
+     "part": "hose_clamp",
+     "no": "36151",
+     "name": "Clamp, hose",
+     "qty": 16
+    },
+    {
+     "index": 9,
+     "part": "primer_jet",
+     "no": "AN4022-1",
+     "name": "Jet, primer",
+     "qty": 1
+    },
+    {
+     "index": 10,
+     "part": "air_filter",
+     "no": "AR-4250",
+     "name": "Air filter element",
+     "qty": 1
+    },
+    {
+     "index": 11,
+     "part": "heat_valve",
+     "no": "AR-4252",
+     "name": "Carb heat valve flapper",
+     "qty": 1
+    }
+   ]
+  },
+  "fig_ignition": {
+   "title": "Figure 4. Ignition system",
+   "image": "res://textures/manual/fig_ignition.png",
+   "items": [
+    {
+     "index": 1,
+     "part": "magneto_l",
+     "no": "H4LN-21",
+     "name": "Magneto, left, impulse coupling",
+     "qty": 1
+    },
+    {
+     "index": 2,
+     "part": "mag_gasket",
+     "no": "AR-4417",
+     "name": "Gasket, magneto to accessory case",
+     "qty": 1
+    },
+    {
+     "index": 3,
+     "part": "points",
+     "no": "AR-4412",
+     "name": "Breaker points set",
+     "qty": 1
+    },
+    {
+     "index": 4,
+     "part": "condenser",
+     "no": "AR-4413",
+     "name": "Condenser",
+     "qty": 1
+    },
+    {
+     "index": 5,
+     "part": "p_lead",
+     "no": "AR-4416",
+     "name": "P-lead, shielded, mag to switch",
+     "qty": 1
+    },
+    {
+     "index": 6,
+     "part": "lead_42",
+     "no": "634342",
+     "name": "Ignition lead, up to 42 in",
+     "qty": 1
+    },
+    {
+     "index": 6,
+     "part": "lead_36",
+     "no": "634343",
+     "name": "Ignition lead, up to 36 in",
+     "qty": 1
+    },
+    {
+     "index": 7,
+     "part": "plug",
+     "no": "HA-18",
+     "name": "Spark plug, aviation, 18 mm",
+     "qty": 8
+    },
+    {
+     "index": 7,
+     "part": "plug_set",
+     "no": "HA-18S",
+     "name": "Spark plug set (8)",
+     "qty": 1
+    },
+    {
+     "index": 8,
+     "part": "plug_gasket",
+     "no": "AR-4421",
+     "name": "Spark plug gasket, copper (8)",
+     "qty": 1
+    }
+   ]
+  }
+ },
+ "parts": [
+  {
+   "id": "magneto_l",
+   "no": "H4LN-21",
+   "name": "Magneto, left, impulse coupling",
+   "section": "ignition",
+   "price": 1400,
+   "blurb": "Hollis four-cylinder magneto with the impulse coupling that makes hand-propping and cranking work. Overhauled and bench-timed.",
+   "figure": "fig_ignition",
+   "index": 1,
+   "qty": 1,
+   "jobs": [
+    "hot_mag",
+    "mag_timing"
+   ],
+   "fault": "magneto",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/icon_magneto.png"
+  },
+  {
+   "id": "mag_gasket",
+   "no": "AR-4417",
+   "name": "Gasket, magneto to accessory case",
+   "section": "ignition",
+   "price": 3,
+   "blurb": "Fit a new one every time the mag comes off.",
+   "figure": "fig_ignition",
+   "index": 2,
+   "qty": 1,
+   "jobs": [
+    "mag_timing"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "points",
+   "no": "AR-4412",
+   "name": "Breaker points set",
+   "section": "ignition",
+   "price": 38,
+   "blurb": "Contact points and spring for the Hollis mag. Gap them, then retime the mag.",
+   "figure": "fig_ignition",
+   "index": 3,
+   "qty": 1,
+   "jobs": [
+    "mag_timing"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "condenser",
+   "no": "AR-4413",
+   "name": "Condenser",
+   "section": "ignition",
+   "price": 22,
+   "blurb": "A weak condenser burns the points. Change them together.",
+   "figure": "fig_ignition",
+   "index": 4,
+   "qty": 1,
+   "jobs": [
+    "mag_timing"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "p_lead",
+   "no": "AR-4416",
+   "name": "P-lead, shielded, mag to switch",
+   "section": "ignition",
+   "price": 18,
+   "blurb": "Grounds the mag when the switch is OFF. Broken, and the mag stays hot even with the switch off.",
+   "figure": "fig_ignition",
+   "index": 5,
+   "qty": 1,
+   "jobs": [
+    "hot_mag"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/hot_mag_plead_new.png"
+  },
+  {
+   "id": "lead_36",
+   "no": "634343",
+   "name": "Ignition lead, up to 36 in",
+   "section": "ignition",
+   "price": 45,
+   "blurb": "Single harness lead with terminals. For the short runs to the near cylinders.",
+   "figure": "fig_ignition",
+   "index": 6,
+   "qty": 1,
+   "jobs": [
+    "spark_test"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "lead_42",
+   "no": "634342",
+   "name": "Ignition lead, up to 42 in",
+   "section": "ignition",
+   "price": 48,
+   "blurb": "Single harness lead for the long runs across the engine.",
+   "figure": "fig_ignition",
+   "index": 6,
+   "qty": 1,
+   "jobs": [
+    "spark_test"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "plug",
+   "no": "HA-18",
+   "name": "Spark plug, aviation, 18 mm",
+   "section": "ignition",
+   "price": 32,
+   "blurb": "Hollis massive-electrode plug. Gap .016 to .021 in.",
+   "figure": "fig_ignition",
+   "index": 7,
+   "qty": 8,
+   "jobs": [
+    "reading_plugs",
+    "spark_test"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/reading_plugs_tan.png"
+  },
+  {
+   "id": "plug_set",
+   "no": "HA-18S",
+   "name": "Spark plug set (8)",
+   "section": "ignition",
+   "price": 220,
+   "blurb": "Matched set of eight, gapped and ready to torque. Copper gaskets included.",
+   "figure": "fig_ignition",
+   "index": 7,
+   "qty": 1,
+   "jobs": [
+    "reading_plugs"
+   ],
+   "fault": "spark_plugs",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/reading_plugs_tan.png"
+  },
+  {
+   "id": "plug_gasket",
+   "no": "AR-4421",
+   "name": "Spark plug gasket, copper (8)",
+   "section": "ignition",
+   "price": 6,
+   "blurb": "Never reuse a flattened plug gasket.",
+   "figure": "fig_ignition",
+   "index": 8,
+   "qty": 1,
+   "jobs": [
+    "reading_plugs",
+    "compression"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "cyl_assy",
+   "no": "641917A2",
+   "name": "Cylinder and valve assembly",
+   "section": "engine",
+   "price": 640,
+   "blurb": "Cylinder with head, valves and springs. For a cylinder that fails compression.",
+   "figure": "fig_cylinder",
+   "index": 1,
+   "qty": 1,
+   "jobs": [
+    "compression"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "base_packing",
+   "no": "21477",
+   "name": "Packing, cylinder base",
+   "section": "engine",
+   "price": 3,
+   "blurb": "O-ring seal between the cylinder and the crankcase.",
+   "figure": "fig_cylinder",
+   "index": 2,
+   "qty": 1,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "nut_38",
+   "no": "531003",
+   "name": "Nut, flanged hex, 3/8 in",
+   "section": "engine",
+   "price": 1,
+   "blurb": "Cylinder hold-down nut, small.",
+   "figure": "fig_cylinder",
+   "index": 3,
+   "qty": 8,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "nut_716",
+   "no": "531001",
+   "name": "Nut, flanged hex, 7/16 in",
+   "section": "engine",
+   "price": 1,
+   "blurb": "Cylinder hold-down nut, large.",
+   "figure": "fig_cylinder",
+   "index": 4,
+   "qty": 16,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "piston",
+   "no": "40327",
+   "name": "Piston, 6.3:1 compression",
+   "section": "engine",
+   "price": 85,
+   "blurb": "Standard-size piston for the C85.",
+   "figure": "fig_cylinder",
+   "index": 5,
+   "qty": 1,
+   "jobs": [
+    "compression"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "ring_top",
+   "no": "638109",
+   "name": "Ring, top compression",
+   "section": "engine",
+   "price": 9,
+   "blurb": "Top compression ring, standard size.",
+   "figure": "fig_cylinder",
+   "index": 6,
+   "qty": 1,
+   "jobs": [
+    "compression"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "rocker_gasket",
+   "no": "AR-4120",
+   "name": "Gasket, rocker cover",
+   "section": "engine",
+   "price": 4,
+   "blurb": "Cork rocker cover gasket. The usual source of oil on the cylinder fins.",
+   "figure": "fig_cylinder",
+   "index": 7,
+   "qty": 4,
+   "jobs": [
+    "compression"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "gasket_set",
+   "no": "24890A4",
+   "name": "Gasket and connector set",
+   "section": "engine",
+   "price": 150,
+   "blurb": "Engine gasket set with rubber intake connectors: rocker covers, sump, accessory case.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [],
+   "fault": "oil_leak",
+   "verified": true,
+   "source": "continental",
+   "icon": "res://textures/icon_oil_leak.png"
+  },
+  {
+   "id": "lifter",
+   "no": "A21599",
+   "name": "Lifter assembly, hydraulic",
+   "section": "engine",
+   "price": 28,
+   "blurb": "Hydraulic valve lifter. One sat dry in storage? Inspect the cam before you run it.",
+   "figure": "fig_cylinder",
+   "index": 8,
+   "qty": 8,
+   "jobs": [
+    "pre_oil",
+    "storage"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "pushrod_seal",
+   "no": "AR-4122",
+   "name": "Seal, pushrod housing",
+   "section": "engine",
+   "price": 2,
+   "blurb": "Rubber seal at each end of a pushrod tube. Weeps oil when it hardens.",
+   "figure": "fig_cylinder",
+   "index": 9,
+   "qty": 16,
+   "jobs": [],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "sump_gasket",
+   "no": "3577",
+   "name": "Gasket, oil sump",
+   "section": "engine",
+   "price": 5,
+   "blurb": "Sump-to-crankcase gasket.",
+   "figure": "fig_sump",
+   "index": 1,
+   "qty": 1,
+   "jobs": [
+    "oil_change"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "sump_nut",
+   "no": "22661",
+   "name": "Nut, elastic stop",
+   "section": "engine",
+   "price": 1,
+   "blurb": "Sump attaching nut. Use new ones.",
+   "figure": "fig_sump",
+   "index": 2,
+   "qty": 6,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "washer",
+   "no": "20522",
+   "name": "Washer, plain",
+   "section": "engine",
+   "price": 1,
+   "blurb": "Plain washer, sump and intake flanges.",
+   "figure": "fig_sump",
+   "index": 3,
+   "qty": 6,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "drain_plug",
+   "no": "532432",
+   "name": "Plug, drain, drilled head",
+   "section": "engine",
+   "price": 6,
+   "blurb": "Sump drain plug, drilled for safety wire.",
+   "figure": "fig_sump",
+   "index": 4,
+   "qty": 1,
+   "jobs": [
+    "oil_change"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": "res://textures/work/oil_change_plug.png"
+  },
+  {
+   "id": "drain_gasket",
+   "no": "AN900-10",
+   "name": "Gasket, copper-asbestos, drain plug",
+   "section": "engine",
+   "price": 1,
+   "blurb": "Crush gasket for the drain plug. New one every oil change.",
+   "figure": "fig_sump",
+   "index": 5,
+   "qty": 1,
+   "jobs": [
+    "oil_change"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "oil_screen",
+   "no": "AR-4312",
+   "name": "Screen, oil suction",
+   "section": "engine",
+   "price": 24,
+   "blurb": "Pull it every oil change and look for metal before it goes back in.",
+   "figure": "fig_sump",
+   "index": 6,
+   "qty": 1,
+   "jobs": [
+    "oil_change",
+    "oil_screen"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/oil_change_screen_new.png"
+  },
+  {
+   "id": "screen_gasket",
+   "no": "AR-4313",
+   "name": "Gasket, suction screen",
+   "section": "engine",
+   "price": 2,
+   "blurb": "Under the suction screen's hex head.",
+   "figure": "fig_sump",
+   "index": 7,
+   "qty": 1,
+   "jobs": [
+    "oil_change",
+    "oil_screen"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "dipstick",
+   "no": "AR-4310",
+   "name": "Oil gauge and cap",
+   "section": "engine",
+   "price": 14,
+   "blurb": "Dipstick and filler cap. Read it with the plane level.",
+   "figure": "fig_sump",
+   "index": 8,
+   "qty": 1,
+   "jobs": [
+    "oil_change"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "crank_seal",
+   "no": "24321",
+   "name": "Seal, crankshaft oil",
+   "section": "engine",
+   "price": 16,
+   "blurb": "Front crank seal behind the prop. Oil sprayed on the windshield? Look here.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "case_cover_gasket",
+   "no": "5484",
+   "name": "Gasket, crankcase cover",
+   "section": "engine",
+   "price": 6,
+   "blurb": "Accessory case cover gasket at the back of the engine.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "mag_timing"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "oil_qt",
+   "no": "AR-T40",
+   "name": "Aviation oil, SAE 40, quart",
+   "section": "engine",
+   "price": 4,
+   "blurb": "Straight mineral aviation oil. The C-85 takes four and a half quarts.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "oil_change",
+    "pre_oil"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/oil_change_quart.png"
+  },
+  {
+   "id": "carb",
+   "no": "627367",
+   "name": "Carburetor, MA-3 float type",
+   "section": "induction",
+   "price": 780,
+   "blurb": "Kestrel MA-3 float carburetor, overhauled. Comes with a new flange gasket.",
+   "figure": "fig_induction",
+   "index": 1,
+   "qty": 1,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "carb_gasket",
+   "no": "21051",
+   "name": "Gasket, carburetor to manifold",
+   "section": "induction",
+   "price": 3,
+   "blurb": "Flange gasket under the carburetor.",
+   "figure": "fig_induction",
+   "index": 2,
+   "qty": 1,
+   "jobs": [
+    "air_filter"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "air_box",
+   "no": "A40793",
+   "name": "Air intake assembly",
+   "section": "induction",
+   "price": 95,
+   "blurb": "Carb heat box with the filter frame and the heat valve.",
+   "figure": "fig_induction",
+   "index": 3,
+   "qty": 1,
+   "jobs": [
+    "air_filter"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "air_box_gasket",
+   "no": "21323",
+   "name": "Gasket, air intake",
+   "section": "induction",
+   "price": 2,
+   "blurb": "Between the heat box and the carburetor.",
+   "figure": "fig_induction",
+   "index": 4,
+   "qty": 1,
+   "jobs": [
+    "air_filter"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "intake_pipe",
+   "no": "21182",
+   "name": "Pipe, intake",
+   "section": "induction",
+   "price": 34,
+   "blurb": "Intake tube from the sump riser to the cylinder.",
+   "figure": "fig_induction",
+   "index": 5,
+   "qty": 4,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "hose_15",
+   "no": "21185",
+   "name": "Connector, hose, 1-1/2 in",
+   "section": "induction",
+   "price": 3,
+   "blurb": "Rubber intake connector. Cracked ones leak air and lean the cylinder out.",
+   "figure": "fig_induction",
+   "index": 6,
+   "qty": 8,
+   "jobs": [
+    "cold_cylinder"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "hose_175",
+   "no": "22800",
+   "name": "Connector, hose, 1-3/4 in",
+   "section": "induction",
+   "price": 3,
+   "blurb": "Rubber intake connector, large.",
+   "figure": "fig_induction",
+   "index": 7,
+   "qty": 8,
+   "jobs": [
+    "cold_cylinder"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "hose_clamp",
+   "no": "36151",
+   "name": "Clamp, hose",
+   "section": "induction",
+   "price": 1,
+   "blurb": "Intake connector clamp.",
+   "figure": "fig_induction",
+   "index": 8,
+   "qty": 16,
+   "jobs": [
+    "cold_cylinder"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "primer_jet",
+   "no": "AN4022-1",
+   "name": "Jet, primer",
+   "section": "induction",
+   "price": 6,
+   "blurb": "Primer nozzle in the intake. Clogged, and it won't start cold.",
+   "figure": "fig_induction",
+   "index": 9,
+   "qty": 1,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "air_filter",
+   "no": "AR-4250",
+   "name": "Air filter element",
+   "section": "induction",
+   "price": 18,
+   "blurb": "Pleated paper element for the heat box.",
+   "figure": "fig_induction",
+   "index": 10,
+   "qty": 1,
+   "jobs": [
+    "air_filter"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/air_filter_filter_new.png"
+  },
+  {
+   "id": "heat_valve",
+   "no": "AR-4252",
+   "name": "Carb heat valve flapper",
+   "section": "induction",
+   "price": 26,
+   "blurb": "Worn flappers let hot, unfiltered air in when the heat is off.",
+   "figure": "fig_induction",
+   "index": 11,
+   "qty": 1,
+   "jobs": [
+    "air_filter"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/air_filter_flapper_new.png"
+  },
+  {
+   "id": "gasc_bowl",
+   "no": "750 262",
+   "name": "Bowl, fuel strainer (Tillotson)",
+   "section": "induction",
+   "price": 14,
+   "blurb": "Sediment bowl. You should be able to see the water in it.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "fuel_strainer",
+    "water_fuel"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/fuel_strainer_bowl_new.png"
+  },
+  {
+   "id": "gasc_screen",
+   "no": "750 263",
+   "name": "Screen, fuel strainer",
+   "section": "induction",
+   "price": 9,
+   "blurb": "Fine brass screen above the bowl.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "fuel_strainer"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/fuel_strainer_screen_new.png"
+  },
+  {
+   "id": "gasc_gasket",
+   "no": "750 261",
+   "name": "Gasket, fuel strainer",
+   "section": "induction",
+   "price": 3,
+   "blurb": "Cork gasket that seals the bowl to the head. Always new.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "fuel_strainer"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "fuel_line",
+   "no": "AR-2820",
+   "name": "Fuel line kit",
+   "section": "induction",
+   "price": 300,
+   "blurb": "Braided fuel hose with fittings, tank to gascolator.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "fuel_line"
+   ],
+   "fault": "fuel_line",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/icon_fuel_line.png"
+  },
+  {
+   "id": "avgas",
+   "no": "AR-T41",
+   "name": "Fresh avgas",
+   "section": "induction",
+   "price": 90,
+   "blurb": "Enough for the Cub's 12-gallon nose tank.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "stale_fuel"
+   ],
+   "fault": "stale_fuel",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/stale_fuel_cap.png"
+  },
+  {
+   "id": "muffler",
+   "no": "70893-03",
+   "name": "Muffler assembly, complete",
+   "section": "engine",
+   "price": 240,
+   "blurb": "Cracked mufflers leak carbon monoxide into the cabin heat. No welding: replace.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "exhaust_check"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/exhaust_check_muffler_new.png"
+  },
+  {
+   "id": "heat_muff",
+   "no": "AR-7812",
+   "name": "Heat muff shroud",
+   "section": "engine",
+   "price": 85,
+   "blurb": "Sheet-metal shroud around the muffler for cabin heat.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "exhaust_check"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/exhaust_check_shroud.png"
+  },
+  {
+   "id": "exh_gasket",
+   "no": "AR-7814",
+   "name": "Gasket, exhaust port",
+   "section": "engine",
+   "price": 3,
+   "blurb": "Copper-asbestos gasket at each exhaust port.",
+   "figure": "",
+   "index": 0,
+   "qty": 4,
+   "jobs": [
+    "exhaust_check"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "scat",
+   "no": "AR-7816",
+   "name": "SCAT hose, 2 ft",
+   "section": "engine",
+   "price": 16,
+   "blurb": "Heat-proof duct from the muff to the cabin heat box.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "exhaust_check",
+    "air_filter"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/exhaust_check_scat.png"
+  },
+  {
+   "id": "starter",
+   "no": "1109656",
+   "name": "Starter, 12 V",
+   "section": "airframe",
+   "price": 1100,
+   "blurb": "Rebuilt starter with a new drive. C85-12 only.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [],
+   "fault": "starter",
+   "verified": true,
+   "source": "continental",
+   "icon": "res://textures/icon_starter.png"
+  },
+  {
+   "id": "generator",
+   "no": "534111",
+   "name": "Generator, 12 V, 20 A",
+   "section": "airframe",
+   "price": 460,
+   "blurb": "Belt-driven generator for the -12.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "regulator",
+   "no": "1118736",
+   "name": "Regulator, voltage, 12 V",
+   "section": "airframe",
+   "price": 120,
+   "blurb": "Keeps the generator from cooking the battery.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [],
+   "fault": "",
+   "verified": true,
+   "source": "continental",
+   "icon": ""
+  },
+  {
+   "id": "battery",
+   "no": "AR-2410",
+   "name": "Battery, 12 V",
+   "section": "airframe",
+   "price": 350,
+   "blurb": "12-volt aircraft battery, charged.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [],
+   "fault": "battery",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/icon_battery.png"
+  },
+  {
+   "id": "splice_kit",
+   "no": "AR-2420",
+   "name": "Wire splice kit",
+   "section": "airframe",
+   "price": 8,
+   "blurb": "Butt splices and heat-shrink, 18 to 22 gauge.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "wire_chafe"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "cushion_clamp",
+   "no": "AR-2421",
+   "name": "Clamp, cushioned",
+   "section": "airframe",
+   "price": 2,
+   "blurb": "Rubber-lined clamp that holds a harness off sharp edges.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "wire_chafe"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "radio",
+   "no": "AR-2340",
+   "name": "Antenna and radio",
+   "section": "airframe",
+   "price": 1800,
+   "blurb": "Panel radio with whip antenna and coax.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [],
+   "fault": "avionics",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/icon_avionics.png"
+  },
+  {
+   "id": "tire",
+   "no": "451 722",
+   "name": "Tire, Cub 8.00 x 4, 4 ply",
+   "section": "airframe",
+   "price": 180,
+   "blurb": "Cub-size low-pressure tire with a fresh tube.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [],
+   "fault": "tire",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/icon_tire.png"
+  },
+  {
+   "id": "brake_disc",
+   "no": "451 702",
+   "name": "Brake shoe assembly",
+   "section": "airframe",
+   "price": 260,
+   "blurb": "Brake blocks, expander tube and retracting springs for one wheel. Ends the grinding on taxi.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brake_bleed"
+   ],
+   "fault": "brakes",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/icon_brakes.png"
+  },
+  {
+   "id": "expander_tube",
+   "no": "750 031",
+   "name": "Tube assembly, rubber (brake expander)",
+   "section": "airframe",
+   "price": 95,
+   "blurb": "Rubber tube that swells against the blocks. Leaky, and you're pumping air.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brake_bleed"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "brake_fluid",
+   "no": "AR-T42",
+   "name": "Hydraulic fluid, red, quart",
+   "section": "airframe",
+   "price": 8,
+   "blurb": "Red petroleum brake fluid.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brake_bleed"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/brake_bleed_can.png"
+  },
+  {
+   "id": "bungee",
+   "no": "30562-00",
+   "name": "Rings, shock cord (set of 4)",
+   "section": "airframe",
+   "price": 70,
+   "blurb": "Shock cord rings for the main gear (four). Replace both sides together.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "bungee"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/bungee_cord_new.png"
+  },
+  {
+   "id": "tw_spring",
+   "no": "30512-04",
+   "name": "Spring, tailwheel, long leaf",
+   "section": "airframe",
+   "price": 55,
+   "blurb": "Leaf spring, sternpost to tailwheel.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "tailwheel"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/tailwheel_leaf_new.png"
+  },
+  {
+   "id": "steer_springs",
+   "no": "487 255",
+   "name": "Spring, pair connector (tailwheel steering)",
+   "section": "airframe",
+   "price": 24,
+   "blurb": "Pair of springs with chain, rudder horn to tailwheel arms.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "tailwheel"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/tailwheel_steer_new.png"
+  },
+  {
+   "id": "cable_set",
+   "no": "40123-02",
+   "name": "Cable assembly, rudder, long",
+   "section": "airframe",
+   "price": 650,
+   "blurb": "Pre-swaged rudder and elevator cables with turnbuckles.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "control_cables",
+    "aileron_rigging"
+   ],
+   "fault": "control_cables",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/icon_control_cables.png"
+  },
+  {
+   "id": "turnbuckle",
+   "no": "AR-3412",
+   "name": "Turnbuckle assembly",
+   "section": "airframe",
+   "price": 9,
+   "blurb": "Barrel with two terminals. Safety it with wire or clips.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "aileron_rigging",
+    "trim_cable"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "trim_cable",
+   "no": "41671-02",
+   "name": "Cable assembly, stabilizer adjustment",
+   "section": "airframe",
+   "price": 28,
+   "blurb": "Stabilizer trim cable. Runs dry: never oil it.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "trim_cable"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "brace_wires",
+   "no": "41031-02",
+   "name": "Rod, tail tie, upper (10-32 x 41-3/4 in)",
+   "section": "airframe",
+   "price": 45,
+   "blurb": "Upper tail tie rod with clevis ends, fin to stabilizer.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brace_wires"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "strut_fork",
+   "no": "AR-3610",
+   "name": "Strut fork with jam nut",
+   "section": "airframe",
+   "price": 38,
+   "blurb": "Threaded fork at the top of the front strut. Sets the wing's angle.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "wing_rig"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/wing_rig_fork_new.png"
+  },
+  {
+   "id": "windshield",
+   "no": "10009-00",
+   "name": "Windshield, one-piece Plexiglas",
+   "section": "airframe",
+   "price": 900,
+   "blurb": "Clear acrylic windshield, cut to fit.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [],
+   "fault": "windshield",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/icon_windshield.png"
+  },
+  {
+   "id": "door_pin",
+   "no": "AR-5212",
+   "name": "Door hinge pin and cotter",
+   "section": "airframe",
+   "price": 120,
+   "blurb": "Steel hinge pin with a new cotter.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "door_pin"
+   ],
+   "fault": "door_pin",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/door_pin_pin_new.png"
+  },
+  {
+   "id": "prop",
+   "no": "AR-6110",
+   "name": "Propeller, metal, fixed pitch, 72 in",
+   "section": "airframe",
+   "price": 2600,
+   "blurb": "Forged aluminum two-blade prop for the C-85.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "prop_track",
+    "prop_dress"
+   ],
+   "fault": "propeller",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/icon_propeller.png"
+  },
+  {
+   "id": "baffle_seal",
+   "no": "AR-7110",
+   "name": "Baffle seal strip, 3 ft",
+   "section": "airframe",
+   "price": 12,
+   "blurb": "Silicone-cloth seal strip with rivets.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "baffles"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "dehydrator",
+   "no": "AR-7210",
+   "name": "Dehydrator plug",
+   "section": "engine",
+   "price": 7,
+   "blurb": "Screws into a plug hole. Blue crystals are dry, pink means it's soaked.",
+   "figure": "",
+   "index": 0,
+   "qty": 8,
+   "jobs": [
+    "storage"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/storage_dehy.png"
+  },
+  {
+   "id": "desiccant",
+   "no": "AR-7212",
+   "name": "Desiccant bag",
+   "section": "engine",
+   "price": 6,
+   "blurb": "For the intake and the exhaust of a stored engine.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "storage"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": "res://textures/work/storage_bag_intake.png"
+  },
+  {
+   "id": "preservative",
+   "no": "AR-7214",
+   "name": "Preservative oil, quart",
+   "section": "engine",
+   "price": 9,
+   "blurb": "Sticky corrosion-preventive oil for engines that sit.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "storage"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "grease",
+   "no": "AR-7216",
+   "name": "Grease, general purpose, tube",
+   "section": "engine",
+   "price": 5,
+   "blurb": "For the tailwheel and the hinge points.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "tailwheel"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "master_cyl",
+   "no": "451 700",
+   "name": "Cylinder, brake master, left (Scott unit)",
+   "section": "airframe",
+   "price": 140,
+   "blurb": "Heel-pedal master cylinder with its own reservoir. Weeping red fluid means the diaphragm is going.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brake_master"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/brake_master_cylinder_new.png"
+  },
+  {
+   "id": "mc_cover",
+   "no": "23831-00",
+   "name": "Cover, master cylinder inspection",
+   "section": "airframe",
+   "price": 18,
+   "blurb": "Floorboard cover over the master cylinders, with a grommet for the line.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brake_master"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/brake_master_cover.png"
+  },
+  {
+   "id": "tach",
+   "no": "450 640",
+   "name": "Tachometer",
+   "section": "airframe",
+   "price": 160,
+   "blurb": "Mechanical tach, cream dial, driven by a flexible shaft from the engine.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "instrument_swap"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/instrument_swap_tach_new.png"
+  },
+  {
+   "id": "tach_shaft",
+   "no": "486 565",
+   "name": "Shaft and housing, tachometer (34 in)",
+   "section": "airframe",
+   "price": 45,
+   "blurb": "Flexible drive from the accessory case to the back of the tach.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "instrument_swap"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/instrument_swap_cable.png"
+  },
+  {
+   "id": "prop_bolts",
+   "no": "AR-6112",
+   "name": "Prop bolt set with safety wire",
+   "section": "airframe",
+   "price": 36,
+   "blurb": "Six bolts and washers for the wood prop. Re-torque them every season.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "prop_bolts"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "dope",
+   "no": "AR-7310",
+   "name": "Butyrate dope, pint, Cub yellow",
+   "section": "engine",
+   "price": 14,
+   "blurb": "Seals fabric test spots and small patches.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "fabric_test"
+   ],
+   "fault": "",
+   "verified": false,
+   "source": "game",
+   "icon": ""
+  },
+  {
+   "id": "bleeder",
+   "no": "451 770",
+   "name": "Fitting, brake bleeder",
+   "section": "airframe",
+   "price": 6,
+   "blurb": "Bleeder screw at the brake. Crack it a half turn to let the air out.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brake_bleed"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "hub_cap",
+   "no": "451 762",
+   "name": "Cap, hub",
+   "section": "airframe",
+   "price": 12,
+   "blurb": "Small domed cap over the wheel bearing and axle nut.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "tire"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/tire_hubcap.png"
+  },
+  {
+   "id": "tube_tire",
+   "no": "451 740",
+   "name": "Tube, Cub 8.00 x 4",
+   "section": "airframe",
+   "price": 40,
+   "blurb": "Inner tube for the 8.00-4 tire.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "tire"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "bungee_boot",
+   "no": "31073-00",
+   "name": "Cover, shock cord (leather)",
+   "section": "airframe",
+   "price": 30,
+   "blurb": "Laced leather cover over the shock cord rings.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "bungee"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/bungee_boot.png"
+  },
+  {
+   "id": "stab_screw",
+   "no": "42961-00",
+   "name": "Screw, stabilizer adjustment",
+   "section": "airframe",
+   "price": 64,
+   "blurb": "The trim jackscrew at the tail post.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "trim_cable"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "prop_wood",
+   "no": "450 900",
+   "name": "Propeller, wood, Sensenich 72C42",
+   "section": "airframe",
+   "price": 1400,
+   "blurb": "The stock J-3 prop for 65 hp. Varnished birch with tipping.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "prop_track"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/icon_propeller.png"
+  },
+  {
+   "id": "fuel_tank",
+   "no": "70723-00",
+   "name": "Tank, fuel, 12 gallon",
+   "section": "induction",
+   "price": 420,
+   "blurb": "The nose tank behind the firewall, with its gauge-and-cap fitting.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "stale_fuel"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  },
+  {
+   "id": "fuel_cap",
+   "no": "71041-00",
+   "name": "Gauge and cap assembly, fuel tank",
+   "section": "induction",
+   "price": 22,
+   "blurb": "Cork float on a wire through the cap: the J-3's fuel gauge. Vent included.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "fuel_vent",
+    "stale_fuel"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": "res://textures/work/stale_fuel_cap.png"
+  },
+  {
+   "id": "tie_rod_lower",
+   "no": "41031-03",
+   "name": "Rod, tail tie, lower (10-32 x 35 in)",
+   "section": "airframe",
+   "price": 40,
+   "blurb": "Lower tail tie rod, stabilizer to fuselage.",
+   "figure": "",
+   "index": 0,
+   "qty": 1,
+   "jobs": [
+    "brace_wires"
+   ],
+   "fault": "",
+   "verified": true,
+   "source": "piper",
+   "icon": ""
+  }
+ ]
+}

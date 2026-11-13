@@ -7,7 +7,7 @@ extends Node
 ## inputs. Also logs: stuck (no change in 60 s), low FPS, and memory once a minute.
 
 const KEYS := [KEY_W, KEY_A, KEY_S, KEY_D, KEY_E, KEY_SPACE, KEY_ESCAPE, KEY_TAB, KEY_J, KEY_L, KEY_UP, KEY_DOWN, KEY_ENTER,
-	KEY_F, KEY_M, KEY_P, KEY_I, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_Q, KEY_V]
+	KEY_F, KEY_M, KEY_N, KEY_P, KEY_I, KEY_H, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_Q, KEY_V]
 const STUCK_AFTER := 60.0  # seconds with no change in anything the player can affect
 const REPORT_EVERY := 60.0
 

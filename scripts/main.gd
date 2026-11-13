@@ -4227,7 +4227,7 @@ func _load_field(city: String, job) -> void:
 	box(world, Vector3(160, 0.04, 12), Vector3(0, 0.02, 20), _flat_ground("runway_asphalt", 0.15))
 	for x in range(-76, 80, 10):
 		box(world, Vector3(5, 0.05, 0.4), Vector3(x, 0.03, 20), Color(0.95, 0.95, 0.9))
-	box(world, Vector3(18, 0.03, 13), Vector3(0, 0.015, 7.5), _flat_ground("gravel", 0.4, "gravel_b"))  # apron
+	# No gravel apron pad: the plane, the truck and the parts table sit on the grass.
 	_build_windsock(Vector3(32, 0, 30))  # beside the strip, clear of the wingtips
 	_scatter_litter(r)
 	var probe := ReflectionProbe.new()  # glass and paint pick up the sky and the field around them

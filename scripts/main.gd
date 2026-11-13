@@ -43,24 +43,35 @@ const REGIONS := {
 	"snow": {"tex": "ground_snow", "ground": Color(0.92, 0.94, 0.97), "prop": "snowpine", "count": 1000, "grass": 0, "wheat": 0},
 }
 # symptom: what the owner reports on the radio. zone: where on the plane you find it.
+# A new fault (say, out of the Cub manual) is playable from two lines: a row here, added at the
+# end, and its CLUES line. It then turns up on jobs, hides at its zone on the walk-around, sells
+# its part in the catalog, and is repaired behind a plain access panel until it gets a scene of
+# its own in work.gd. Optional in the row: "ref" (the manual section, shown in the repair),
+# "torque" (Vector2i in-lb: its bolts get the torque wrench), "diagram" (textures/diagrams/<name>.png,
+# default the fault's id: D shows it in the repair). Optional elsewhere: TROUBLE (what it does in
+# flight if missed), WHY, CATALOG_BLURB, textures/icon_<id>.png. The self-test checks the rows.
 const FAULTS := {
 	"tire": {"name": "Flat main tire", "part": "Tire & tube", "cost": 180, "zone": "gear_l", "symptom": "sits low on the left side"},
 	"brakes": {"name": "Rusted brake disc", "part": "Brake disc", "cost": 260, "zone": "gear_r", "symptom": "grinds when it taxis"},
-	"battery": {"name": "Dead battery", "part": "Battery", "cost": 350, "zone": "battery", "symptom": "won't crank, everything's dead"},
-	"spark_plugs": {"name": "Fouled spark plugs", "part": "Spark plug set", "cost": 220, "zone": "engine", "symptom": "runs rough, puffs black smoke"},
+	"battery": {"name": "Weak battery", "part": "Battery", "cost": 350, "zone": "battery", "symptom": "won't crank, the starter just clicks"},
+	"spark_plugs": {"name": "Fouled spark plugs", "part": "Spark plug set", "cost": 220, "zone": "engine", "symptom": "runs rough"},
 	"oil_leak": {"name": "Oil leak", "part": "Gasket kit", "cost": 150, "zone": "engine", "symptom": "oil spots under the nose"},
 	"bird_nest": {"name": "Bird nest on the cowling", "part": "", "cost": 0, "zone": "engine", "symptom": "birds flying out of the cowling"},
 	"fuel_line": {"name": "Leaking fuel line", "part": "Fuel line kit", "cost": 300, "zone": "wing_l", "symptom": "smells of avgas under the wing"},
 	"windshield": {"name": "Cracked windshield", "part": "Windshield", "cost": 900, "zone": "cabin", "symptom": "got caught in a hailstorm"},
-	"starter": {"name": "Seized starter", "part": "Starter motor", "cost": 1100, "zone": "engine", "symptom": "the starter just clicks"},
+	"starter": {"name": "Seized starter", "part": "Starter motor", "cost": 1100, "zone": "engine", "symptom": "won't crank, the starter just clicks"},
 	"control_cables": {"name": "Jammed rudder cables", "part": "Control cable set", "cost": 650, "zone": "tail", "symptom": "rudder pedals are stiff"},
-	"magneto": {"name": "Bad magneto", "part": "Magneto", "cost": 1400, "zone": "engine", "symptom": "dies on the mag check"},
+	"magneto": {"name": "Bad magneto", "part": "Magneto", "cost": 1400, "zone": "engine", "symptom": "runs rough"},
 	"avionics": {"name": "Broken radio antenna", "part": "Antenna & radio", "cost": 1800, "zone": "cabin", "symptom": "radio's dead, can't raise anyone"},
 	"propeller": {"name": "Bent propeller", "part": "Propeller", "cost": 2600, "zone": "prop", "symptom": "hit a fence post taxiing"},
 	# Neglect jobs: only planes that sat for years get these (see _spawn_job).
 	"stale_fuel": {"name": "Stale fuel in the tanks", "part": "Fresh avgas", "cost": 90, "zone": "wing_l", "symptom": "hasn't had fresh gas in years"},
 	"pre_oil": {"name": "Dry engine: pre-oil before start", "part": "", "cost": 0, "zone": "engine", "symptom": "hasn't been started in years"},
 	"door_pin": {"name": "Door pin rusted solid", "part": "Door pin & cotter", "cost": 120, "zone": "cabin", "symptom": "can't even get the door open"},
+	# Found only on the run-up's gauges (kept last so the catalog's part numbers don't shift).
+	"p_lead": {"name": "Broken P-lead (hot mag)", "part": "P-lead", "cost": 60, "zone": "engine", "symptom": "kept running after the key was switched off"},
+	"carb_heat": {"name": "Carb heat cable broken", "part": "Carb heat cable", "cost": 140, "zone": "engine", "symptom": "runs rough"},
+	"tmp_strut": {"name": "Cracked lift strut fork", "part": "Strut fork", "cost": 200, "zone": "wing_l", "symptom": "wing creaks", "torque": Vector2i(50, 70), "ref": "J-3 Service Manual, sec. 4-12", "diagram": "tmp"},
 }
 const NEGLECT_FAULTS := ["stale_fuel", "pre_oil", "door_pin"]
 # What an unfound fault does on the ferry flight. roll: bites on the runway, not in the climb.
@@ -77,13 +88,45 @@ const TROUBLE := {
 	"propeller": {"roll": false, "text": "A violent shake through the whole airframe. You pull the power before the bent prop tears the engine off!"},
 }
 const CRASH_BILL := 1500  # your insurance excess
+const DAILY_COST := 40  # hangar rent back home and insurance, every day you're in business
+const OWNERS := ["Earl", "Dale", "Marge", "Rosa", "Hank", "June", "Walt", "Bev", "Gus", "Lorraine",
+	"Vern", "Dot", "Cal", "Inez", "Roy", "Pearl", "Abe", "Nell", "Otis", "Fern"]
+const THANKS := ["She hasn't sounded that good since my dad flew her.", "I'd about given up on her. Thank you.",
+	"First time she's left the ground in years. I may have cried a little.", "You saved me a long, sad trip to the scrap yard.",
+	"I'll take her up first thing tomorrow.", "My grandkids are going to learn to fly in her."]
+## Faults that look alike from the cockpit: the evidence fits both, and you pick which to fix.
+const SUSPECTS := {"spark_plugs": "magneto", "magneto": "spark_plugs", "battery": "starter", "starter": "battery"}
+## Behind the cowling: found only once the cowl comes off for another engine job.
+const HIDDEN_CLUES := {"oil_leak": "Behind the cowling: the rocker cover gasket is weeping oil, out of sight from outside",
+	"bird_nest": "Behind the cowling: a nest packed against the cylinder baffles, out of sight from the inlets"}
+## One line on why the job is done the way it is, shown when it's finished.
+const WHY := {
+	"tire": "New cotter pin every time: a used one is work-hardened and can snap.",
+	"brakes": "Rust pits a disc until the brake grabs instead of squeezing, and that's what drags the plane sideways.",
+	"battery": "Negative off first and on last: then a wrench touching the airframe can't short the battery.",
+	"spark_plugs": "New gaskets every time: a crushed old one won't seal, and the plug can work loose.",
+	"oil_leak": "Every scrap of old gasket comes off, or the new one sits on a ridge and leaks again.",
+	"bird_nest": "A nest against a hot cylinder is a fire. Always look inside the cowl on a plane that's been sitting.",
+	"fuel_line": "Fuel off before you crack a line, and check it for leaks with the fuel back on before you close it up.",
+	"windshield": "The old sealant comes off completely, or the new windshield is stressed at the high spots and cracks.",
+	"starter": "The starter cable comes straight off the battery: master off before you put a wrench near it.",
+	"control_cables": "Turnbuckles get safety wire so vibration can't unwind them and let the cable go slack.",
+	"magneto": "A new magneto has to be timed to the engine, or it fires at the wrong moment and runs rough or not at all.",
+	"avionics": "A loose or dirty coax connector makes a radio that works on the ground and quits in the air.",
+	"propeller": "Prop bolts are torqued and safety-wired. A wood prop shrinks and swells, so check the torque again after the first few hours.",
+	"stale_fuel": "Old gas turns to varnish that clogs the carburetor: drain all of it, don't just top it up.",
+	"pre_oil": "After years of sitting there's no oil on the cam and bearings. Cranking it dry wipes them out.",
+	"door_pin": "Penetrant needs time to wick in. Forcing a rusted pin bends the hinge.",
+	"p_lead": "No drop on a mag means its P-lead isn't grounding it: that mag is live with the key off, and the prop can start the engine if anyone turns it by hand.",
+	"carb_heat": "Carb heat should cost a little rpm on the run-up. No drop means no hot air, and nothing to clear carburetor ice in flight.",
+}
 # Southeast and Midwest: fields cut out of solid woods.
 const THICK_WOODS := ["Atlanta", "Nashville", "Miami", "Wichita", "Omaha", "Chicago", "Fargo", "Minneapolis"]
 const HERO_TREES := 150  # full-detail trees around a field in the woods
 const WOODS_TREES := 80000  # 100x the plains count. Canopies already touch at this density, so it's also the cap
 # How you find each fault. Seen on the walk-around (clue = what you notice at that spot), or only
 # heard/felt on the run-up from the cockpit.
-const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs"]
+const RUNUP_FAULTS := ["battery", "starter", "avionics", "magneto", "spark_plugs", "p_lead", "carb_heat"]
 const CLUES := {
 	"tire": "the left tire is squashed flat on its rim",
 	"brakes": "orange rust and deep grooves on the right brake disc",
@@ -93,14 +136,17 @@ const CLUES := {
 	"windshield": "a long crack right across the windshield",
 	"control_cables": "the rudder flops loose; its cables feel slack",
 	"propeller": "a prop tip bent back and the blade edge chewed up",
-	"battery": "Master ON: nothing. No ammeter flicker, no lights. Battery's dead",
-	"starter": "Starter just clicks and won't turn the prop over",
+	"battery": "Starter clicks, and the panel lights dim to almost nothing while you hold it",
+	"starter": "Starter clicks, but the panel lights stay bright while you hold it",
 	"avionics": "Radio's dead silent, not even a hiss. The antenna's snapped too",
-	"magneto": "Mag check: big drop on the left mag, the engine nearly quits",
-	"spark_plugs": "Runs rough on both mags and puffs black smoke",
+	"magneto": "Mag check: big drop and rough running on the left mag",
+	"spark_plugs": "Mag check: big drop and rough running on the left mag",
 	"stale_fuel": "the sumped fuel smells like varnish and comes out dark",
 	"pre_oil": "an engine that sat this long can't be cranked dry: pull the plugs and pre-oil it first",
 	"door_pin": "the cabin door won't budge; the handle moves but the pin doesn't",
+	"p_lead": "Mag check: the right mag shows no drop at all",
+	"carb_heat": "Carb heat at 1700: no rpm drop at all",
+	"tmp_strut": "a hairline crack across the lift strut fork",
 }
 # Walk-around inspection spots, in plane-local coords (nose -Z), probed from the plane model.
 const ZONES := {
@@ -214,10 +260,32 @@ func _ready() -> void:
 		add_child(test)
 		test.run(self, args)
 	elif not "--monkey" in args:
+		_playlog = PLAYLOG_PATH
+		playlog("session start, day %.1f, $%d, %d rescued" % [day, money, rescued])
 		updater = Updater.new()
 		add_child(updater)
 		updater.available.connect(_offer_update)
 		updater.check()
+
+
+# ---------- playtest log ----------
+
+## Where each step of a hand-played session went, in real seconds, plus F8 notes. Never written by tests.
+const PLAYLOG_PATH := "user://playtest_log.txt"
+var _playlog := ""
+var _play_t := 0
+
+
+func playlog(what: String) -> void:
+	if _playlog == "":
+		return
+	var f := FileAccess.open(_playlog, FileAccess.READ_WRITE if FileAccess.file_exists(_playlog) else FileAccess.WRITE)
+	if not f:
+		return
+	var now := Time.get_ticks_msec()
+	f.seek_end()
+	f.store_line("%s  day %.2f  +%ds  %s" % [Time.get_datetime_string_from_system(), day, (now - _play_t) / 1000, what])
+	_play_t = now
 
 
 # ---------- auto-update ----------
@@ -355,6 +423,8 @@ func _spawn_job() -> void:
 		options = near
 	var t: Array = PLANE_TYPES[rng.randi() % PLANE_TYPES.size()]
 	var ids := FAULTS.keys().filter(func(id): return not id in NEGLECT_FAULTS)
+	if rescued < 2:  # learn the controls first: look-alike faults and hidden ones start on job 3
+		ids = ids.filter(func(id): return not SUSPECTS.has(id))
 	ids.shuffle()
 	var faults := ids.slice(0, 1 + rng.randi() % mini(4, 2 + rescued / 3))
 	# Some planes were just parked; others sat in the weather for years (Rebuild Rescue style):
@@ -369,18 +439,24 @@ func _spawn_job() -> void:
 	var cost := 0
 	for id in faults:
 		cost += FAULTS[id].cost
+	var hidden := ""  # sometimes the cowl comes off for one job and shows you another
+	if rescued >= 2 and faults.any(func(id): return id in ["spark_plugs", "oil_leak", "bird_nest", "starter", "magneto", "p_lead", "carb_heat"]) and rng.randf() < 0.35:
+		var pick := HIDDEN_CLUES.keys().filter(func(id): return not faults.has(id))
+		if pick.size() > 0:
+			hidden = pick[rng.randi() % pick.size()]
 	jobs.append({"city": options[rng.randi() % options.size()], "type": t[0], "faults": faults,
 		"fixed": {}, "found": {}, "checked": {}, "work": {}, "years": years, "washed": years == 0,
 		"spent": {"fuel": 0, "parts": 0, "mail": 0}, "fuel": rng.randf_range(0.03, 0.3), "parked": "apron",
-		"reward": int(round((t[1] + cost * 2.0 + years * 150) / 50.0)) * 50,
-		"deadline": day + 7 + rng.randi() % 9})
+		"reward": int(round((t[1] + cost + years * 150) / 50.0)) * 50, "owner": OWNERS[rng.randi() % OWNERS.size()], "tried": {}, "hidden": hidden,
+		"deadline": day + 4 + rng.randi() % 5})
 
 
 ## What the owner tells you on the radio: every fault's symptom, in random order.
 func _symptoms(job: Dictionary) -> String:
 	var s: PackedStringArray = []
 	for id in job.faults:
-		s.append(FAULTS[id].symptom)
+		if not FAULTS[id].symptom in s:  # look-alike faults sound the same to an owner
+			s.append(FAULTS[id].symptom)
 	var t := "; ".join(s)
 	var years: int = job.get("years", 0)
 	var sat := (" Sat out in the weather %d years." % years) if years > 0 else ""
@@ -389,6 +465,9 @@ func _symptoms(job: Dictionary) -> String:
 
 func _advance(days: float) -> void:
 	day += days
+	var bill := (floori(day) - floori(day - days)) * DAILY_COST  # charged as each new day starts
+	if bill > 0:
+		money = maxi(0, money - bill)
 	for j in jobs.duplicate():
 		if day > j.deadline:
 			jobs.erase(j)
@@ -419,6 +498,7 @@ const ARRIVAL_SECONDS := 0.7  # least time the arrival card stays up, so a fast 
 func _travel(job: Dictionary, cost: int) -> void:
 	if is_instance_valid(_loader):  # already on the way
 		return
+	playlog("fly to %s, $%d, faults %s" % [job.city, cost, ",".join(job.faults)])
 	money -= cost
 	_spend(job, "fuel", cost)
 	_close_panel()
@@ -570,31 +650,41 @@ func _hide_loading() -> void:
 	_bar = null
 
 
-## Walk-around inspection of one spot: reveals any faults there.
+## Walk-around inspection of one spot. The first time you go straight to the flashlight; after
+## that it's the work order, which offers another look.
 func _inspect_zone(zone: String) -> void:
 	standing_at = zone
 	if not current_job.get("washed", true):  # years of dirt and lichen hide everything
 		_say("It's caked in grime and lichen. You can't tell what's damage and what's dirt: wash it down first.")
 		_open_inspection()
 		return
-	if not current_job.checked.has(zone):
-		current_job.checked[zone] = true
-		_advance(0.05)
-		if not current_job:  # the owner gave up while you were looking
-			return
+	if current_job.checked.has(zone):
+		_open_inspection()
+		return
+	current_job.checked[zone] = true
+	playlog("inspect " + zone)
+	_look(zone)
+
+
+## The close look at one spot (work.gd, the look_<zone> scenes): you find what's wrong yourself,
+## by flashlight. Each look is about two hours, so skipping a spot saves real time: that's the gamble.
+func _look(zone: String) -> void:
+	if not _work_time(0.08):  # the owner gave up while you were looking
+		return
+	_open_work("look_" + zone, func():
 		var seen: PackedStringArray = []
 		for id in current_job.faults:
-			if FAULTS[id].zone == zone and not id in RUNUP_FAULTS:  # the rest only show on the run-up
-				current_job.found[id] = true
+			if FAULTS[id].zone == zone and current_job.found.has(id) and not current_job.fixed.has(id) and not id in RUNUP_FAULTS:
 				seen.append(CLUES[id])
 		_say(("%s: %s." % [ZONES[zone].name.capitalize(), "; ".join(seen)]) if seen.size() > 0
 			else "%s: nothing wrong you can see." % ZONES[zone].name.capitalize())
-	if current_job:
-		_open_inspection()
+		_save_game()
+		_open_inspection(zone))
 
 
 ## Bucket, brush and a hose: an afternoon's work, and then you can see what you bought.
 func _wash() -> void:
+	playlog("wash")
 	_advance(0.2)
 	if not current_job:
 		return
@@ -630,7 +720,11 @@ func _run_up() -> void:
 	var broken := func(id): return job.faults.has(id) and not job.fixed.has(id)
 	var hear := func(id):
 		job.found[id] = true
-		heard.append(CLUES[id])
+		var clue: String = CLUES[id]
+		if id in ["magneto", "spark_plugs", "p_lead"]:
+			clue = _mag_line(job)
+		if not clue in heard:
+			heard.append(clue)
 	if broken.call("door_pin"):  # you can't run it up from outside
 		hear.call("door_pin")
 		job.runup = "dead"
@@ -647,24 +741,126 @@ func _run_up() -> void:
 			hear.call("starter")
 			job.runup = "dead"
 		else:
-			for id in ["magneto", "spark_plugs"]:
+			for id in ["magneto", "spark_plugs", "p_lead", "carb_heat"]:
 				if broken.call(id):
 					hear.call(id)
 			if heard.is_empty():
-				heard.append("Fires right up, smooth on both mags, oil pressure in the green")
+				heard.append("Fires right up. %s, both smooth. Carb heat drops %d. Oil pressure in the green" % [_mag_line(job), carb_drop(job)])
 			job.runup = "ran"
+	for c in job.get("tried", {}):
+		job.tried[c] = true  # this run-up shows whether the swap cured it
 	log_clear()
 	log_line(". ".join(heard) + ("." if job.runup == "ran" else ". Can't run it up until that's fixed."))
+	playlog("run-up result: " + ". ".join(heard))
 	_save_game()
 	_open_inspection("cabin")
 
 
+## rpm lost on the left and right mag alone at 1700 rpm. Healthy: under the limit, close together.
+func mag_drops(job: Dictionary) -> Vector2i:
+	var d := Vector2i(75, 90)
+	var bad := func(id): return job.faults.has(id) and not job.fixed.has(id)
+	if bad.call("spark_plugs"):
+		d.x += 185  # plugs fouled on the left mag's side
+	if bad.call("magneto"):
+		d.x += 225
+	if bad.call("p_lead"):
+		d.y = 0  # the mag never switches off, so switching to the other one alone costs nothing
+	return d
+
+
+## rpm lost when carb heat is pulled at 1700. None if the cable's broken and the door never opens.
+func carb_drop(job: Dictionary) -> int:
+	return 0 if job.faults.has("carb_heat") and not job.fixed.has("carb_heat") else 75
+
+
+func _mag_line(job: Dictionary) -> String:
+	var d := mag_drops(job)
+	var say := func(n: int) -> String: return "no drop at all" if n == 0 else ("drops %d rpm and runs rough" % n if n > 175 else "drops %d" % n)
+	return "Mag check at 1700: left %s, right %s" % [say.call(d.x), say.call(d.y)]
+
+
+## Climb in for a run-up: start it, 1700 rpm, check each mag, shut down (ferry.gd, run-up mode).
+func _start_runup() -> void:
+	var job: Dictionary = current_job
+	if job.get("parked", "apron") == "hangar":
+		_say("Roll it out first. Never run an engine up inside the hangar.")
+		return
+	if job.faults.any(func(id): return id in ["door_pin", "pre_oil"] and not job.fixed.has(id)):
+		_run_up()  # you can't get in, or mustn't crank it: found from outside
+		return
+	_close_panel()
+	playlog("run-up start")
+	player.frozen = true
+	var before := plane.get_children()
+	_build_gauges()
+	ferry = Ferry.new()
+	ferry.mode = "runup"
+	ferry.process_mode = Node.PROCESS_MODE_PAUSABLE
+	add_child(ferry)
+	for id in ["battery", "starter"]:
+		if job.faults.has(id) and not job.fixed.has(id):
+			ferry.no_start = id
+			break
+	ferry.drops = mag_drops(job)
+	ferry.carb_drop = carb_drop(job)
+	ferry.radio_dead = job.faults.has("avionics") and not job.fixed.has("avionics")
+	ferry.runup_done.connect(_runup_done)
+	ferry.start(self, plane, visuals["propeller"].get_child(-1))
+	_cockpit_extra = plane.get_children().filter(func(c): return not before.has(c))
+	log_clear()
+	log_line("Start it, bring it up to 1700 rpm, check each mag and the carb heat.")
+
+
+var _cockpit_extra: Array = []  # gauges and the seat camera, cleared when you climb out of a run-up
+
+
+func _runup_done() -> void:
+	for c in _cockpit_extra:
+		if is_instance_valid(c):
+			c.queue_free()
+	_cockpit_extra = []
+	gauges.clear()
+	ferry.queue_free()
+	ferry = null
+	prompt.text = ""
+	sound.engine = 0.0
+	sound.stop_loop()
+	player.cam.make_current()
+	player.frozen = false
+	_run_up()
+
+
+## Taking the cowl off for one job, you find another behind it. You ring the owner, who pays for it.
+func _found_hidden() -> void:
+	var h: String = current_job.get("hidden", "")
+	if h == "":
+		return
+	current_job.hidden = ""
+	if current_job.faults.has(h):  # already on the work order
+		return
+	current_job.faults.append(h)
+	current_job.found[h] = true
+	var extra := int(round(FAULTS[h].cost * 1.2 / 50.0)) * 50
+	current_job.reward += extra
+	visuals[h].queue_free()
+	visuals[h] = _part_visual(h, false)
+	sound.chime()
+	log_line("%s. You call %s, who okays the extra work: +$%d." % [HIDDEN_CLUES[h], current_job.get("owner", "the owner"), extra])
+	_save_game()
+
+
 ## Opens the 2D work scene for this fault: real tools, every screw and bolt (scripts/work.gd).
 func _repair(id: String) -> void:
+	playlog("repair start " + id)
+	_open_work(id, func(): _work_done(id))
+
+
+func _open_work(scene: String, done: Callable) -> void:
 	_close_panel()
 	var w = Work.new()
-	w.setup(self, id, current_job)
-	w.finished.connect(func(): _work_done(id))
+	w.setup(self, scene, current_job)
+	w.finished.connect(done)
 	ui.add_child(w)
 	panel = w
 	panel_closable = true
@@ -682,13 +878,23 @@ func _work_time(days: float) -> bool:
 
 
 func _work_done(id: String) -> void:
+	playlog(("repair done " if current_job.faults.has(id) else "wrong guess, swapped ") + id)
+	if not current_job.faults.has(id):  # a suspect that wasn't the trouble: the part and the time are spent
+		current_job.tried[id] = false
+		current_job.runup = ""
+		sound.pen()
+		_say("Swapped the %s. Run it up again to see if that cured it." % FAULTS[id].part.to_lower())
+		_open_inspection(FAULTS[id].zone)
+		return
 	current_job.fixed[id] = true
+	if id in RUNUP_FAULTS:
+		current_job.runup = ""  # a run-up after the work proves the fix
 	if id == "stale_fuel":
 		current_job.fuel = 1.0  # you refilled it with fresh 100LL
 	_refresh_parts_table()
 	visuals[id].queue_free()
 	visuals[id] = _part_visual(id, true)
-	_say("Fixed: " + FAULTS[id].name)
+	_say("Fixed: %s. %s" % [FAULTS[id].name, WHY.get(id, "")])
 	sound.pen()  # signed off on the work order
 	sound.done_tone()
 	_open_inspection(FAULTS[id].zone)
@@ -713,6 +919,7 @@ func _start_ferry() -> void:
 	if not current_job.get("signed", false):
 		_say("The logbook isn't signed. Write it up before this plane goes anywhere.")
 		return
+	playlog("ferry flight start")
 	_close_panel()
 	player.frozen = true
 	env.sdfgi_enabled = false  # its light probes rebuild as the camera races along, which hitches the flight
@@ -774,16 +981,48 @@ func _ferry_done() -> void:
 
 
 ## The aircraft logbook entry: what was done, in your words, over your signature.
-func _open_signoff() -> void:
+## A maintenance record has to say what was done, to what data, and who did it (14 CFR 43.9).
+## You build it a line at a time; an inspector would hand back a wrong one, and so does this.
+const ENTRY_STEPS := [
+	["Done in accordance with", [["AC 43.13-1B and the manufacturer's data", ""],
+		["The owner's say-so", "The owner can't approve the method. Work is done to approved or acceptable data, like AC 43.13-1B."],
+		["How I've always done it", "Memory isn't data. Cite what you worked to, like AC 43.13-1B or the manual."]]],
+	["Signed by", [["You, with your mechanic certificate type and number", ""],
+		["Just your signature", "The entry needs your certificate type and number as well as your signature."],
+		["The owner, since it's their plane", "The person who did the work signs for it. That's you."]]],
+]
+
+
+func _open_signoff(step := 0) -> void:
+	if step == 0:
+		playlog("logbook entry")
 	var job: Dictionary = current_job
 	var work: PackedStringArray = []
 	for id in job.faults:
 		if job.fixed.has(id):
 			work.append(FAULTS[id].name)
-	_open_panel("Aircraft logbook", [["%s, at %s, day %d" % [job.type, job.city, floori(day)]],
-		["Work performed\n" + (", ".join(work) if work.size() > 0 else "Inspection only, no defects found.")],
-		["Inspection\nWalk-around: %d of %d spots checked. Engine run-up satisfactory." % [job.checked.size(), ZONES.size()]],
-		["Return to service\nI certify this aircraft has been inspected and is approved for return to service.", "Sign it", _sign_logbook, true]])
+	var rows := [["%s, at %s, day %d" % [job.type, job.city, floori(day)]],
+		["Work performed\n" + (", ".join(work) if work.size() > 0 else "Inspection only, no defects found.") + ". Ground run-up satisfactory."]]
+	if step < ENTRY_STEPS.size():
+		var s: Array = ENTRY_STEPS[step]
+		rows.append([s[0] + "..."])
+		var picks: Array = s[1].duplicate()
+		picks.sort_custom(func(a, b): return a[0] < b[0])  # alphabetical: the right one isn't always first
+		for p in picks:
+			rows.append([p[0], "Write this", func(): _entry_pick(step, p[1]), true])
+	else:
+		rows.append(["In accordance with AC 43.13-1B and the manufacturer's data. Approved for return to service.\nSigned, mechanic certificate type and number.", "Sign it", _sign_logbook, true])
+	_open_panel("Aircraft logbook", rows)
+
+
+func _entry_pick(step: int, wrong: String) -> void:
+	if wrong != "":
+		sound.sfx("deny")
+		_say("An inspector would hand that back. " + wrong)
+		_open_signoff(step)
+		return
+	sound.pen()
+	_open_signoff(step + 1)
 
 
 func _sign_logbook() -> void:
@@ -798,6 +1037,7 @@ func _sign_logbook() -> void:
 ## the pay, and the job reopens. Crashed: the job and the excess are gone, and you walk away.
 func _flight_failed(result: String) -> void:
 	var id: String = ferry.trouble
+	playlog("ferry flight %s, cause %s" % [result, id])
 	var job: Dictionary = current_job
 	_apply_graphics()
 	gauges.clear()
@@ -810,7 +1050,8 @@ func _flight_failed(result: String) -> void:
 	var hill := id == ""  # nothing failed: you flew it into rising ground
 	var what: String = "Flew into rising ground" if hill else FAULTS[id].name
 	var missed := "What happened\nThe land climbs away from the strip, and you stayed too low to clear it." if hill \
-		else "What you missed\n%s, at the %s. You never looked there." % [what, ZONES[FAULTS[id].zone].name]
+		else "What you missed\n%s, at the %s. %s" % [what, ZONES[FAULTS[id].zone].name,
+			"You looked there, and looked right past it." if job.checked.has(FAULTS[id].zone) else "You never looked there."]
 	if result == "crash":
 		var bill := mini(money, CRASH_BILL)
 		money -= bill
@@ -846,15 +1087,22 @@ func _flight_failed(result: String) -> void:
 ## Called when the ferry flight gets the plane airborne.
 func _sign_off() -> void:
 	var job: Dictionary = current_job
+	playlog("delivered, paid $%d" % job.reward)
 	money += job.reward
 	rescued += 1
 	jobs.erase(job)
 	current_job = null
 	var spent: Dictionary = job.get("spent", {})
-	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": job.reward,
+	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": job.reward, "owner": job.get("owner", "The owner"),
 		"work": job.faults.map(func(id): return FAULTS[id].name), "years": job.get("years", 0),
 		"fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "days": day - job.get("arrived", day)})
-	_say("The %s is back in the air! Owner paid $%d." % [job.type, job.reward])
+	var who: String = job.get("owner", "The owner")
+	_say("%s paid $%d. \"%s\"" % [who, job.reward, THANKS[rng.randi() % THANKS.size()]])
+	var earlier := logbook.filter(func(e): return e.pay > 0 and e.has("owner") and e.city != job.city)
+	if earlier.size() > 0 and rng.randf() < 0.4:  # now and then, word from a plane you saved before
+		var e: Dictionary = earlier[rng.randi() % earlier.size()]
+		var news := "Radio: %s in %s says the %s flew %d hours this season, not a squawk." % [e.owner, e.city, e.type, rng.randi_range(12, 60)]
+		get_tree().create_timer(9.0).timeout.connect(func(): if is_node_ready(): log_line(news))
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
 	sound.chime()  # a new call on the radio
@@ -890,10 +1138,25 @@ func _open_ending() -> void:
 
 func _open_game_over(cheapest: int) -> void:
 	sound.low_tone()
-	_open_panel("Out of money and grounded. Game over.", [["You rescued %d of %d planes\nThat work still counts: every one is in your logbook." % [rescued, GOAL]],
+	_open_panel("Out of money and grounded", [["You rescued %d of %d planes\nThat work still counts: every one is in your logbook." % [rescued, GOAL]],
 		["What happened\nYou have $%d. The cheapest flight to a call costs $%d, and you can't afford to finish the job here." % [money, cheapest]],
 		["Next time\nKeep enough cash back to fly to the next call, and check the parts bill before you take a job."]]
-		+ _career_stats() + [["", "Play again", _restart, true], ["", "Main menu", _quit_to_title, true]], false)
+		+ _career_stats() + [["Odd jobs at the field here: %d days, +$%d" % [ODD_JOB_DAYS, ODD_JOB_PAY], "Take it", _odd_jobs, true],
+		["", "Start over", _restart, true], ["", "Main menu", _quit_to_title, true]], false)
+
+
+const ODD_JOB_DAYS := 3
+const ODD_JOB_PAY := 900  # covers the nearest call (under $600) with some left for parts
+
+
+## Broke is a setback, not the end: fuel planes and mow the strip for a few days. Calls may expire meanwhile.
+func _odd_jobs() -> void:
+	_close_panel()
+	money += ODD_JOB_PAY
+	_money_pop(ODD_JOB_PAY)
+	_advance(ODD_JOB_DAYS)
+	_say("%d days fueling planes and mowing the strip at %s. It pays the bills." % [ODD_JOB_DAYS, location])
+	playlog("broke: took odd jobs")
 
 
 func _can_finish_here() -> bool:
@@ -908,7 +1171,7 @@ func _can_finish_here() -> bool:
 			continue
 		if f.part != "" and inventory.get(f.part, 0) == 0:
 			need += _price(id)
-		var n: Array = Work.needs_for(id)
+		var n: Array = Work.needs_for(id, f)
 		tools_needed.merge(n[0])
 		for m in n[1]:
 			mats_needed[m] = mats_needed.get(m, 0) + n[1][m]
@@ -937,8 +1200,7 @@ var _pending_update := []  # an update offer that arrived while the title screen
 
 
 ## Design-doc palette (MyAP GDD): dark earth, aged paper, hangar green, worn brass,
-## fault red, serviceable green, pending amber. Clean DIN-style type on screen; the typewriter
-## face is only for the paper shop log on the hangar wall.
+## fault red, serviceable green, pending amber. Clean DIN-style type on screen.
 const C_EARTH := Color("1C1810")
 const C_PAPER := Color("F5F0E6")
 const C_GREEN := Color("2E5339")
@@ -946,7 +1208,6 @@ const C_BRASS := Color("C8B99A")
 const C_RED := Color("8B2020")
 const C_OK := Color("285A32")
 const C_AMBER := Color("8B6914")
-static var TYPE_FONT := _type_font()
 
 
 static var UI_FONT := _ui_font()
@@ -964,13 +1225,6 @@ static func _head_font() -> FontVariation:
 	f.base_font = UI_FONT
 	f.variation_embolden = 0.5
 	f.spacing_glyph = 1
-	return f
-
-
-static func _type_font() -> SystemFont:
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["Courier New", "Courier Prime", "Courier", "Nimbus Mono PS", "monospace"])
-	f.font_weight = 700
 	return f
 
 
@@ -1222,7 +1476,8 @@ func _setup_input() -> void:
 		"wallet": [KEY_TAB], "clipboard": [KEY_J], "logbook": [KEY_L],
 		"throttle_up": [KEY_W], "throttle_down": [KEY_S], "rudder_left": [KEY_A], "rudder_right": [KEY_D],
 		"stick_forward": [KEY_UP], "stick_back": [KEY_DOWN], "starter": [KEY_SPACE],
-		"fuel_valve": [KEY_F], "master": [KEY_M], "primer": [KEY_P], "mags": [KEY_I],
+		"fuel_valve": [KEY_F], "master": [KEY_M], "primer": [KEY_P], "mags": [KEY_I], "carb_heat": [KEY_H],
+		"playtest_note": [KEY_F8],
 	}
 	for action in keys:
 		if InputMap.has_action(action):
@@ -1260,17 +1515,22 @@ func _process(delta: float) -> void:
 	var kind: String = t.get_meta("kind") if t and t.has_meta("kind") else ""
 	if kind == "zone" and current_job == null:
 		kind = ""
+	var zone := _aimed_marker()
+	if zone == "" and kind == "zone":
+		zone = t.get_meta("zone")
+	if zone != "":
+		kind = "zone"
 	cross.set_live(kind != "")
-	_light_marker(t.get_meta("zone") if kind == "zone" else "")
+	_light_marker(zone)
 	if kind != "":
 		var icon: String = ACT_ICONS.get(kind, "")
 		if kind == "zone":
-			icon = "wrench" if current_job.checked.has(t.get_meta("zone")) else "inspect"
+			icon = "wrench" if current_job.checked.has(zone) else "inspect"
 		_act_icon.texture = load("res://textures/hud/%s.svg" % icon)
 		act.visible = true
 	if kind != "" and Input.is_action_just_pressed("interact") and close_frame != Engine.get_process_frames():
 		match kind:
-			"zone": _inspect_zone(t.get_meta("zone"))
+			"zone": _inspect_zone(zone)
 			"shop": _open_shop()
 			"radio": _open_radio()
 			"map": _open_travel()
@@ -1280,6 +1540,9 @@ func _process(delta: float) -> void:
 
 
 func _input(e: InputEvent) -> void:  # before the GUI, so Tab isn't eaten by focus navigation
+	if e.is_action_pressed("playtest_note") and _playlog != "":
+		playlog("NOTE (F8): panel=%s spot=%s cockpit=%s" % [panel.get_class() if is_instance_valid(panel) else "none", standing_at, ferry.state if ferry else "no"])
+		log_line("Noted in the playtest log.")
 	if is_instance_valid(_loader):  # the field is half built: no panels until it's done
 		return
 	if panel is CatalogUI or panel is RadioUI:  # full-screen sets: the pocket keys don't reach through them
@@ -1627,7 +1890,7 @@ func _update_hud() -> void:
 	prompt.visible = prompt.text != ""
 	prompt.custom_minimum_size.x = 620.0 if ferry else 0.0  # flight numbers change every frame; a fixed box doesn't shake
 	msg.visible = msg.text != ""
-	var preflight: bool = ferry != null and ferry.state != "run" and panel == null
+	var preflight: bool = ferry != null and (ferry.state != "run" or ferry.mode == "runup") and panel == null
 	goal.visible = preflight
 	if preflight:
 		goal.text = ferry.checklist()
@@ -1723,6 +1986,7 @@ func _open_wallet() -> void:
 		have.append(Work.TOOLS[t])
 	rows.append(["Tool roll: " + (", ".join(have) if have.size() > 0 else "empty")])
 	rows.append(["Materials: " + ", ".join(["Safety wire", "Cotter pin", "Penetrant"].map(func(k): return "%s %d" % [k, inventory.get(k, 0)]))])
+	rows.append(["Hangar rent and insurance: $%d a day" % DAILY_COST])
 	rows.append(["", "Start a new career", _confirm_restart, true])
 	_open_panel("Wallet", rows)
 
@@ -2201,7 +2465,8 @@ func _switch_setting(key: String, back: Callable) -> void:
 func _open_controls() -> void:
 	_sub_panel("Controls", [["On foot\nW A S D walk, mouse looks, Space jumps, E uses what you're looking at."],
 		["Tab / J / L\nWallet, clipboard, logbook."], ["Esc\nPause. On a screen, closes it."],
-		["In a repair\nHold the left mouse to turn. Wheel or 1-6 switches tools."],
+		["On the walk-around\nSweep the flashlight over the plane and click anything that looks wrong, before the light runs out."],
+		["In a repair\nHold the left mouse to turn. Wheel or 1-6 switches tools.\nTorque wrench: click fast to bring the needle up, then keep it in the green."],
 		["Starting the engine\nF fuel, M master, P primer, I mags, W/S throttle, hold Space for the starter."],
 		["Flying\nW/S throttle, A/D rudder, Up arrow stick forward, Down arrow stick back."]], _open_pause)
 
@@ -2423,7 +2688,28 @@ func _marker_sprite(sprite_name: String, stops: Array, pixel: float) -> Sprite3D
 	return s
 
 
+const MARKER_REACH := 6.0  # meters
 var _lit_zone := ""
+
+
+## The spot whose marker is under the cursor, or "". Markers float above their spots and have no
+## body for the interact ray to hit, so this goes by where they sit on screen.
+func _aimed_marker() -> String:
+	if not plane or not current_job:
+		return ""
+	var cam: Camera3D = player.cam
+	var screen := get_viewport().get_visible_rect().size
+	var closest := 24.0 * screen.y / 720.0  # about the ring's radius
+	var aimed := ""
+	for z in ZONES:
+		var m: Label3D = plane.get_node_or_null("marker_" + z)
+		if not m or m.text == "" or cam.is_position_behind(m.global_position) or cam.global_position.distance_to(m.global_position) > MARKER_REACH:
+			continue
+		var off: float = cam.unproject_position(m.global_position).distance_to(screen / 2)
+		if off < closest:
+			closest = off
+			aimed = z
+	return aimed
 
 
 ## Lights the marker you're aiming at, the moment E would select it.
@@ -2454,25 +2740,34 @@ func _open_inspection(at := standing_at) -> void:
 	var rows := [["Owner reports: " + _symptoms(job)],
 		["Owner waits %d more day(s)" % maxi(0, ceili(job.deadline - day))],
 		["Walk-around: %d of %d spots checked" % [job.checked.size(), ZONES.size()]]]
+	var tried: Dictionary = job.get("tried", {})
+	var shown := {}
 	for id in job.faults:
-		if not job.found.has(id):
+		if not job.found.has(id) or shown.has(id):
 			continue
-		var f: Dictionary = FAULTS[id]
-		var icon: String = "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
 		if job.fixed.has(id):
-			rows.append(["OK  -  " + f.name, "", null, false, icon])
+			shown[id] = true
+			rows.append(["OK  -  " + FAULTS[id].name, "", null, false, _fault_icon(id)])
 			continue
-		var need := "No part needed" if f.part == "" else "Needs %s (have %d)" % [f.part, inventory.get(f.part, 0)]
-		if at == f.zone:
-			rows.append(["%s\n%s" % [f.name, need], "Work on it", func(): _repair(id), true, icon])
-		else:
-			rows.append(["%s\n%s. Work on it at the %s." % [f.name, need, ZONES[f.zone].name], "", null, false, icon])
+		var alt: String = SUSPECTS.get(id, "")
+		var could := [id]
+		if alt != "" and not tried.has(alt) and not job.fixed.has(alt):
+			could = [id, alt]
+			could.sort()  # alphabetical, so the order doesn't give the answer away
+		for c in could:
+			if not shown.has(c):
+				shown[c] = true
+				rows.append(_fault_row(c, at, could.size() > 1))
+	for c in tried:
+		rows.append(["Replaced: %s. %s" % [FAULTS[c].name, "It made no difference." if tried[c] else "Run it up again to see if that cured it."], "", null, false, _fault_icon(c)])
 	if not job.get("washed", true):
 		rows.append(["Sat %d years: filthy, lichen on the wings." % job.years, "Wash it down" if at != "" else "", _wash, at != ""])
+	elif at != "":
+		rows.append(["Not sure you saw everything on the %s? Another look is two more hours." % ZONES[at].name, "Look again", func(): _look(at), true])
 	var ran: bool = job.get("runup", "") == "ran"
 	var runup_text: String = "Run-up: " + {"": "not done yet", "dead": "wouldn't start", "ran": "engine runs"}[job.get("runup", "")]
 	if at == "cabin":
-		rows.append([runup_text, "Sit in & run it up", _run_up, true])
+		rows.append([runup_text, "Sit in & run it up", _start_runup, true])
 	else:
 		rows.append([runup_text + ". Done from the cabin."])
 	var all_checked: bool = job.checked.size() == ZONES.size() and ran
@@ -2500,6 +2795,19 @@ func _open_inspection(at := standing_at) -> void:
 	_open_panel(("Work order: " if at != "" else "Clipboard: ") + job.type + (("  (at the %s)" % ZONES[at].name) if at != "" else ""), rows, true,
 		"stamp_airworthy" if done and signed else ("stamp_inspected" if all_checked else ""))
 	_refresh_markers()
+
+
+func _fault_icon(id: String) -> String:
+	return "icon_" + id if ResourceLoader.exists("res://textures/icon_%s.png" % id) else ""
+
+
+func _fault_row(id: String, at: String, suspect: bool) -> Array:
+	var f: Dictionary = FAULTS[id]
+	var title: String = ("Suspect: " if suspect else "") + f.name
+	var need := "No part needed" if f.part == "" else "Needs %s (have %d)" % [f.part, inventory.get(f.part, 0)]
+	if at == f.zone:
+		return ["%s\n%s" % [title, need], "Work on it", func(): _repair(id), true, _fault_icon(id)]
+	return ["%s\n%s. Work on it at the %s." % [title, need, ZONES[f.zone].name], "", null, false, _fault_icon(id)]
 
 
 ## Each town's shed stocks only some parts (fixed per town); the rest come by mail, slower and dearer.
@@ -2595,6 +2903,8 @@ const CATALOG_BLURB := {
 	"propeller": "Laminated wood propeller, balanced and varnished, yellow tips.",
 	"stale_fuel": "Fresh blue 100LL, enough to fill a trainer's tanks.",
 	"door_pin": "Steel hinge pin with a new cotter. Soak the old one first.",
+	"p_lead": "Shielded magneto ground lead with terminal. Grounds the mag when the key is off.",
+	"carb_heat": "Push-pull carb heat control cable with clamp and swivel.",
 	"ratchet": "Quarter-inch drive with SAE sockets in a steel case.",
 	"torque": "Click type, 20 to 150 inch-pounds. Prop bolts need it.",
 	"pliers": "Twists safety wire tight in one pull, then cuts it clean.",
@@ -2733,7 +3043,10 @@ func _open_travel() -> void:
 		var cost := int(miles(location, job.city) * FUEL_PER_MILE)
 		can_fly = can_fly or money >= cost
 		var trip := miles(location, job.city) / 700.0
-		rows.append(["%s: %s, pays $%d. %d NM, %.1f days, owner waits %d\n%s" % [job.city, job.type, job.reward,
+		var parts := 0
+		for id in job.faults:
+			parts += FAULTS[id].cost
+		rows.append(["%s: %s, pays $%d, parts about $%d. %d NM, %.1f days, waits %d\n%s" % [job.city, job.type, job.reward, parts,
 			roundi(miles(location, job.city) * 0.869), trip, maxi(0, ceili(job.deadline - day)), _symptoms(job)],
 			"Fly ($%d)" % cost, func(): _travel(job, cost), money >= cost])
 	if not can_fly and not _can_finish_here():
@@ -3055,7 +3368,6 @@ func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 		prop("crate_a", at + p, 1.0, tmat("wood_planks", Color(0.9, 0.8, 0.65), 1.5), r.randf_range(-0.3, 0.3))
 	_build_workbench(at + Vector3(3, 0, BACK + 0.65))
 	_lamp(at + Vector3(3, 2.9, BACK + 1.2))  # over the workbench
-	_build_shop_log(at + Vector3(5.3, 1.8, BACK + 0.08))
 	# A framed photo of an old rescue, sepia, over the desk.
 	box(world, Vector3(0.62, 0.5, 0.03), at + Vector3(1.1, 2.1, BACK + 0.07), tmat("wood_planks", Color(0.35, 0.22, 0.12), 2.0))
 	var photo := StandardMaterial3D.new()
@@ -3063,32 +3375,6 @@ func _build_hangar(at: Vector3, r: RandomNumberGenerator) -> void:
 	photo.albedo_color = Color(0.95, 0.78, 0.55)  # faded to sepia
 	photo.roughness = 0.9
 	box(world, Vector3(0.5, 0.38, 0.01), at + Vector3(1.1, 2.1, BACK + 0.09), photo)
-
-
-## The shop's own maintenance log, tacked to the back wall: years of entries by hands long gone.
-const SHOP_LOG := """SHOP LOG
-4/12  Replaced L mag. Timed 25 BTC. R.H.
-4/19  Tailwheel spring, new bolts, safetied. R.H.
-5/02  Owner says "runs funny". Fouled plugs. Cleaned, gapped. J.T.
-5/02  Same plane. Owner says still funny. Found mouse nest. J.T.
-6/11  Prop dressed, tracked within 1/16. R.H.
-7/04  Shop closed. Went flying."""
-
-
-func _build_shop_log(pos: Vector3) -> void:
-	box(world, Vector3(1.0, 1.25, 0.02), pos, tmat("paper_catalog", Color(0.92, 0.86, 0.72), 1.0))
-	var l := Label3D.new()
-	l.text = SHOP_LOG
-	l.font = TYPE_FONT
-	l.font_size = 20
-	l.pixel_size = 0.0022
-	l.modulate = C_EARTH
-	l.outline_size = 0
-	l.width = 420
-	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	l.position = pos + Vector3(0, 0, 0.02)
-	world.add_child(l)
 
 
 func _build_shed(at: Vector3) -> void:
@@ -3871,7 +4157,8 @@ func interactable(parent: Node, pos: Vector3, size: Vector3, kind: String) -> St
 func _icon3d(icon: String, pos: Vector3) -> void:
 	var s3 := Sprite3D.new()
 	s3.texture = load("res://textures/hud/%s.svg" % icon)
-	s3.pixel_size = 0.0026
+	s3.fixed_size = true
+	s3.pixel_size = 0.0008
 	s3.shaded = false
 	s3.visibility_range_end = 6.0  # only near enough to matter
 	s3.visibility_range_end_margin = 1.5

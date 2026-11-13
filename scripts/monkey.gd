@@ -136,7 +136,7 @@ func _visit(g) -> void:
 		"hangar": g._toggle_parked()
 		"zone": g._inspect_zone(g.ZONES.keys()[rng.randi() % g.ZONES.size()])
 		"repair": g._repair(j.faults[rng.randi() % j.faults.size()])
-		"runup": g._run_up()
+		"runup": g._start_runup() if randf() < 0.5 else g._run_up()
 		"sign": g._sign_logbook()
 		"fly":
 			g._close_panel()

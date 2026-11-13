@@ -28,7 +28,7 @@ func run(main, args: PackedStringArray) -> void:
 		print("ALL-FIELDS ", "PASS" if fields_ok else "FAIL", " seed=", g.test_seed)
 		get_tree().quit(0 if fields_ok else 1)
 		return
-	var edges_ok: bool = _edge_tests() and Work.spin_dir("tight") < 0.0 and Work.spin_dir("loose") > 0.0 and Work.spin_dir("snug") > 0.0
+	var edges_ok: bool = _edge_tests() and _torque_test() and _faults_test() and Work.spin_dir("tight") < 0.0 and Work.spin_dir("loose") > 0.0 and Work.spin_dir("snug") > 0.0
 	var job: Dictionary = g.jobs[0]
 	if "--all-faults" in args:  # every broken part on one plane, for screenshots
 		job.faults = g.FAULTS.keys()
@@ -57,6 +57,14 @@ func run(main, args: PackedStringArray) -> void:
 		marks_ok = marks_ok and ResourceLoader.exists("res://textures/hud/%s.svg" % icon)
 	g._light_marker("")
 	marks_ok = marks_ok and cabin_mark.get_node("ring").visible and not cabin_mark.get_node("glow").visible
+	var was_at: Vector3 = g.player.position  # aiming at the marker itself selects it, from outside the ray's reach
+	g.player.global_position = cabin_mark.global_position + Vector3(0, -1.65, -4.5)
+	g.player.cam.look_at(cabin_mark.global_position)
+	marks_ok = marks_ok and g._aimed_marker() == "cabin"
+	g.player.cam.look_at(cabin_mark.global_position + Vector3(3, 0, 0))
+	marks_ok = marks_ok and g._aimed_marker() != "cabin"
+	g.player.position = was_at
+	g.player.cam.rotation = Vector3.ZERO
 	g.log_clear()  # the engine log never shows more than two messages, live line included
 	for line in ["one", "two", "three"]:
 		g.log_line(line)
@@ -127,11 +135,15 @@ func run(main, args: PackedStringArray) -> void:
 		pockets_ok = pockets_ok and job.checked.is_empty() and job.found.is_empty()
 		g._wash()
 		pockets_ok = pockets_ok and job.washed
-	g._inspect_zone(first_zone)  # one spot: the work order shows only what that spot revealed
+	g._inspect_zone(first_zone)  # one spot: nothing is found until you look, then only what that spot shows
+	await _snap(shot, "look_" + first_zone)
+	pockets_ok = pockets_ok and g.panel is Work and job.found.is_empty() and g.panel.solve() and g.panel is PanelContainer
 	await _snap(shot, "inspect")
 	var ok: bool = pockets_ok and radio_ok and marks_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return g.FAULTS[id].zone == first_zone))
 	for z in g.ZONES:
 		g._inspect_zone(z)
+		if g.panel is Work:
+			ok = ok and g.panel.solve()
 	# The walk-around finds what you can see; the rest only shows on a run-up.
 	ok = ok and job.checked.size() == g.ZONES.size() and job.faults.all(func(id): return job.found.has(id) != (id in g.RUNUP_FAULTS))
 	g._run_up()
@@ -249,12 +261,48 @@ func run(main, args: PackedStringArray) -> void:
 		if id != id0:
 			g._repair(id)
 			await _snap(shot, "work_" + id, 0.1)
+			if id == "tmp_strut":
+				var tw = g.panel
+				tw.show_diagram = true
+				tw.queue_redraw()
+				await _snap(shot, "diagram", 0.1)
+				tw.show_diagram = false
+				tw.st.panel = "off"
+				tw.st.part_f0 = "snug"
+				tw.tool = "torque"
+				tw.hover = "part_f0"
+				tw.needle = 62.0
+				tw.green = 0.6
+				tw.set_process(false)
+				tw.queue_redraw()
+				await _snap(shot, "torque", 0.1)
+				tw.set_process(true)
+				tw.st.panel = "on"
+				tw.st.part_f0 = "tight"
 		var solved: bool = g.panel.solve()
 		ok = ok and solved and job.fixed.has(id)
 		if not solved:
 			print("WORK STUCK on ", id)
-	g._run_up()  # everything fixed: it should fire up and run clean now
-	ok = ok and job.runup == "ran"
+	g._start_runup()  # everything fixed: in the cockpit, 1700 rpm, each mag, and it runs clean
+	var rf = g.ferry
+	var runup_ok: bool = rf != null and rf.mode == "runup" and rf.no_start == ""
+	if rf:
+		rf.state = "run"
+		rf.throttle = (rf.RUNUP_RPM - 650.0) / 1700.0
+		for step in [[1, false], [2, false], [3, true], [3, false]]:
+			rf.mags = step[0]
+			rf.carb_heat = step[1]
+			rf._mag_t = 0.0
+			for i in 120:
+				rf._process(1.0 / 60.0)
+		runup_ok = runup_ok and rf._seen == [rf.drops.x, rf.drops.y, rf.carb_drop] and rf.drops.x < 150 and rf.drops.y > 0 and rf.carb_drop > 0
+		for i in 200:
+			if g.ferry == null:
+				break
+			rf._process(1.0 / 60.0)
+	ok = ok and runup_ok and g.ferry == null and job.runup == "ran"
+	if not runup_ok:
+		print("RUN-UP FAILED")
 	# Hangar: push it in (it moves inside, nose to the door), the truck refuses to fuel it
 	# indoors, then roll it back out.
 	g._move_plane("hangar")
@@ -361,8 +409,9 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "checklist", 0.3)
 	ok = await _start_failures() and ok
 	await _snap(shot, "engine_log", 0.1)
+	var before_fly: int = g.money  # rent has come out day by day since the start; the pay lands on top
 	await _fly(true, shot)
-	ok = ok and g.ferry == null and g.rescued == 1 and g.money == start + job.reward and g.jobs.size() == g.MAX_JOBS
+	ok = ok and g.ferry == null and g.rescued == 1 and g.money == before_fly + job.reward and g.money < start + job.reward and g.jobs.size() == g.MAX_JOBS
 	# The ending and game-over screens both leave a way out and can't be closed by accident.
 	var rescued_now = g.rescued
 	g.rescued = g.GOAL
@@ -370,6 +419,13 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "ending")
 	ok = ok and g.panel != null and not g.panel_closable
 	g.rescued = rescued_now
+	g._open_game_over(500)
+	var was := [g.money, g.day, g.jobs.duplicate(true)]
+	g._odd_jobs()  # broke is a setback: a few days' odd jobs pay for the next flight
+	ok = ok and g.money > was[0] and g.panel == null
+	g.money = was[0]
+	g.day = was[1]
+	g.jobs = was[2]
 	g._open_game_over(500)
 	await _snap(shot, "game_over")
 	ok = ok and g.panel != null and not g.panel_closable
@@ -668,10 +724,95 @@ func _edge_tests() -> bool:
 	g.current_job = g.jobs[0]
 	g._inspect_zone("gear_l")
 	ok = ok and g.current_job == null and g.panel == null  # before the fix this line ran after a script error
+	# 3. Look-alikes: a bad magneto reads like fouled plugs. Swapping the plugs is spent, the next
+	#    run-up shows no change, and the magneto is left as the one answer.
+	g.current_job = fake.call("magneto", g.day + 30)
+	g.current_job.merge({"tried": {}, "washed": true}, true)
+	g.jobs = [g.current_job]
+	g._run_up()
+	var mj: Dictionary = g.current_job
+	ok = ok and mj.found.has("magneto") and mj.runup == "ran" and g.mag_drops(mj).x > 175
+	g._work_done("spark_plugs")
+	ok = ok and mj.tried == {"spark_plugs": false} and mj.runup == "" and not mj.fixed.has("magneto")
+	g._run_up()
+	ok = ok and mj.tried == {"spark_plugs": true} and g.mag_drops(mj).x > 175
+	# 4. Hot mag and dead carb heat show only as zero drops on the run-up.
+	g.current_job = fake.call("p_lead", g.day + 30)
+	g.current_job.faults.append("carb_heat")
+	g.current_job.merge({"tried": {}, "washed": true}, true)
+	g.jobs = [g.current_job]
+	g._run_up()
+	mj = g.current_job
+	ok = ok and mj.found.has("p_lead") and mj.found.has("carb_heat") and g.mag_drops(mj).y == 0 and g.carb_drop(mj) == 0
+	# 5. The first two jobs have no look-alike faults and nothing hidden behind the cowl.
+	var was_rescued: int = g.rescued
+	g.rescued = 0
+	for i in 30:  # one at a time: each call takes a city
+		g.jobs = []
+		g._spawn_job()
+		ok = ok and g.jobs[0].hidden == "" and not g.jobs[0].faults.any(func(id): return g.SUSPECTS.has(id))
+	g.rescued = was_rescued
+	g._close_panel()
 	g.money = saved[0]
 	g.jobs = saved[1]
 	g.current_job = saved[2]
 	g.day = saved[3]
+	return ok
+
+
+## Every fault row can be played: the keys the game reads, a real zone, a clue. And one with no
+## scene of its own gets the access-panel one, with torqued bolts if its row gives a range.
+func _faults_test() -> bool:
+	var ok := true
+	for id in g.FAULTS:
+		var f: Dictionary = g.FAULTS[id]
+		if not f.has_all(["name", "part", "cost", "zone", "symptom"]) or not g.ZONES.has(f.get("zone", "")) or not g.CLUES.has(id):
+			print("FAULT ", id, ": needs name, part, cost, zone (one of main.ZONES), symptom, and a CLUES line")
+			ok = false
+		elif not Work.scenes().has(id):
+			print("fault ", id, ": no scene of its own in work.gd yet, repaired behind the access panel")
+	var row := {"part": "Widget", "torque": Vector2i(50, 70)}
+	var plain: Array = Work.scene_for("not_a_fault", row).els
+	return ok and plain.filter(func(e): return e.get("range", Vector2i.ZERO) == row.torque).size() == 4 \
+		and Work.needs_for("not_a_fault", row)[0].has_all(["ratchet", "torque", "screwdriver"]) \
+		and Work.scene_for("not_a_fault", {"part": ""}).els[0].type == "task"
+
+
+## The torque wrench: one pull sags away to nothing, mashing past the band backs a prop bolt off,
+## and tapping to keep the needle in the green for a second clicks it tight.
+func _torque_test() -> bool:
+	var saved = [g.current_job, g.tools]
+	g.current_job = {"city": g.location, "type": "Test", "faults": ["propeller"], "fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": 0, "deadline": g.day + 30}
+	g.tools = {"ratchet": true, "torque": true}
+	g._repair("propeller")
+	var w = g.panel
+	var bolt: Dictionary = w.els.filter(func(e): return e.get("torque", false))[0]
+	w.st.spinner = "off"  # the bolts are under the spinner and the safety wire
+	w.st.wire = "off"
+	w.st[bolt.id] = "snug"
+	w.tool = "torque"
+	w.hover = bolt.id
+	w._pull(bolt, w.action(bolt))
+	for i in 60:
+		w._process(0.1)
+	var ok: bool = w.st[bolt.id] == "snug" and w.needle == 0.0
+	for i in 20:
+		if w.st[bolt.id] == "snug":
+			w._pull(bolt, w.action(bolt))
+	ok = ok and w.st[bolt.id] == "loose" and w.needle == 0.0
+	w.st[bolt.id] = "snug"
+	for i in 100:
+		if w.st[bolt.id] != "snug":
+			break
+		if w.needle < bolt.range.x + 10:
+			w._pull(bolt, w.action(bolt))
+		w._process(0.05)
+	ok = ok and w.st[bolt.id] == "tight"
+	if not ok:
+		print("TORQUE test failed: bolt is ", w.st[bolt.id], ", needle ", w.needle)
+	g._close_panel()
+	g.current_job = saved[0]
+	g.tools = saved[1]
 	return ok
 
 

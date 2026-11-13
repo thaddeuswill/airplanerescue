@@ -9,6 +9,7 @@ extends Node
 
 signal finished
 signal failed(result: String)
+signal runup_done
 
 const LINE_UP_X := 70.0    # runway runs along X at z=20; the plane points -X down it
 const RUNWAY_END_X := -78.0
@@ -41,6 +42,18 @@ var _result := ""
 var _end_t := 0.0
 var _bank := 0.0
 
+var mode := "fly"  # "runup": start it on the chocks, check the mags, shut down
+var no_start := ""  # run-up: "battery" or "starter" keeps it from cranking
+var drops := Vector2i(75, 90)  # run-up: rpm lost on the left and right mag alone
+var radio_dead := false
+var carb_drop := 75  # run-up: rpm lost with carb heat pulled
+var carb_heat := false
+var _seen := [-1, -1, -1]  # the drops the pilot has held long enough to read: left, right, carb heat
+var _mag_t := 0.0
+var _done_t := -1.0
+var _warned := false
+var _radio_told := false
+const RUNUP_RPM := 1700.0
 var state := "off"  # off, hung, run
 var fuel_on := false
 var master := false
@@ -67,7 +80,8 @@ func start(m, p: Node3D, prop_node: Node3D) -> void:
 	cam.rotation.x = -0.1
 	plane.add_child(cam)
 	cam.make_current()
-	_line_up()
+	if mode == "fly":
+		_line_up()  # a run-up stays put, on the chocks
 
 
 func _line_up() -> void:
@@ -89,6 +103,9 @@ func toggle_fuel() -> void:
 func toggle_master() -> void:
 	master = not master
 	main.sound.sfx("click")
+	if master and radio_dead and not _radio_told:
+		_radio_told = true
+		main.log_line(main.CLUES.avionics + ".")
 
 
 func prime() -> void:
@@ -97,7 +114,12 @@ func prime() -> void:
 
 
 func next_mags() -> void:
-	mags = (mags + 1) % MAGS.size()
+	_mag_t = 0.0
+	_warned = false
+	if mode == "runup" and state == "run":
+		mags = mags % 3 + 1  # BOTH, LEFT, RIGHT, BOTH: a run-up never goes through OFF
+	else:
+		mags = (mags + 1) % MAGS.size()
 	main.sound.sfx("click")
 	if mags == 0 and state != "off":
 		_die("Mags off. The engine winds down.")
@@ -114,11 +136,25 @@ func _unhandled_input(e: InputEvent) -> void:
 		prime()
 	elif e.is_action_pressed("mags"):
 		next_mags()
+	elif e.is_action_pressed("carb_heat") and mode == "runup" and state == "run":
+		toggle_carb()
 
 
-## The card on screen until the engine is running.
+func toggle_carb() -> void:
+	carb_heat = not carb_heat
+	_mag_t = 0.0
+	_warned = false
+	main.sound.sfx("click")
+
+
+## The card on screen until the engine is running (and through a run-up).
 func checklist() -> String:
 	var box := func(on: bool) -> String: return "[x]" if on else "[  ]"
+	if mode == "runup" and state == "run":
+		var shown := func(i: int) -> String: return "-" if _seen[i] < 0 else "%d rpm" % _seen[i]
+		return "RUN-UP\n%s  W/S  Hold %d rpm: now %d\n%s  I  Left mag drop: %s\n%s  I  Right mag drop: %s\n%s  H  Carb heat drop: %s\n%s  I H  Back to BOTH, heat off\nMags: 175 drop max, 50 apart\nCarb heat: should drop some" % [
+			box.call(_at_rpm()), RUNUP_RPM, rpm, box.call(_seen[0] >= 0), shown.call(0), box.call(_seen[1] >= 0), shown.call(1),
+			box.call(_seen[2] >= 0), shown.call(2), box.call(mags == 3 and not carb_heat and not _seen.has(-1))]
 	return "BEFORE START\n%s  F  Fuel: %s\n%s  M  Master: %s\n%s  P  Prime 2-5 strokes: %d\n%s  W/S  Throttle cracked: %d%%\n%s  I  Mags: %s\nHold SPACE: starter" % [
 		box.call(fuel_on), "ON" if fuel_on else "OFF", box.call(master), "ON" if master else "OFF", box.call(primes >= 2 and primes <= 5), primes,
 		box.call(throttle >= 0.05 and throttle <= 0.4), roundi(throttle * 100), box.call(mags == 3), MAGS[mags]]
@@ -128,6 +164,12 @@ func _process(delta: float) -> void:
 	if _result != "":
 		_roll_out(delta)
 		return
+	if _done_t >= 0.0:  # the run-up's over: a moment to read it, then out
+		_done_t -= delta
+		if _done_t < 0.0:
+			done = true
+			runup_done.emit()
+		return
 	if done:
 		return
 	throttle = clampf(throttle + Input.get_axis("throttle_down", "throttle_up") * 0.6 * delta, 0.0, 1.0)
@@ -135,6 +177,9 @@ func _process(delta: float) -> void:
 		_starting(delta)
 		_spin(delta)
 		main.update_gauges(0.0, 0.0, rpm)
+		return
+	if mode == "runup":
+		_runup(delta)
 		return
 	if struck:
 		_forced_landing(delta)
@@ -170,6 +215,13 @@ func _starting(delta: float) -> void:
 			_judged = true
 			main.sound.sfx("deny")
 			main.log_line("Nothing. The master switch is off.")
+		return
+	if no_start != "":  # clicks and won't turn: the panel lights tell you which
+		if not _judged:
+			_judged = true
+			main.sound.sfx("click")
+			main.log_line(main.CLUES[no_start] + ".")
+			_done_t = 2.5
 		return
 	main.sound.loop("crank")
 	main.sound.engine = 0.12
@@ -244,6 +296,37 @@ func _die(text: String) -> void:
 	main.sound.sfx("deny")
 	main.log_live("")
 	main.log_line(text)
+
+
+func _at_rpm() -> bool:
+	return absf(650.0 + throttle * 1700.0 - RUNUP_RPM) <= 100.0
+
+
+## On the chocks at 1700: switch to each mag alone and read the drop off the tach.
+func _runup(delta: float) -> void:
+	var drop: int = (0 if mags == 3 else (drops.x if mags == 1 else drops.y)) + (carb_drop if carb_heat else 0)
+	var rough := 40.0 if drop > 150 else 0.0
+	rpm = lerpf(rpm, 650.0 + throttle * 1700.0 - drop + sin(Time.get_ticks_msec() * 0.03) * rough, minf(1.0, delta * 3.0))
+	_spin(delta)
+	main.sound.engine = clampf(rpm / 2350.0, 0.0, 1.0)
+	main.update_gauges(0.0, 0.0, rpm)
+	var testing := mags != 3 or carb_heat
+	if testing and not _at_rpm():
+		if not _warned:
+			_warned = true
+			main.log_line("Bring it up to %d first. A check at idle tells you nothing." % RUNUP_RPM)
+	elif testing:
+		_mag_t += delta
+		var which := 2 if mags == 3 else mags - 1  # carb heat is read on BOTH
+		if _mag_t >= 1.5 and _seen[which] < 0 and not (carb_heat and mags != 3):
+			_seen[which] = drop
+			if which == 2:
+				main.log_line("Carb heat: drops %d rpm." % drop)
+			else:
+				main.log_line("%s mag: %s." % [MAGS[mags].capitalize(), "no drop at all" if drop == 0 else "drops %d rpm%s" % [drop, " and runs rough" if rough > 0.0 else ""]])
+	if not _seen.has(-1) and mags == 3 and not carb_heat and _done_t < 0.0:
+		main.log_line("Run-up done. Throttle back and shut it down.")
+		_done_t = 2.0
 
 
 func _fly(delta: float) -> void:

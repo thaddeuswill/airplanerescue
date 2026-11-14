@@ -1023,7 +1023,9 @@ func _wash() -> void:
 func _grime(on: bool) -> void:
 	var m: Material = null
 	if on:
-		var dirt := tmat("grime_lichen", Color(1, 1, 1, 0.95), 0.6)  # years of grime and lichen; texture alpha = coverage
+		# Years of grime and lichen; texture alpha = coverage. Kept fine and partly see-through, so it
+		# reads as dull, dirty paint rather than a camouflage pattern.
+		var dirt := tmat("grime_lichen", Color(0.85, 0.8, 0.7, 0.62), 1.4)
 		dirt.roughness = 1.0
 		dirt.metallic = 0.0
 		dirt.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -4636,6 +4638,8 @@ func _setup_environment() -> void:
 	sun.directional_shadow_max_distance = 90.0  # the tree shadow pass was the costliest part of the frame
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	sun.light_energy = 1.35  # strong warm key against the blue fill = warm/cool contrast
+	sun.light_angular_distance = 0.8  # the sun has a size: shadow edges soften with distance (Vulkan/Metal)
+	sun.shadow_blur = 1.6  # and a little blur on the basic renderer, which has no soft shadows
 	add_child(sun)
 	var vignette := TextureRect.new()  # soft dark corners pull the eye to the middle
 	var vg := GradientTexture2D.new()
@@ -4741,7 +4745,10 @@ const REGION_LIGHT := {
 	"plains": {"sun": Color(1.0, 0.85, 0.65), "fog": Color(0.92, 0.8, 0.62), "elev": -20.0, "haze": 750.0},
 	"desert": {"sun": Color(1.0, 0.8, 0.55), "fog": Color(0.96, 0.76, 0.55), "elev": -19.0, "haze": 600.0},
 	"forest": {"sun": Color(1.0, 0.9, 0.75), "fog": Color(0.72, 0.8, 0.7), "elev": -18.0, "haze": 650.0},
-	"snow": {"sun": Color(0.95, 0.93, 0.92), "fog": Color(0.86, 0.88, 0.93), "elev": -14.0, "haze": 700.0},
+	"snow": {"sun": Color(0.95, 0.93, 0.92), "fog": Color(0.86, 0.88, 0.93), "elev": -14.0, "haze": 700.0,
+		# Snow throws light back up: brighter, paler fill so shadows go blue-gray instead of black,
+		# and a touch less exposure so the open snow doesn't glare.
+		"amb": 1.3, "amb_color": Color(0.68, 0.76, 0.95), "exposure": 0.86},
 }
 
 
@@ -4752,6 +4759,9 @@ func _apply_light(region_name: String) -> void:
 	env.fog_light_color = l.fog
 	env.fog_depth_begin = 190.0  # about 30% of the ~650 m view: clear near, hazy far
 	env.fog_depth_end = l.haze  # meters to full haze
+	env.ambient_light_energy = l.get("amb", 0.8)
+	env.ambient_light_color = l.get("amb_color", Color(0.45, 0.58, 0.95))
+	env.tonemap_exposure = l.get("exposure", 1.0)
 
 
 func _load_field(city: String, job) -> void:

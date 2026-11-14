@@ -1090,6 +1090,18 @@ func _scene_tests() -> bool:
 	ok = ok and g.panel.solve() and stj.fixed.has("spark_plugs") and g.cowl_closed(stj)
 	g._close_panel()
 	g.station_zone = ""
+	# Instruments: owning the compression tester isn't enough, it has to be in your hand.
+	var ij: Dictionary = fake.call(["worn_rings"])
+	ij.found["worn_rings"] = true
+	g.tools["tester"] = true
+	g.held = ""
+	g._open_work("compression", func(): pass)
+	var iw = g.panel
+	ok = ok and iw is Work and not iw.usable("tester") and iw.usable("ratchet")
+	g._hold("tester")
+	ok = ok and g.held == "tester" and iw.usable("tester") and not iw.usable("timing")
+	g.held = ""
+	g._close_panel()
 	# Easy: the boss won't let you start what you know isn't ready, and nothing breaks.
 	g.difficulty = "easy"
 	var ej: Dictionary = fake.call(["pre_oil"])

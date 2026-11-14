@@ -230,10 +230,10 @@ func _build_toolbar() -> void:
 	var n := 0
 	for t in TOOLS:
 		n += 1
-		var owned: bool = t == "hand" or main.tools.has(t)
+		var owned := usable(t)
 		var b := Button.new()
 		b.text = "%d  %s" % [n, SHORT.get(t, TOOL_SHORT.get(t, TOOLS[t]))]
-		b.tooltip_text = TOOLS[t] if owned else "%s: not in your roll yet. Buy it from the hangar toolbox." % TOOLS[t]
+		b.tooltip_text = TOOLS[t] if owned else _where(t)
 		b.toggle_mode = true
 		b.button_pressed = t == tool
 		b.disabled = not owned
@@ -248,6 +248,23 @@ func _build_toolbar() -> void:
 			b.icon = load(icon)
 			b.add_theme_constant_override("icon_max_width", 48)
 		toolbar.add_child(b)
+
+
+## A tool you can use here: your hands, a hand tool in your roll, or the one test instrument in
+## your hand (main.held). The instruments stay in the red toolbox by the plane until you take one.
+func usable(t: String) -> bool:
+	if t == "hand":
+		return true
+	if not main.tools.has(t):
+		return false
+	return not t in main.INSTRUMENTS or main.held == t
+
+
+## Where a tool you can't use right now is.
+func _where(t: String) -> String:
+	if not main.tools.has(t):
+		return "%s: not in your roll yet. Buy it at a parts counter or from the hangar catalog." % TOOLS[t]
+	return "%s: in the red toolbox by the plane. Go take it in hand." % TOOLS[t]
 
 
 func _pick_tool(t: String) -> void:
@@ -633,6 +650,9 @@ func solve() -> bool:
 		finished.emit()
 		return true
 	holding = true  # the test fits parts straight from the bench
+	for e in els:  # and carries the instrument this job needs, as you'd fetch it from the toolbox
+		if e.get("tool", "") in main.INSTRUMENTS:
+			main.held = e.tool
 	var placed := {}  # pieces put back mid-job (a valve back on, its line nuts in): don't undo them
 	for _i in 3000:
 		if done(true):
@@ -665,7 +685,7 @@ func _solve_step(apart: bool, placed: Dictionary) -> String:
 				verb_ok = a.verb != "" and (a.verb == "on") == apart
 			if verb_ok and a.verb in ["off", "out", "loosen"] and placed.has(e.id):
 				verb_ok = false
-			if verb_ok and (a.tool == "hand" or main.tools.has(a.tool)) and a.tool == tool:
+			if verb_ok and usable(a.tool) and a.tool == tool:
 				if not perform(e, a.verb):
 					return "!"
 				return e.id
@@ -765,7 +785,7 @@ func _gui_input(ev: InputEvent) -> void:
 				main.sound.sfx("deny")
 			elif a.tool != tool:
 				note = ("Use the %s for that%s." % [TOOLS[a.tool],
-					"" if a.tool == "hand" or main.tools.has(a.tool) else " (it's in the hangar toolbox)"]) if main.guide("medium") else "Wrong tool for that."
+					"" if usable(a.tool) else (" (in the red toolbox by the plane)" if main.tools.has(a.tool) else " (not in your roll yet)")]) if main.guide("medium") else "Wrong tool for that."
 				main.sound.sfx("deny")
 			elif a.has("range"):
 				_pull(e, a)
@@ -1241,8 +1261,8 @@ func _draw_hover(e: Dictionary) -> void:
 		how = _verb_text(e, a.verb)
 	elif a.verb != "":
 		how = "%s  [%s%s]" % [_verb_text(e, a.verb), TOOLS[a.tool], ", click fast: keep the needle in the green" if a.has("range") else ", hold" if a.hold > 0 else ""]
-		if a.tool != "hand" and not main.tools.has(a.tool):
-			how += "  - get it from the hangar toolbox"
+		if not usable(a.tool):
+			how += "  - " + ("take it from the red toolbox by the plane" if main.tools.has(a.tool) else "not in your roll yet")
 			bad = true
 	elif not main.guide("medium"):
 		how = "Not yet." if st[e.id] != "done" and a.why != "" else "Nothing to do here."

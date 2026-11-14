@@ -487,7 +487,7 @@ func _install_update() -> void:
 
 var save_path := "user://airplane_rescue.save"
 var test_seed := 0  # printed with every self-test result
-const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty"]
+const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held"]
 const SAVE_VERSION := 1  # bump when the layout changes, and teach _migrate the step
 var _greeting := ""  # the first message of this session
 var had_save := false  # a career was loaded at launch (so the title screen offers Continue)
@@ -2513,6 +2513,7 @@ func _process(delta: float) -> void:
 			"radio": _open_radio()
 			"map": _open_travel()
 			"toolbox": _open_toolbox()
+			"kit": _open_kit()
 			"truck": _open_truck()
 			"parts_table": _open_parts_table()
 
@@ -2626,7 +2627,7 @@ func _setup_ui() -> void:
 	strip.offset_top = 18
 
 
-const ACT_ICONS := {"shop": "shop", "radio": "radio", "map": "map", "toolbox": "toolbox", "truck": "fuel", "parts_table": "parts"}
+const ACT_ICONS := {"shop": "shop", "radio": "radio", "map": "map", "toolbox": "toolbox", "truck": "fuel", "parts_table": "parts", "kit": "toolbox"}
 var act: Control  # what E will do here, under the cursor
 var _act_icon: TextureRect
 var quest: Control  # what to do next, top left
@@ -2891,6 +2892,7 @@ func _update_hud() -> void:
 	_log.visible = has_lines and (preflight or Time.get_ticks_msec() < _log_until)
 	quest.visible = hud.visible
 	_update_squawk()
+	held_label.text = ("IN HAND: " + SUPPLIES[held].name.to_upper()) if held != "" else ""
 	if quest.visible:
 		var next := _objective()
 		_quest_icon.texture = load("res://textures/hud/%s.svg" % next[0])
@@ -2948,6 +2950,9 @@ func _update_squawk() -> void:
 			squawk.size = Vector2.ZERO
 
 
+var held_label: Label
+
+
 ## Bottom-left: what you carry, as icons, each with the key that opens it.
 func _setup_pockets() -> void:
 	var strip := HBoxContainer.new()
@@ -2963,6 +2968,11 @@ func _setup_pockets() -> void:
 		key.position = Vector2(20 if p[1] == "Tab" else 28, 27)
 		icon.add_child(key)
 		strip.add_child(icon)
+	held_label = Style.label("", "hud", Style.SIZE_SM, 800)  # the instrument in your hand, by your pockets
+	held_label.add_theme_constant_override("outline_size", 4)
+	held_label.add_theme_color_override("font_outline_color", Style.COLOR_SURFACE_HUD)
+	held_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	strip.add_child(held_label)
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud = strip
 	ui.add_child(hud)
@@ -4127,6 +4137,36 @@ func _price(id: String) -> int:
 	return FAULTS[id].cost if _stocked(id) else int(FAULTS[id].cost * 1.25)
 
 
+# ---------- test instruments: one in hand at a time ----------
+
+## The test instruments. Hand tools ride in your roll; these live in the red toolbox by the plane,
+## and only the one in your hand works: its tests show up on the parts it fits, nothing else does.
+## (docs/quick-specs/engine-bay-proposal-2026-11-14.md, tool-gating.)
+const INSTRUMENTS := ["tester", "timing", "punch"]
+var held := ""  # the instrument in your hand ("" = none)
+
+
+func _open_kit() -> void:
+	var rows := [["Your test instruments. Take one in hand; its tests show up on the parts it fits."]]
+	for t in INSTRUMENTS:
+		var name: String = SUPPLIES[t].name
+		if not tools.has(t):
+			rows.append(["%s: not in the box. Buy one at a parts counter or from the hangar catalog." % name])
+		elif held == t:
+			rows.append(["%s: in your hand." % name, "Put it back", func(): _hold(""), true])
+		else:
+			rows.append([name, "Take it", func(): _hold(t), true])
+	_open_panel("Toolbox", rows)
+
+
+func _hold(t: String) -> void:
+	held = t
+	sound.sfx("tray")
+	_say(("You've got the %s." % SUPPLIES[t].name.to_lower()) if t != "" else "Put it back in the box.")
+	_save_game()
+	_open_kit()
+
+
 ## The hangar toolbox: take tools into your roll (they travel with you) or put them back.
 ## Tools and the materials repairs use up. Nothing is free: buy at a parts shed that stocks
 ## it, or mail-order it from the hangar (1 day, +25%). You start with a screwdriver and a rag.
@@ -4952,6 +4992,13 @@ func _build_plane(job: Dictionary) -> void:
 		plane.rotation = Vector3(SIT_PITCH, PI / 2, 0)  # nose down the runway (-X), resting back on the tailwheel
 		plane.position = Vector3(0, MAIN_Z * sin(SIT_PITCH), 8)  # keeps the main tires on the ground
 	world.add_child(plane)
+	# Your red toolbox, set down on the ground by the nose wherever the plane sits. The test
+	# instruments live in it: you walk over and take one in hand (see _open_kit).
+	var level := Node3D.new()
+	level.rotation.x = -SIT_PITCH  # undo the sit pitch: the box stands on the ground, not tilted
+	plane.add_child(level)
+	model(level, "toolbox", Vector3(-1.9, 0, -1.6), 0.8, Vector3(0, PI / 2, 0), tmat("toolbox_red", Color.WHITE, 1.5))
+	interactable(level, Vector3(-1.9, 0.45, -1.6), Vector3(1.0, 0.9, 1.0), "kit")
 	# FlightGear J-3 Cub (GPL, real scale: 10.65 m span). Model faces -X with wings along Z;
 	# turned so the nose is -Z. Plane origin = between the main tires on the ground.
 	# Probed parts (plane space): tyres x=Â±0.9 z=0, nose z=-1.33, cowl z -1.16..-0.69,

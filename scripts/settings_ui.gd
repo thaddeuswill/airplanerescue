@@ -4,6 +4,11 @@ extends Control
 ## user://settings.cfg by main.set_setting(). Opened from the title screen and the pause menu.
 
 const SHEET := Vector2(1060, 660)
+const CONTROL := Vector2(300, 44)  # every control in one column, one width, one 44 px target
+const VALUE_W := 72.0  # a slider's readout, inside the control width
+const GUTTER := 20  # clear of the scrollbar
+const OUTLINE := 0.6  # ink alpha for a quiet control's edge: 4.2:1 on paper (UI parts need 3:1)
+const TRACK := 0.55  # ink alpha for a slider's empty track: 3.6:1
 const TABS := [["video", "Graphics & video"], ["audio", "Audio"], ["controls", "Controls"],
 	["game", "Gameplay & interface"], ["access", "Accessibility"]]
 ## Keys you can rebind, grouped by where they're used. A key may repeat across groups (W walks
@@ -67,16 +72,20 @@ func setup(m, back_to: Callable, start := "video") -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(scroll)
+	var gutter := MarginContainer.new()
+	gutter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gutter.add_theme_constant_override("margin_right", GUTTER)
+	scroll.add_child(gutter)
 	rows = VBoxContainer.new()
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rows.add_theme_constant_override("separation", Style.SPACE_2)
-	scroll.add_child(rows)
+	rows.add_theme_constant_override("separation", Style.SPACE_3)
+	gutter.add_child(rows)
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", Style.SPACE_3)
 	col.add_child(foot)
 	var reset := Button.new()
 	reset.text = "Restore this tab's defaults"
-	Style.button(reset, "quiet")
+	_quiet(reset)
 	reset.custom_minimum_size.y = 44
 	reset.pressed.connect(func():
 		main.reset_settings(tab)
@@ -100,8 +109,12 @@ func _build() -> void:
 	for t in TABS:
 		var b := Button.new()
 		b.text = t[1].to_upper()
-		Style.button(b, "primary" if t[0] == tab else "quiet")
-		b.custom_minimum_size.y = 44
+		if t[0] == tab:
+			Style.button(b, "primary")
+		else:
+			_quiet(b)
+		b.add_theme_font_size_override("font_size", Style.BUTTON_QUIET_FONT_SIZE)  # the fill marks the tab, not a size jump
+		b.custom_minimum_size.y = CONTROL.y
 		b.pressed.connect(func():
 			tab = t[0]
 			_build())
@@ -166,8 +179,8 @@ func _tab_controls() -> void:
 			_bind(a[0], a[1], g[1])
 	var reset := Button.new()
 	reset.text = "Reset all keys"
-	Style.button(reset, "quiet")
-	reset.custom_minimum_size.y = 44
+	_quiet(reset)
+	reset.custom_minimum_size.y = CONTROL.y
 	reset.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	reset.pressed.connect(func():
 		main.set_setting({}, "keys")
@@ -195,11 +208,23 @@ func _tab_access() -> void:
 
 # ---------- rows ----------
 
+## A quiet control with a visible edge (the fill alone is 1.27:1 on paper).
+func _quiet(b: Button) -> void:
+	Style.button(b, "quiet")
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var sb: StyleBoxFlat = b.get_theme_stylebox(state).duplicate()
+		sb.border_color = Color(Style.COLOR_TEXT_PAPER, OUTLINE * (0.5 if state == "disabled" else 1.0))
+		sb.set_border_width_all(1)
+		b.add_theme_stylebox_override(state, sb)
+
+
 func _row(text: String, note := "") -> HBoxContainer:
 	var hb := HBoxContainer.new()
+	hb.custom_minimum_size.y = CONTROL.y
 	hb.add_theme_constant_override("separation", Style.SPACE_4)
 	var lab := VBoxContainer.new()
 	lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lab.size_flags_vertical = Control.SIZE_SHRINK_CENTER  # level with the control beside it
 	lab.add_theme_constant_override("separation", 0)
 	lab.add_child(Style.label(text, "body", Style.SIZE_MD, 700))
 	if note != "":
@@ -225,8 +250,9 @@ func _note(text: String) -> void:
 func _choice(text: String, key: String, options: Array, locked := false, note := "") -> void:
 	var hb := _row(text, note)
 	var ob := OptionButton.new()
-	ob.custom_minimum_size = Vector2(300, 40)
-	Style.button(ob, "quiet")
+	ob.custom_minimum_size = CONTROL
+	ob.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_quiet(ob)
 	ob.add_theme_font_size_override("font_size", Style.SIZE_MD)
 	var cur = main.get_setting(key)
 	for i in options.size():
@@ -240,42 +266,52 @@ func _choice(text: String, key: String, options: Array, locked := false, note :=
 	hb.add_child(ob)
 
 
+## Two halves, OFF and ON: both choices visible, the current one filled (and named in words).
 func _toggle(text: String, key: String) -> void:
 	var hb := _row(text)
-	var b := Button.new()
-	b.toggle_mode = true
-	b.button_pressed = main.get_setting(key)
-	b.text = "ON" if b.button_pressed else "OFF"
-	b.custom_minimum_size = Vector2(110, 40)
-	Style.button(b, "primary" if b.button_pressed else "quiet")
-	b.toggled.connect(func(on):
-		main.set_setting(on, key)
-		_build.call_deferred())
-	hb.add_child(b)
+	var pair := HBoxContainer.new()
+	pair.add_theme_constant_override("separation", 0)
+	pair.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var on: bool = main.get_setting(key)
+	for side in [false, true]:
+		var b := Button.new()
+		b.text = "ON" if side else "OFF"
+		b.custom_minimum_size = Vector2(CONTROL.x / 2, CONTROL.y)
+		if side == on:
+			Style.button(b, "primary")
+			b.add_theme_font_size_override("font_size", Style.BUTTON_QUIET_FONT_SIZE)
+		else:
+			_quiet(b)
+		b.pressed.connect(func():
+			if side != on:
+				main.set_setting(side, key)
+				_build.call_deferred())
+		pair.add_child(b)
+	hb.add_child(pair)
 
 
 func _slider(text: String, key: String, lo: float, hi: float, step: float, fmt: String, mult: float) -> void:
 	var hb := _row(text)
 	var sl := HSlider.new()
-	sl.custom_minimum_size = Vector2(240, 40)
+	sl.custom_minimum_size = Vector2(CONTROL.x - VALUE_W - Style.SPACE_4, CONTROL.y)
 	sl.min_value = lo
 	sl.max_value = hi
 	sl.step = step
 	sl.value = main.get_setting(key)
 	var track := StyleBoxFlat.new()
-	track.bg_color = Color(Style.COLOR_TEXT_PAPER, 0.25)
-	track.content_margin_top = 3
-	track.content_margin_bottom = 3
+	track.bg_color = Color(Style.COLOR_TEXT_PAPER, TRACK)
+	track.content_margin_top = 4
+	track.content_margin_bottom = 4
 	sl.add_theme_stylebox_override("slider", track)
 	var fill := StyleBoxFlat.new()
 	fill.bg_color = Style.COLOR_ACTION_PRIMARY
-	fill.content_margin_top = 3
-	fill.content_margin_bottom = 3
+	fill.content_margin_top = 4
+	fill.content_margin_bottom = 4
 	sl.add_theme_stylebox_override("grabber_area", fill)
 	sl.add_theme_stylebox_override("grabber_area_highlight", fill)
 	hb.add_child(sl)
 	var val := Style.label(fmt % (sl.value * mult), "body", Style.SIZE_MD, 700)
-	val.custom_minimum_size.x = 72
+	val.custom_minimum_size.x = VALUE_W
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hb.add_child(val)
 	sl.value_changed.connect(func(v):
@@ -292,8 +328,9 @@ func _bind(action: String, text: String, group: Array) -> void:
 	var hb := _row(text, ("Same key as %s" % clash[0][1].to_lower()) if clash.size() > 0 else "")
 	var b := Button.new()
 	b.text = main.key_name(action)
-	b.custom_minimum_size = Vector2(160, 40)
-	Style.button(b, "quiet")
+	b.custom_minimum_size = CONTROL
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_quiet(b)
 	b.pressed.connect(func():
 		_waiting = action
 		_wait_button = b

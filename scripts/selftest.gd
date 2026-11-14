@@ -6,6 +6,7 @@ extends Node
 ## Started by main.gd; `g` is the running game.
 
 const Work := preload("res://scripts/work.gd")
+const Bay := preload("res://scripts/bay.gd")
 const Ferry := preload("res://scripts/ferry.gd")
 const Updater := preload("res://scripts/updater.gd")
 
@@ -177,18 +178,28 @@ func run(main, args: PackedStringArray) -> void:
 		pockets_ok = pockets_ok and job.washed
 	g._inspect_zone(first_zone)  # one spot: nothing is found until you look, then only what that spot shows
 	await _snap(shot, "look_" + first_zone)
-	pockets_ok = pockets_ok and g.panel is Work and job.found.is_empty() and g.panel.solve() and g.panel is PanelContainer
+	pockets_ok = pockets_ok and (g.panel is Work or g.panel is Bay) and job.found.is_empty() and g.panel.solve() and g.panel is PanelContainer
 	await _snap(shot, "inspect")
 	var ok: bool = pockets_ok and radio_ok and marks_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return g.FAULTS[id].zone == first_zone))
 	for z in g.ZONES:
 		g._inspect_zone(z)
-		if g.panel is Work:
+		if g.panel is Work or g.panel is Bay:
 			ok = ok and g.panel.solve()
-	if shot != "":  # the engine opened up, and one place in it with the way back
+	if shot != "":  # the engine bay: cowled, then each side opened up, and a part's card
 		g._open_station("engine")
-		await _snap(shot, "station")
-		g.station_open("engine", "magneto")
-		await _snap(shot, "station_place")
+		await _snap(shot, "bay_cowled")
+		g.bay_open_cowl()
+		for v in Bay.OPEN_VIEWS:
+			g.panel._go(v)
+			await _snap(shot, "bay_" + v)
+		g.panel._go("left")
+		g.tools["tester"] = true
+		g.held = "tester"
+		g.panel._open_card(g.panel._part("plugs"), Vector2(420, 300))
+		await _snap(shot, "bay_card")
+		g.held = ""
+		g.panel._close_card()
+		g.bay_close_cowl()
 		g._close_panel()
 		g.station_zone = ""
 	if not g.guide("medium"):  # hard: no clues; you find things by opening up the right place
@@ -847,6 +858,9 @@ func _faults_test() -> bool:
 		var f: Dictionary = g.FAULTS[id]
 		if not f.has_all(["name", "part", "cost", "zone", "symptom"]) or not g.ZONES.has(f.get("zone", "")) or not (g.CLUES.has(id) or f.has("diags")):  # tests find the diags ones
 			print("FAULT ", id, ": needs name, part, cost, zone (one of main.ZONES), symptom, and a CLUES line (or diags)")
+			ok = false
+		elif f.zone == "engine" and not f.has("diags") and not id in g.RUNUP_FAULTS and not Bay.PARTS.values().any(func(ps): return ps.any(func(p): return id in p.look)):
+			print("FAULT ", id, ": a visible engine fault needs a part in bay.gd PARTS whose look lists it, or nobody can find it")
 			ok = false
 		elif not id in ["fod", "fabric_rot"] and not g.SQUAWKS.has(id):
 			print("FAULT ", id, ": needs a pilot squawk in main.SQUAWKS")

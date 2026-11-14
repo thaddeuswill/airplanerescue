@@ -115,3 +115,26 @@ Every fault gets one, written in that voice. Several faults on one plane combine
    look scenes. **Needs art**: one painted overview per engine side, plus the bottom, cut into regions.
 4. Visual tells: decal art per fault, placed at each depth. **Needs art**: oil weep, soot,
    blue stain, frayed lead, loose wire, at two sizes each.
+
+## Built (2026-11-14)
+
+Decisions taken where the questions went unanswered (change them if they're wrong):
+- **Painted 2D layers**, not 3D: the existing scene paintings are the bay's views.
+- **Hand tools in your roll, instruments in hand.** Screwdriver, ratchet, pliers, torque wrench and
+  rag ride in your roll, since one repair uses several in turn. The compression tester, timing
+  light and fabric punch live in the red toolbox by the plane (`main._open_kit`); you hold one at a
+  time, and only it works.
+
+What's in:
+1. **Squawks**: `main.SQUAWKS`, pinned top right (`main._update_squawk`). Self-test guards: every
+   reportable fault has one; a hidden fault's squawk never names it or its part.
+2. **Toolbox and instruments**: `main.INSTRUMENTS`, `main.held`, `work.gd usable()`.
+3. **The engine bay**: `scripts/bay.gd`, replacing the station grid and the flashlight look for the
+   engine. Cowled → unlatch (screwdriver) → left side, top, rear accessory case, underneath,
+   firewall. Each part offers what you can do there with what you carry; "Look closer" writes up a
+   visible fault. On Medium and Hard the work order sends engine work through the bay.
+4. **Tells**: drawn over the parts, stronger on Easy (with a glint), faint on Hard. Placeholders in
+   code until the art in `ART_PROMPTS.md` section 7 exists.
+
+Not yet: the other spots (cabin, gear, tail, wings, prop) still use the flashlight look and the
+station grid; the same treatment would fit them. A 3D cowl you physically unlatch.

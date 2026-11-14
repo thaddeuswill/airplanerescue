@@ -268,6 +268,14 @@ The tool roll shows a 96 x 96 icon per tool, and the mouse becomes that tool (48
 
 > Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Mouse cursor of the same tool (Timing light), held at an angle with its working end at the top-left corner (that's the click point). Transparent PNG, 48 x 48.
 
+**`textures/work/tool_punch.png`**, 96 x 96
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Tool-roll icon: a Maule-style fabric punch tester, a pen-sized steel plunger with a spring scale and a red-green band, lying diagonally on a dark cloth. Transparent background, 96 x 96 PNG.
+
+**`textures/work/cursor_punch.png`**, 48 x 48
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Mouse cursor: the same fabric punch tester, tip at the top-left corner. Transparent background, 48 x 48 PNG.
+
 ## 4. Pocket icons (HUD)
 
 Bottom-left strip, 64 x 64 each, in `textures/ui/`. None exist yet, so the strip shows text only.
@@ -374,3 +382,63 @@ Not wired in yet, but the jobs would read better on the walk-around with them (3
 - `textures/decal_danger_tag.png` (256 x 512): the red DANGER: PROP IS LIVE tag for a hot magneto.
 - `textures/decal_frayed_rope.png` (512 x 512): rotten, frayed tie-down rope for neglected planes.
 - Manual pictures (`textures/manual/ref_<job>.png`) for jobs the manual doesn't cover yet: ign_lead, primer_leak, stuck_valve, worn_rings, relief_valve, tie_down, compass, pitot_static, weight_balance, elevator_cable, fod. Those also need manual pages written.
+
+## 7. Engine bay fault tells
+
+The engine bay (`scripts/bay.gd`) paints a tell over a part when a visible fault is there. Until a file
+exists it draws a crude placeholder in code. Each is a transparent overlay, laid over the existing
+engine-bay views (the left side, top, rear, underneath and firewall scenes), stretched to the part's
+area. Paint the stain or object only, no background.
+
+**`textures/bay/tell_oil_leak.png`**, 200 x 120, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: Oil weeping out from under a rocker cover and running down the cylinder fins: dark, wet, glossy, with dust stuck in it. Also works smeared on yellow cowl fabric. No background, soft edges, 200 x 120 PNG.
+
+**`textures/bay/tell_oil_change.png`**, 80 x 140, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: Oil on a dipstick blade: black as tar, with a sooty smear. No background, soft edges, 80 x 140 PNG.
+
+**`textures/bay/tell_exhaust_check.png`**, 120 x 160, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: Gray-black exhaust soot streaking back from a crack in a steel exhaust pipe or muffler seam, with white-gray crust at the crack. No background, soft edges, 120 x 160 PNG.
+
+**`textures/bay/tell_fuel_line.png`**, 160 x 120, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: A blue 100LL avgas stain where fuel has leaked and dried: blue at the edges, wet in the middle, a drip line running down. No background, soft edges, 160 x 120 PNG.
+
+**`textures/bay/tell_jet_fuel.png`**, 140 x 120, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: A straw-colored kerosene stain and wet film, darker in the middle, on galvanized firewall metal. No background, soft edges, 140 x 120 PNG.
+
+**`textures/bay/tell_bird_nest.png`**, 220 x 160, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: A bird's nest of straw, twigs and a feather packed between cylinder fins, straw ends sticking out. No background, soft edges, 220 x 160 PNG.
+
+**`textures/bay/tell_baffles.png`**, 220 x 220, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: Mud dauber nests packed into cylinder cooling fins (tan clay tubes), and a loose orange baffle seal flapping. No background, soft edges, 220 x 220 PNG.
+
+**`textures/bay/tell_air_filter.png`**, 220 x 200, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: A carburetor air filter element caked gray with dust and grass chaff. No background, soft edges, 220 x 200 PNG.
+
+**`textures/bay/tell_fuel_strainer.png`**, 140 x 200, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: Rust-colored sediment settled in the bottom of a glass fuel strainer bowl. No background, soft edges, 140 x 200 PNG.
+
+**`textures/bay/tell_water_fuel.png`**, 140 x 200, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: Clear water beads sitting under blue fuel in a glass strainer bowl. No background, soft edges, 140 x 200 PNG.
+
+**`textures/bay/tell_fuel_vent.png`**, 60 x 60, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: A mud dauber nest plugging the end of a small aluminum fuel tank vent tube. No background, soft edges, 60 x 60 PNG.
+
+**`textures/bay/tell_storage.png`**, 60 x 120, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: A red REMOVE BEFORE FLIGHT streamer hanging from a blue dehydrator plug screwed into a spark plug hole. No background, soft edges, 60 x 120 PNG.
+
+**`textures/bay/tell_fod.png`**, 120 x 50, transparent
+
+> Style: painterly rural Americana, late-1940s Piper J-3 Cub with a Continental C85 engine, Cub yellow (#E8B820) fabric, worn but honest metal, light from the upper left with soft shadows falling down-right, straight-on flat view with no perspective, matching the existing Airplane Rescue job art kit. No text except stenciled labels that would really be there. Transparent overlay for a close-up engine inspection: A 7/16 socket wedged behind a cylinder baffle, catching the light. No background, soft edges, 120 x 50 PNG.
+

@@ -38,6 +38,7 @@ godot --headless --path . -- --self-test --difficulty=hard     # easy, medium (d
 |---|---|
 | `scripts/main.gd` | Game state, world, panels. `FAULTS` (every fault: name, part, cost, zone, symptom, diagnosis chain, `ground`, quiz), `TESTS` (inspections), `RUNUP_FAULTS`, `SUPPLIES`, `PLANE_TYPES`, save/load/migrate |
 | `scripts/work.gd` | The 2D work scenes. `scenes()` holds every job as data; the rules and drawing are generic |
+| `scripts/bay.gd` | The engine bay: cowled → open → left, top, rear, underneath, firewall. Parts offer what you can do with what you carry (tool-gating); visible faults leave tells. `PARTS` maps parts to scenes |
 | `scripts/selftest.gd` | The self-test, including `_scene_tests` (every scene solved through `solve()`) and edge tests |
 | `scripts/manual.gd`, `scripts/parts_book.gd` | The M-key service manual and parts book, read from `data/c85_manual.json` and `data/c85_parts.json` |
 | `scripts/updater.gd` | GitHub Releases auto-update (Windows installs the setup; Mac opens the download page) |

@@ -983,6 +983,9 @@ func _inspect_zone(zone: String) -> void:
 		return
 	current_job.checked[zone] = true
 	playlog("inspect " + zone)
+	if zone == "engine":  # the engine has no separate look: you walk up to it and open it up
+		_open_bay()
+		return
 	_look(zone)
 
 
@@ -1326,6 +1329,10 @@ func _open_station(zone: String) -> void:
 	if not current_job.get("washed", true):
 		_say("It's caked in grime and lichen. Wash it down first.")
 		return
+	if zone == "engine":
+		current_job.checked["engine"] = true
+		_open_bay()
+		return
 	if not current_job.checked.has(zone):
 		_inspect_zone(zone)  # the close look comes first: it counts as checking the spot
 		return
@@ -1339,6 +1346,85 @@ func _open_station(zone: String) -> void:
 	panel_closable = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	player.frozen = true
+
+
+# ---------- the engine bay (scripts/bay.gd) ----------
+
+const Bay := preload("res://scripts/bay.gd")
+var bay_view := "cowled"  # where you were standing at the engine, so a job's Back returns there
+
+
+func _open_bay() -> void:
+	standing_at = "engine"
+	station_zone = "engine"
+	_close_panel()
+	var b = Bay.new()
+	b.setup(self)
+	ui.add_child(b)
+	panel = b
+	panel_closable = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
+
+
+## Look closer at one part: a visible fault whose tell is there gets written up.
+func bay_look(part: Dictionary) -> void:
+	var job: Dictionary = current_job
+	_advance(0.005)
+	if not current_job:
+		return
+	var seen: PackedStringArray = []
+	for id in part.look:
+		if job.faults.has(id) and not job.fixed.has(id) and _how(job, id) == "walk":
+			if not job.found.has(id):
+				job.found[id] = true
+			seen.append(clue(id))
+	_say(("%s: %s." % [part.name, "; ".join(seen)]) if seen.size() > 0 else "%s: looks fine." % part.name)
+	_save_game()
+
+
+## The shared engine cowl (work.gd keeps it in job.work._cowl): six screws out, swing it up.
+func bay_open_cowl() -> bool:
+	if not tools.has("screwdriver"):
+		_say("The cowl's on Camloc fasteners: you need a screwdriver.")
+		return false
+	_advance(0.02)
+	if not current_job:
+		return false
+	var c: Dictionary = current_job.work.get_or_add("_cowl", {})
+	c["cowl"] = "off"
+	for k in 6:
+		c["cowl_f%d" % k] = "out"
+	sound.sfx("tray")
+	_save_game()
+	return true
+
+
+## Close it up: only once nothing is left apart under it. Returns why not, or "".
+func bay_close_cowl() -> String:
+	var c: Dictionary = current_job.work.get_or_add("_cowl", {})
+	var apart: Array = c.get("apart", {}).keys().filter(func(k): return c.apart[k])
+	if apart.size() > 0:
+		return "Finish up at %s first: it's still apart under there." % PLACES.get(apart[0], apart[0]).to_lower()
+	_advance(0.02)
+	if not current_job:
+		return "The owner gave up waiting."
+	c["cowl"] = "on"
+	for k in 6:
+		c["cowl_f%d" % k] = "tight"
+	sound.sfx("tray")
+	_save_game()
+	return ""
+
+
+## A job or a test on a part, from the bay; Back comes home to the bay.
+func bay_open_scene(scene: String) -> void:
+	station_zone = "engine"
+	standing_at = "engine"
+	if TESTS.has(scene):
+		_run_test(scene)
+	else:
+		station_open("engine", scene)
 
 
 ## Opens one place from a station. A fault you can see is found by looking at it; one inside a
@@ -2564,6 +2650,14 @@ func _unhandled_input(e: InputEvent) -> void:
 			elif panel is Station:
 				station_zone = ""
 				_open_inspection(standing_at)
+			elif panel is Bay:
+				if is_instance_valid(panel.card):
+					panel._close_card()
+				elif panel.view != "cowled" and panel.view != "left":
+					panel._go("left")  # step back out of a close view to the open cowl
+				else:
+					station_zone = ""
+					_open_inspection("engine")
 			elif panel_closable:
 				_close_panel()
 		elif not is_instance_valid(_loader):
@@ -4120,6 +4214,8 @@ func _fault_row(id: String, at: String, suspect: bool) -> Array:
 	var f: Dictionary = FAULTS[id]
 	var title: String = ("Suspect: " if suspect else "") + f.name
 	var need := "No part needed" if f.part == "" else "Needs %s (have %d)" % [f.part, inventory.get(f.part, 0)]
+	if f.zone == "engine" and not guide("easy"):  # no shortcut past the bay: open it up and find the part
+		return ["%s\n%s. Open up the engine and work on it there." % [title, need], "Open up the engine" if at == "engine" else "", _open_bay, at == "engine", _fault_icon(id)]
 	if at == f.zone:
 		return ["%s\n%s" % [title, need], "Work on it", func(): _repair(id), true, _fault_icon(id)]
 	return ["%s\n%s. Work on it at the %s." % [title, need, ZONES[f.zone].name], "", null, false, _fault_icon(id)]

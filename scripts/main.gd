@@ -2376,16 +2376,7 @@ func guide(level: String) -> bool:
 # ---------- per-frame + input ----------
 
 func _setup_input() -> void:
-	var keys := {
-		"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN],
-		"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
-		"jump": [KEY_SPACE], "interact": [KEY_E],
-		"wallet": [KEY_TAB], "clipboard": [KEY_J], "logbook": [KEY_L],
-		"throttle_up": [KEY_W], "throttle_down": [KEY_S], "rudder_left": [KEY_A], "rudder_right": [KEY_D],
-		"stick_forward": [KEY_UP], "stick_back": [KEY_DOWN], "starter": [KEY_SPACE],
-		"fuel_valve": [KEY_F], "master": [KEY_M], "primer": [KEY_P], "mags": [KEY_I], "carb_heat": [KEY_H],
-		"playtest_note": [KEY_F8], "manual": [KEY_N],
-	}
+	var keys := DEFAULT_KEYS
 	for action in keys:
 		if InputMap.has_action(action):
 			continue
@@ -2545,6 +2536,7 @@ func _setup_ui() -> void:
 	_setup_quest()
 	_setup_log()
 	msg = _chip(16, 0.03, 0.2)
+	_apply_hud.call_deferred()  # text size, backing, counters: now there's a message to style
 	goal = _chip(14, 0.0, 0.0)
 	goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	var strip: CenterContainer = goal.get_parent()
@@ -2805,7 +2797,7 @@ func _objective() -> Array:
 ## Almost no HUD (ART_DIRECTION.md): money, parts and career live in things you take out.
 func _update_hud() -> void:
 	hud.visible = panel == null and ferry == null
-	cross.visible = hud.visible
+	cross.visible = hud.visible and settings.crosshair
 	prompt.visible = prompt.text != ""
 	prompt.custom_minimum_size.x = 620.0 if ferry else 0.0  # flight numbers change every frame; a fixed box doesn't shake
 	msg.visible = msg.text != ""
@@ -2925,13 +2917,18 @@ func _set_graphics(level: String) -> void:
 ## High: everything. Low: no volumetric haze, bounce light, ambient occlusion or dust motes,
 ## the effects that cost frames on built-in laptop graphics.
 func _apply_graphics() -> void:
-	var high := graphics == "high" and not "--low" in OS.get_cmdline_user_args()
-	env.volumetric_fog_enabled = high
-	env.sdfgi_enabled = high
-	env.ssao_enabled = high
+	graphics = "low" if settings.quality == "low" else "high"  # the tree count still reads this
+	var low := "--low" in OS.get_cmdline_user_args()
+	if env:
+		env.volumetric_fog_enabled = settings.haze and not low
+		env.sdfgi_enabled = settings.bounce and not low
+		env.ssao_enabled = settings.ao and not low
+		env.glow_enabled = settings.bloom
+	if sun:
+		sun.directional_shadow_max_distance = {"low": 50.0, "medium": 70.0, "high": 90.0, "ultra": 140.0}[settings.shadows]
 	if motes:
-		motes.emitting = high
-		motes.visible = high
+		motes.emitting = settings.dust and not low
+		motes.visible = settings.dust and not low
 
 
 func _confirm_restart() -> void:
@@ -3235,7 +3232,44 @@ func _recapture() -> void:
 # ---------- pause, settings, credits ----------
 
 var _sub_back := Callable()  # where Esc goes from a screen opened off the title or pause menu
-var settings := {"master": 1.0, "music": 0.7, "sfx": 0.9, "sens": 1.0, "fullscreen": false, "invert": false, "shake": true, "station": 0, "quick_hold": false}
+var settings := SETTING_DEFAULTS.duplicate(true)
+## Everything the settings sheet (scripts/settings_ui.gd) can change, with its default. Saved to
+## user://settings.cfg, apart from the career save, so it carries across careers.
+const SETTING_DEFAULTS := {
+	# Graphics and video
+	"display_mode": "windowed", "resolution": "1280x720", "vsync": "on", "max_fps": 0,
+	"quality": "high", "render_scale": 1.0, "upscaler": "fsr", "aa": "fxaa", "shadows": "high",
+	"draw": "high", "detail": "high", "aniso": 8,
+	"bloom": true, "haze": true, "bounce": true, "ao": true, "dust": true,
+	# Audio
+	"master": 1.0, "music": 0.7, "sfx": 0.9, "ambience": 0.8, "night": false, "mono": false, "station": 0,
+	# Controls
+	"sens": 1.0, "invert": false, "quick_hold": false, "keys": {},
+	# Gameplay and interface
+	"fov": 75.0, "crosshair": true, "fps_counter": false, "shake": true,
+	# Accessibility
+	"text_size": "medium", "text_bg": 0.82, "colorblind": "off",
+}
+const SETTING_TABS := {
+	"video": ["display_mode", "resolution", "vsync", "max_fps", "quality", "render_scale", "upscaler", "aa", "shadows", "draw", "detail", "aniso", "bloom", "haze", "bounce", "ao", "dust"],
+	"audio": ["master", "music", "sfx", "ambience", "night", "mono"],
+	"controls": ["sens", "invert", "quick_hold", "keys"],
+	"game": ["fov", "crosshair", "fps_counter", "shake"],
+	"access": ["text_size", "text_bg", "colorblind"],
+}
+## What each quality preset sets. Changing any of these by hand makes the preset "custom".
+const QUALITY := {
+	"low": {"render_scale": 0.75, "aa": "off", "shadows": "low", "draw": "low", "detail": "low", "aniso": 0,
+		"bloom": true, "haze": false, "bounce": false, "ao": false, "dust": false},
+	"medium": {"render_scale": 1.0, "aa": "fxaa", "shadows": "medium", "draw": "medium", "detail": "medium", "aniso": 4,
+		"bloom": true, "haze": true, "bounce": false, "ao": false, "dust": true},
+	"high": {"render_scale": 1.0, "aa": "fxaa", "shadows": "high", "draw": "high", "detail": "high", "aniso": 8,
+		"bloom": true, "haze": true, "bounce": true, "ao": true, "dust": true},
+	"ultra": {"render_scale": 1.0, "aa": "smaa", "shadows": "ultra", "draw": "high", "detail": "high", "aniso": 16,
+		"bloom": true, "haze": true, "bounce": true, "ao": true, "dust": true},
+}
+const SettingsUI := preload("res://scripts/settings_ui.gd")
+const RESOLUTIONS := ["1280x720", "1366x768", "1600x900", "1920x1080", "2560x1440", "3840x2160"]
 const SETTINGS_PATH := "user://settings.cfg"
 const CREDITS := [
 	["Game\nthaddeuswill. Built with Godot Engine 4.7 (MIT license)."],
@@ -3256,17 +3290,226 @@ func _load_settings() -> void:
 	if f.load(SETTINGS_PATH) == OK:
 		for key in settings:
 			settings[key] = f.get_value("game", key, settings[key])
+		if f.get_value("game", "fullscreen", false) and not f.has_section_key("game", "display_mode"):
+			settings.display_mode = "borderless"  # from before the settings sheet: one fullscreen switch
 	_apply_settings()
 
 
 func _apply_settings() -> void:
-	AudioServer.set_bus_volume_db(0, linear_to_db(settings.master))
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), linear_to_db(settings.music))
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("SFX"), linear_to_db(settings.sfx))
+	_apply_audio()
+	_apply_keys()
 	player.sens = Player.MOUSE_SENS * settings.sens
 	player.invert = settings.invert
-	if DisplayServer.get_name() != "headless":
-		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN if settings.fullscreen else DisplayServer.WINDOW_MODE_WINDOWED)
+	if player.cam:
+		player.cam.fov = settings.fov
+	_apply_display()
+	_apply_viewport()
+	_apply_graphics()
+	_apply_hud()
+
+
+func _apply_audio() -> void:
+	for b in [["Master", "master"], ["Music", "music"], ["SFX", "sfx"], ["Ambience", "ambience"]]:
+		var i := AudioServer.get_bus_index(b[0])
+		if i >= 0:
+			AudioServer.set_bus_volume_db(i, linear_to_db(settings[b[1]]))
+	# Night mode and mono live on the master bus: added once, then switched on and off.
+	if AudioServer.get_bus_effect_count(0) == 0:
+		var comp := AudioEffectCompressor.new()  # loud tool hits come down, quiet room tone comes up
+		comp.threshold = -18.0
+		comp.ratio = 4.0
+		comp.gain = 6.0
+		AudioServer.add_bus_effect(0, comp)
+		var mono := AudioEffectStereoEnhance.new()
+		mono.pan_pullout = 0.0  # no stereo width: both ears get the same mix
+		AudioServer.add_bus_effect(0, mono)
+	AudioServer.set_bus_effect_enabled(0, 0, settings.night)
+	AudioServer.set_bus_effect_enabled(0, 1, settings.mono)
+
+
+var _applied_display := ""  # display mode and size last applied: a slider drag mustn't resize the window
+
+
+func _apply_display() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_vsync_mode({"on": DisplayServer.VSYNC_ENABLED, "adaptive": DisplayServer.VSYNC_ADAPTIVE,
+		"off": DisplayServer.VSYNC_DISABLED}[settings.vsync])
+	Engine.max_fps = int(settings.max_fps)
+	var want: String = settings.display_mode + "@" + settings.resolution
+	if want == _applied_display:
+		return
+	_applied_display = want
+	match settings.display_mode:
+		"borderless":
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		"exclusive":
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+		_:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+			var wh: PackedStringArray = settings.resolution.split("x")
+			var size := Vector2i(int(wh[0]), int(wh[1]))
+			var screen := DisplayServer.screen_get_usable_rect().size
+			size = Vector2i(mini(size.x, screen.x), mini(size.y, screen.y))
+			DisplayServer.window_set_size(size)
+			DisplayServer.window_set_position(DisplayServer.screen_get_usable_rect().position + (screen - size) / 2)
+
+
+## Window sizes that fit this screen, for the settings sheet.
+func resolution_choices() -> Array:
+	var screen := DisplayServer.screen_get_size() if DisplayServer.get_name() != "headless" else Vector2i(3840, 2160)
+	var out := []
+	for r in RESOLUTIONS:
+		var wh: PackedStringArray = r.split("x")
+		if int(wh[0]) <= screen.x and int(wh[1]) <= screen.y:
+			out.append([r, r.replace("x", " x ")])
+	return out
+
+
+func renderer_has_fsr() -> bool:
+	return RenderingServer.get_current_rendering_method() != "gl_compatibility"
+
+
+## Render scale, upscaling, anti-aliasing, model detail and texture filtering.
+func _apply_viewport() -> void:
+	var vp := get_viewport()
+	var fsr := renderer_has_fsr()
+	var scale: float = settings.render_scale
+	vp.scaling_3d_scale = scale
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR if not fsr else {"bilinear": Viewport.SCALING_3D_MODE_BILINEAR,
+		"fsr": Viewport.SCALING_3D_MODE_FSR, "fsr2": Viewport.SCALING_3D_MODE_FSR2}[settings.upscaler]
+	var fsr2_smooths: bool = fsr and settings.upscaler == "fsr2" and scale < 1.0  # FSR 2 does its own anti-aliasing
+	var aa: String = "off" if fsr2_smooths else settings.aa
+	vp.screen_space_aa = {"fxaa": Viewport.SCREEN_SPACE_AA_FXAA, "smaa": Viewport.SCREEN_SPACE_AA_SMAA}.get(aa, Viewport.SCREEN_SPACE_AA_DISABLED)
+	vp.msaa_3d = {"msaa2": Viewport.MSAA_2X, "msaa4": Viewport.MSAA_4X}.get(aa, Viewport.MSAA_DISABLED)
+	vp.use_taa = aa == "taa"
+	vp.mesh_lod_threshold = {"low": 4.0, "medium": 2.0, "high": 1.0}[settings.detail]
+	vp.anisotropic_filtering_level = {0: Viewport.ANISOTROPY_DISABLED, 2: Viewport.ANISOTROPY_2X, 4: Viewport.ANISOTROPY_4X,
+		8: Viewport.ANISOTROPY_8X, 16: Viewport.ANISOTROPY_16X}.get(int(settings.aniso), Viewport.ANISOTROPY_8X)
+	RenderingServer.directional_shadow_atlas_set_size({"low": 1024, "medium": 2048, "high": 4096, "ultra": 8192}[settings.shadows], true)
+	if player.cam:
+		player.cam.far = {"low": 600.0, "medium": 1500.0, "high": 4000.0}[settings.draw]
+
+
+## The settings sheet reads through this: the career's difficulty lives in the save, the rest here.
+func get_setting(key: String):
+	return difficulty if key == "difficulty" else settings[key]
+
+
+## Sets one value, saves and applies it. A quality preset fills in everything it covers; touching
+## any of those by hand turns the preset to "custom".
+func set_setting(value, key: String, _rebuild := true) -> void:
+	if key == "difficulty":
+		difficulty = value
+		_save_game()
+		return
+	settings[key] = value
+	if key == "quality" and QUALITY.has(value):
+		for k in QUALITY[value]:
+			settings[k] = QUALITY[value][k]
+	elif QUALITY.high.has(key):
+		settings.quality = "custom"
+	_save_settings()
+
+
+func current_career_locked() -> bool:
+	return false  # difficulty can change mid-career: it only decides how much you're told
+
+
+## A sample to judge a new volume by, once the slider is let go.
+func slider_released(key: String) -> void:
+	if key in ["master", "sfx", "ambience"]:
+		sound.sfx("tray")
+
+
+func reset_settings(tab: String) -> void:
+	for k in SETTING_TABS.get(tab, []):
+		settings[k] = SETTING_DEFAULTS[k].duplicate(true) if SETTING_DEFAULTS[k] is Dictionary else SETTING_DEFAULTS[k]
+	_save_settings()
+
+
+# ---------- keys ----------
+
+## Every rebindable action's default keys (the first one is what the settings sheet shows).
+const DEFAULT_KEYS := {
+	"move_forward": [KEY_W, KEY_UP], "move_back": [KEY_S, KEY_DOWN],
+	"move_left": [KEY_A, KEY_LEFT], "move_right": [KEY_D, KEY_RIGHT],
+	"jump": [KEY_SPACE], "interact": [KEY_E],
+	"wallet": [KEY_TAB], "clipboard": [KEY_J], "logbook": [KEY_L],
+	"throttle_up": [KEY_W], "throttle_down": [KEY_S], "rudder_left": [KEY_A], "rudder_right": [KEY_D],
+	"stick_forward": [KEY_UP], "stick_back": [KEY_DOWN], "starter": [KEY_SPACE],
+	"fuel_valve": [KEY_F], "master": [KEY_M], "primer": [KEY_P], "mags": [KEY_I], "carb_heat": [KEY_H],
+	"playtest_note": [KEY_F8], "manual": [KEY_N],
+}
+
+
+func _apply_keys() -> void:
+	for action in DEFAULT_KEYS:
+		if not InputMap.has_action(action):
+			InputMap.add_action(action)
+		InputMap.action_erase_events(action)
+		var custom: Dictionary = settings.keys
+		for k in ([int(custom[action])] if custom.has(action) else DEFAULT_KEYS[action]):
+			var ev := InputEventKey.new()
+			ev.physical_keycode = k
+			InputMap.action_add_event(action, ev)
+
+
+func rebind(action: String, keycode: int) -> void:
+	var custom: Dictionary = settings.keys.duplicate()
+	custom[action] = keycode
+	set_setting(custom, "keys")
+
+
+## The key an action is on now, as printed on the keycap ("W", "Space").
+func key_name(action: String) -> String:
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventKey:
+			return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(ev.physical_keycode) if DisplayServer.get_name() != "headless" else ev.physical_keycode)
+	return "-"
+
+
+# ---------- interface and accessibility ----------
+
+var fps_label: Label
+var _color_filter: ColorRect
+
+
+## Message size and backing, the frame counter and the color-vision filter.
+func _apply_hud() -> void:
+	if msg == null:
+		return
+	msg.add_theme_font_size_override("font_size", {"small": 14, "medium": 16, "large": 20, "xl": 24}[settings.text_size])
+	var sb: StyleBoxFlat = msg.get_theme_stylebox("normal").duplicate()
+	sb.bg_color = Color(C_EARTH, settings.text_bg)
+	msg.add_theme_stylebox_override("normal", sb)
+	if fps_label == null:
+		fps_label = Label.new()
+		fps_label.add_theme_font_override("font", Style.display(700))
+		fps_label.add_theme_font_size_override("font_size", Style.SIZE_SM)
+		fps_label.add_theme_color_override("font_color", Style.COLOR_TEXT_HUD)
+		fps_label.add_theme_constant_override("outline_size", 4)
+		fps_label.add_theme_color_override("font_outline_color", Style.COLOR_SURFACE_HUD)
+		fps_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		fps_label.position += Vector2(-90, 6)
+		fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var layer := CanvasLayer.new()
+		layer.layer = 99
+		add_child(layer)
+		layer.add_child(fps_label)
+		_color_filter = ColorRect.new()  # over everything, 3D and UI alike
+		_color_filter.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_color_filter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var mat := ShaderMaterial.new()
+		mat.shader = load("res://shaders/color_vision.gdshader")
+		_color_filter.material = mat
+		var top := CanvasLayer.new()
+		top.layer = 100
+		add_child(top)
+		top.add_child(_color_filter)
+	fps_label.visible = settings.fps_counter
+	_color_filter.visible = settings.colorblind != "off"
+	(_color_filter.material as ShaderMaterial).set_shader_parameter("mode", {"off": 0, "protan": 1, "deutan": 2, "tritan": 3}[settings.colorblind])
 
 
 func _save_settings() -> void:
@@ -3282,8 +3525,7 @@ func _save_settings() -> void:
 
 
 func _set_setting(value, key: String) -> void:
-	settings[key] = value
-	_save_settings()
+	set_setting(value, key)
 
 
 ## A screen opened from the title or pause menu: `back` returns there, by button or by Esc.
@@ -3343,50 +3585,20 @@ func _quit_to_title() -> void:
 	get_tree().reload_current_scene()
 
 
+## The settings sheet (scripts/settings_ui.gd), over the title screen or the pause menu. Esc and
+## Back return to where it was opened from; a paused game stays paused.
 func _open_settings(back: Callable) -> void:
-	var vb := _sub_panel("Settings", [
-		["Graphics: %s\nLow drops haze, bounce light and dust for weaker PCs." % graphics.capitalize(), "Switch", _switch_graphics.bind(back), true],
-		["Display: %s" % ("Fullscreen" if settings.fullscreen else "Window"), "Switch", _switch_setting.bind("fullscreen", back), true],
-		["Invert mouse look: %s" % ("On" if settings.invert else "Off"), "Switch", _switch_setting.bind("invert", back), true],
-		["Screen shake: %s" % ("On" if settings.shake else "Off"), "Switch", _switch_setting.bind("shake", back), true],
-		["Quick hold (tap instead of press-and-hold): %s" % ("On" if settings.quick_hold else "Off"), "Switch", _switch_setting.bind("quick_hold", back), true]], back)
-	var at := 0
-	for s in [["Master volume", "master", 0.0, 1.0], ["Music volume", "music", 0.0, 1.0], ["Sound effects volume", "sfx", 0.0, 1.0], ["Mouse sensitivity", "sens", 0.3, 2.5]]:
-		var hb := HBoxContainer.new()
-		var l := Label.new()
-		l.text = s[0]
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hb.add_child(l)
-		var sl := HSlider.new()
-		sl.custom_minimum_size = Vector2(240, 24)
-		sl.min_value = s[2]
-		sl.max_value = s[3]
-		sl.step = 0.01
-		sl.value = settings[s[1]]
-		sl.value_changed.connect(_set_setting.bind(s[1]))
-		hb.add_child(sl)
-		var pct := Label.new()
-		pct.custom_minimum_size.x = 52
-		pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		pct.text = "%d%%" % roundi(sl.value * 100)
-		sl.value_changed.connect(func(v): pct.text = "%d%%" % roundi(v * 100))
-		sl.drag_ended.connect(func(_changed): sound.sfx("tray"))  # a sample to judge the new level by
-		hb.add_child(pct)
-		vb.add_child(hb)
-		vb.move_child(hb, at)
-		at += 1
-
-
-func _switch_graphics(back: Callable) -> void:
 	var was_paused := get_tree().paused
-	_set_graphics("low" if graphics == "high" else "high")
+	_close_panel()
 	get_tree().paused = was_paused
-	_open_settings(back)
-
-
-func _switch_setting(key: String, back: Callable) -> void:
-	_set_setting(not settings[key], key)
-	_open_settings(back)
+	var sheet = SettingsUI.new()
+	ui.add_child(sheet)
+	sheet.setup(self, back)
+	panel = sheet
+	panel_closable = false
+	_sub_back = back
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
 
 
 func _open_controls() -> void:

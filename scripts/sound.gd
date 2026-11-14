@@ -64,7 +64,7 @@ func _ready() -> void:
 	_loop.finished.connect(_loop_again)
 	_cruise = _player("SFX")
 	_cruise.stream = _bake_cruise()  # a quarter second: at launch, not as the first trip starts
-	_room = _player("SFX")
+	_room = _player("Ambience")  # its own slider in Settings > Audio
 	_room.stream = load("res://sounds/amb/room.wav")
 	_room.volume_db = -40.0
 	_room.finished.connect(_room.play)
@@ -79,7 +79,7 @@ func _ready() -> void:
 func _setup_buses() -> void:
 	if AudioServer.get_bus_index("Music") >= 0:  # buses outlive a scene reload
 		return
-	for b in ["Music", "SFX", "Tools"]:
+	for b in ["Music", "SFX", "Tools", "Ambience"]:
 		AudioServer.add_bus()
 		AudioServer.set_bus_name(AudioServer.bus_count - 1, b)
 	AudioServer.set_bus_send(AudioServer.get_bus_index("Tools"), "SFX")

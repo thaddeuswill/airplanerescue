@@ -29,6 +29,21 @@ func run(main, args: PackedStringArray) -> void:
 		get_tree().quit(0 if fields_ok else 1)
 		return
 	for a in args:
+		if a.begins_with("--settings-shot="):  # every settings tab, for checking the sheet
+			var pre := a.trim_prefix("--settings-shot=")
+			g._open_settings(g._open_pause)
+			for t in g.panel.TABS:
+				g.panel.tab = t[0]
+				g.panel._build()
+				await _snap(pre, "settings_" + t[0], 0.5)
+			g._close_panel()
+			for mode in ["off", "deutan"]:  # the color-vision filter compiles and changes the picture
+				g.set_setting(mode, "colorblind")
+				await _snap(pre, "vision_" + mode, 0.5)
+			g.set_setting("off", "colorblind")
+			get_tree().quit(0)
+			return
+	for a in args:
 		if a.begins_with("--scene-shots="):  # every work scene at its start and part-way, for checking art placement
 			var spec := a.trim_prefix("--scene-shots=").split(":")  # prefix[:scene,scene] to shoot only some
 			await _scene_shots(spec[0], Array(spec[1].split(",")) if spec.size() > 1 else [])

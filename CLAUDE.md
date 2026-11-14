@@ -100,6 +100,10 @@ the design-pass zip. Spark plugs 300-360 in-lb.
 - GDScript 4 with static types (`:=` or `: Type`) and `-> Type` returns. Leave a value untyped only
   when it really is a Variant (JSON, save data, a nullable job).
 - `##` doc comments on functions and constants explain *why*, in plain words.
+- The service manual has a page for every fault, each with a picture (`textures/manual/ref_<id>.png`,
+  656 x 448, the job's scene art). Figures are numbered per ATA chapter in reading order by
+  `manual.gd` (`Figure 74-5`); never write a figure number into the data. The self-test fails a
+  fault with no page or picture.
 - Job text (work scenes) is in service-manual style, settled by Thad 2026-11-13: imperative, the
   manuals' terms ("Remove... / Install... / Safety-wire with new wire"), paraphrased, never copied.
   It lives in `data/job_text.json`, keyed by scene and piece id; `work.gd` `_apply_text` lays it over

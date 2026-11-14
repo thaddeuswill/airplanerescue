@@ -40,7 +40,7 @@
  ],
  "figures": {
   "fig_cylinder": {
-   "title": "Figure 1. Cylinder assembly",
+   "title": "Figure 72-8. Cylinder assembly",
    "image": "res://textures/manual/fig_cylinder.png",
    "items": [
     {
@@ -109,7 +109,7 @@
    ]
   },
   "fig_sump": {
-   "title": "Figure 2. Oil sump assembly",
+   "title": "Figure 79-7. Oil sump assembly",
    "image": "res://textures/manual/fig_sump.png",
    "items": [
     {
@@ -171,7 +171,7 @@
    ]
   },
   "fig_induction": {
-   "title": "Figure 3. Carburetor and induction",
+   "title": "Figure 73-4. Carburetor and induction",
    "image": "res://textures/manual/fig_induction.png",
    "items": [
     {
@@ -254,7 +254,7 @@
    ]
   },
   "fig_ignition": {
-   "title": "Figure 4. Ignition system",
+   "title": "Figure 74-8. Ignition system",
    "image": "res://textures/manual/fig_ignition.png",
    "items": [
     {

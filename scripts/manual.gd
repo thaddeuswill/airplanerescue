@@ -71,6 +71,7 @@ func setup(data: Dictionary, sfx := Callable(), open_to := "", parts := {}) -> v
 	var figs: Dictionary = data.get("figures", {})
 	for id in figs:
 		_pages.append({"kind": "figure", "id": id, "f": figs[id]})
+	_number_figures()
 	_spread = clampi(_last, 0, _pages.size() - 1)
 	if open_to != "":
 		var i := _find_job(open_to)
@@ -202,6 +203,33 @@ func _page(side: int) -> Control:
 	return page
 
 
+## Figure numbers, the way a service manual does them: per ATA chapter, in reading order. Each
+## procedure's picture in turn, then the chapter's exploded parts drawing. So the ignition chapter
+## reads Figure 74-1, 74-2... and the ignition parts drawing comes last in it.
+var _fig_no := {}  # "page:<id>" or "fig:<id>" -> "74-2"
+
+
+func _number_figures() -> void:
+	_fig_no.clear()
+	var figs: Dictionary = _data.get("figures", {})
+	for ch in _data.get("chapters", []):
+		var n := 0
+		for p in _data.get("pages", []):
+			if p.ata == ch.ata and ResourceLoader.exists(String(p.get("picture", ""))):
+				n += 1
+				_fig_no["page:" + p.id] = "%s-%d" % [ch.ata, n]
+		for id in figs:
+			if String(figs[id].get("ata", "")) == ch.ata:
+				n += 1
+				_fig_no["fig:" + id] = "%s-%d" % [ch.ata, n]
+
+
+## "Figure 74-2. Ignition system": an exploded drawing's full caption.
+func fig_title(id: String) -> String:
+	var f: Dictionary = _data.get("figures", {}).get(id, {})
+	return "Figure %s. %s" % [_fig_no.get("fig:" + id, "?"), String(f.get("title", id))]
+
+
 func _contents(L: Control, R: Control) -> void:
 	var band := Panel.new()
 	band.size = Vector2(PAGE_W, 78)
@@ -240,15 +268,17 @@ func _contents(L: Control, R: Control) -> void:
 	var y := 196.0
 	var page := L
 	var x := 34.0
+	# Four columns, two per page, filled in reading order: the left page below the masthead, then
+	# the right page. (With a page per fault it no longer fits in three.)
+	var cols := [[L, 34.0, 196.0], [L, 344.0, 196.0], [R, 34.0, 78.0], [R, 340.0, 78.0]]
+	var c := 0
 	for r in rows:
-		var h := 28.0 if r.has("head") else 21.0
-		if y + h > BOOK.y - 86:
-			if page == L:
-				page = R
-				y = 78.0
-			elif x < 300:
-				x = 340.0
-				y = 78.0
+		var h := 26.0 if r.has("head") else 19.0
+		if y + h > BOOK.y - 86 and c < cols.size() - 1:
+			c += 1
+			page = cols[c][0]
+			x = cols[c][1]
+			y = cols[c][2]
 		if r.has("head"):
 			_put(page, _label(r.head, BLACK, 19, RED), x, y + 4)
 		else:
@@ -262,7 +292,7 @@ func _title_of(i: int) -> String:
 	if sp.kind == "page":
 		return String(sp.p.title)
 	if sp.kind == "figure":
-		return String(sp.f.title)
+		return fig_title(sp.id)
 	return "Contents"
 
 
@@ -344,11 +374,13 @@ func _layout_figure_and_steps(L: Control, R: Control, p: Dictionary, col: Contro
 	var y := 26.0
 	var pic_path := String(p.get("picture", ""))
 	var fig_id := String(p.get("figure", ""))
+	var caption := "Figure %s. %s" % [_fig_no.get("page:" + p.id, "?"), String(p.title)]
 	if pic_path == "" or not ResourceLoader.exists(pic_path):
 		var figs: Dictionary = _data.get("figures", {})
 		pic_path = String(figs[fig_id].image) if figs.has(fig_id) else ""
+		caption = fig_title(fig_id) if figs.has(fig_id) else ""
 	var has_pic := pic_path != "" and ResourceLoader.exists(pic_path)
-	var room := PAGE_BOTTOM - left_bottom - 30  # 30 for the "See Figure" link
+	var room := PAGE_BOTTOM - left_bottom - 52  # 30 for the "See Figure" link, 22 for the caption
 	var on_left := has_pic and room >= 200
 	var host: Control = L if on_left else R
 	var py: float = left_bottom if on_left else y
@@ -371,11 +403,17 @@ func _layout_figure_and_steps(L: Control, R: Control, p: Dictionary, col: Contro
 		pic.size = Vector2(PAGE_W - 72, ph - 12)
 		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		host.add_child(pic)
+		if caption != "":  # under the picture, like a printed manual's figure line
+			var cap := _label(caption, BLOCK, 15, INK)
+			cap.size = Vector2(PAGE_W - 60, 20)
+			cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			_put(host, cap, 30, py + ph + 4)
+			py += 22
 		py += ph + 10
 		if not on_left:
 			y = py
 	if fig_id != "" and _find_figure(fig_id) >= 0:
-		var fl := _link("See " + String(_data.figures[fig_id].title) + "  >", _find_figure(fig_id))
+		var fl := _link("See " + fig_title(fig_id) + "  >", _find_figure(fig_id))
 		fl.add_theme_font_override("font", BLOCK)
 		fl.add_theme_color_override("font_color", RED)
 		if on_left:
@@ -405,7 +443,7 @@ func _layout_figure_and_steps(L: Control, R: Control, p: Dictionary, col: Contro
 
 
 func _figure(L: Control, R: Control, id: String, f: Dictionary) -> void:
-	_put(L, _label(String(f.title).to_upper(), BLACK, 26, INK), 30, 24)
+	_put(L, _label(fig_title(id).to_upper(), BLACK, 26, INK), 30, 24)
 	_put(L, _rule(3, INK, PAGE_W - 60), 30, 62)
 	if ResourceLoader.exists(String(f.image)):
 		var pic := TextureRect.new()

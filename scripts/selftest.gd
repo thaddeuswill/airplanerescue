@@ -30,6 +30,15 @@ func run(main, args: PackedStringArray) -> void:
 		get_tree().quit(0 if fields_ok else 1)
 		return
 	for a in args:
+		if a.begins_with("--manual-shot="):  # manual pages by job id: --manual-shot=prefix:job,job (contents if none)
+			var spec := a.trim_prefix("--manual-shot=").split(":")
+			for job in (Array(spec[1].split(",")) if spec.size() > 1 else [""]):
+				g._open_manual(job)
+				await _snap(spec[0], "manual_" + (job if job != "" else "contents"), 0.8)
+				g._close_manual()
+			get_tree().quit(0)
+			return
+	for a in args:
 		if a.begins_with("--settings-shot="):  # every settings tab, for checking the sheet
 			var pre := a.trim_prefix("--settings-shot=")
 			g._open_settings(g._open_pause)
@@ -861,6 +870,9 @@ func _faults_test() -> bool:
 			ok = false
 		elif f.zone == "engine" and not f.has("diags") and not id in g.RUNUP_FAULTS and not Bay.PARTS.values().any(func(ps): return ps.any(func(p): return id in p.look)):
 			print("FAULT ", id, ": a visible engine fault needs a part in bay.gd PARTS whose look lists it, or nobody can find it")
+			ok = false
+		elif not g.manual_data.get("pages", []).any(func(pg): return pg.get("job", "") == id and ResourceLoader.exists(String(pg.get("picture", "")))):
+			print("FAULT ", id, ": needs a service manual page (data/c85_manual.json, job = its id) with a picture")
 			ok = false
 		elif not id in ["fod", "fabric_rot"] and not g.SQUAWKS.has(id):
 			print("FAULT ", id, ": needs a pilot squawk in main.SQUAWKS")

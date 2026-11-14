@@ -8,6 +8,10 @@
    "title": "Engine data"
   },
   {
+   "ata": "08",
+   "title": "Weight and balance"
+  },
+  {
    "ata": "12",
    "title": "Servicing"
   },
@@ -1241,11 +1245,446 @@
    "caution": "",
    "figure": "fig_cylinder",
    "picture": "res://textures/manual/ref_oil_leak.png"
+  },
+  {
+   "id": "carb_heat",
+   "ata": "73",
+   "title": "Carburetor heat cable and valve",
+   "job": "carb_heat",
+   "summary": "Carb heat that doesn't change the RPM isn't heating anything.",
+   "steps": [
+    "Pull the carb heat knob and watch the valve at the air box. It should swing through its full travel.",
+    "If the knob moves and the valve doesn't, the cable has broken or slipped in its clamp.",
+    "Remove the air box cover. Disconnect the old cable at the valve arm and at the cockpit knob.",
+    "Route the new cable along the old path, clear of the exhaust.",
+    "Clamp it so the valve closes fully with the knob in and opens fully with it out, with a little cushion at each end.",
+    "On the run-up, carb heat on should cost a little RPM. No drop means no heat."
+   ],
+   "tools": [
+    "Screwdriver",
+    "Pliers"
+   ],
+   "parts": [
+    "heat_valve"
+   ],
+   "specs": {
+    "Carb heat drop": "about 50 rpm"
+   },
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_carb_heat.png"
+  },
+  {
+   "id": "tmp_strut",
+   "ata": "57",
+   "title": "Lift strut forks",
+   "job": "tmp_strut",
+   "summary": "The forks carry the wing. A crack there is not a squawk to fly with.",
+   "steps": [
+    "Inspect each strut fork for cracks, bends and corrosion at the threads and the bolt holes.",
+    "Support the wing at the spar before you disturb a fork.",
+    "Remove the fork bolt and unscrew the fork, counting the turns so the new one starts at the same length.",
+    "Install the new fork the same number of turns, then install the bolt with a new cotter pin.",
+    "Check the wing rigging before the plane flies."
+   ],
+   "tools": [
+    "Ratchet & sockets",
+    "Pliers"
+   ],
+   "parts": [],
+   "specs": {},
+   "caution": "CAUTION: Support the wing before a strut fork comes out. Never lift on the middle of a strut.",
+   "figure": "",
+   "picture": "res://textures/manual/ref_tmp_strut.png"
+  },
+  {
+   "id": "tie_down",
+   "ata": "12",
+   "title": "Tie-downs",
+   "job": "tie_down",
+   "summary": "A plane rocking at rotten ropes is one gust from the fence.",
+   "steps": [
+    "Inspect the tie-down ropes at the wing struts and the tail. Replace any that are frayed, rotten or stiff.",
+    "Tie at the three points with a little slack: tight ropes snatch in gusts.",
+    "Lock the controls and chock the wheels."
+   ],
+   "tools": [
+    "Shop rag"
+   ],
+   "parts": [],
+   "specs": {},
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_tie_down.png"
+  },
+  {
+   "id": "ign_lead",
+   "ata": "74",
+   "title": "Ignition leads",
+   "job": "ign_lead",
+   "summary": "A chafed lead loses its spark to ground before it reaches the plug.",
+   "steps": [
+    "Run the spark test to find the lead: a good plug that won't fire on one lead points at that lead.",
+    "Remove the lead's elbow nut at the plug and its nut at the harness cap.",
+    "Install the new lead along the same path, clamped clear of the baffles and the exhaust.",
+    "Seat the lead and run the elbow nut down. Run it up and check the mag drop again."
+   ],
+   "tools": [
+    "Ratchet & sockets",
+    "Screwdriver"
+   ],
+   "parts": [
+    "lead_42",
+    "lead_36"
+   ],
+   "specs": {},
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_ign_lead.png"
+  },
+  {
+   "id": "primer_leak",
+   "ata": "73",
+   "title": "Primer",
+   "job": "primer_leak",
+   "summary": "A primer that leaks keeps feeding raw fuel into the engine.",
+   "steps": [
+    "Look for fuel weeping at the primer pump and its lines behind the panel.",
+    "Remove the primer pump, replace its seals, and reinstall it.",
+    "Check that it locks in. An unlocked primer can siphon fuel in flight."
+   ],
+   "tools": [
+    "Screwdriver",
+    "Shop rag"
+   ],
+   "parts": [
+    "primer_jet"
+   ],
+   "specs": {},
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_primer_leak.png"
+  },
+  {
+   "id": "stuck_valve",
+   "ata": "72",
+   "title": "Sticking valve",
+   "job": "stuck_valve",
+   "summary": "A valve that hangs open costs a cylinder its compression.",
+   "steps": [
+    "Find the cylinder first: the cold cylinder hunt, then a compression test with air hissing at the tailpipe (exhaust) or the carb air scoop (intake).",
+    "Remove the rocker cover on that cylinder.",
+    "Turn the prop by hand in the direction of rotation and watch each valve open and close.",
+    "A valve that closes slowly or hangs open is sticking. Clean the stem and work it until it moves freely.",
+    "If it sticks again, the cylinder comes off for the valve guide. Install the rocker cover with a new gasket."
+   ],
+   "tools": [
+    "Screwdriver",
+    "Shop rag"
+   ],
+   "parts": [
+    "rocker_gasket"
+   ],
+   "specs": {},
+   "caution": "CAUTION: Mags OFF and the P-leads good before you turn the prop by hand.",
+   "figure": "",
+   "picture": "res://textures/manual/ref_stuck_valve.png"
+  },
+  {
+   "id": "worn_rings",
+   "ata": "72",
+   "title": "Low compression past the rings",
+   "job": "worn_rings",
+   "summary": "Air hissing at the oil filler means it's getting past the rings.",
+   "steps": [
+    "Confirm with the compression test: the leak is heard at the oil filler, not the tailpipe or the air scoop.",
+    "Remove the cylinder: rocker cover, pushrods, intake pipe, exhaust, then the base nuts.",
+    "Install the replacement cylinder assembly with a new base packing.",
+    "Torque the base nuts in the sequence in the overhaul manual, then reinstall everything in reverse order.",
+    "Run it up and recheck compression on that cylinder."
+   ],
+   "tools": [
+    "Ratchet & sockets",
+    "Torque wrench",
+    "Screwdriver"
+   ],
+   "parts": [
+    "cyl_assy",
+    "base_packing",
+    "piston",
+    "ring_top"
+   ],
+   "specs": {},
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_worn_rings.png"
+  },
+  {
+   "id": "relief_valve",
+   "ata": "79",
+   "title": "Oil pressure relief valve",
+   "job": "relief_valve",
+   "summary": "Pressure that sags once the oil is warm, with a clean screen, points here.",
+   "steps": [
+    "Check the oil level and the oil screen first. Metal in the screen is a different trouble.",
+    "Remove the relief valve cap at the rear of the case, then the spring and the plunger.",
+    "Clean the plunger and its seat. A bit of grit holding it open bleeds off pressure.",
+    "Reinstall the plunger, spring and cap with a new gasket.",
+    "Run it up: pressure must show within 30 seconds and stay at 30 psi or more."
+   ],
+   "tools": [
+    "Ratchet & sockets",
+    "Shop rag"
+   ],
+   "parts": [],
+   "specs": {
+    "Oil pressure": "30 psi minimum, within 30 seconds of start"
+   },
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_relief_valve.png"
+  },
+  {
+   "id": "cam_wear",
+   "ata": "79",
+   "title": "Steel in the oil screen",
+   "job": "cam_wear",
+   "summary": "Steel that sticks to the magnet is the cam, the lifters or the crank wearing away.",
+   "steps": [
+    "Confirm it on the towel: steel flakes stick to the magnet.",
+    "A few flakes, change the oil and look again at the next change. A pile means the engine is coming apart inside.",
+    "There is no field fix. Ground the airplane and tell the owner it needs a teardown."
+   ],
+   "tools": [
+    "Magnet",
+    "Shop towel"
+   ],
+   "parts": [
+    "oil_screen"
+   ],
+   "specs": {},
+   "caution": "CAUTION: Don't fly it out. Metal in the oil can stop the engine.",
+   "figure": "",
+   "picture": "res://textures/manual/ref_cam_wear.png"
+  },
+  {
+   "id": "piston_scuff",
+   "ata": "79",
+   "title": "Aluminum in the oil screen",
+   "job": "piston_scuff",
+   "summary": "Bright metal that won't stick to a magnet is a piston or the case.",
+   "steps": [
+    "Confirm it on the towel: bright flakes that the magnet won't pick up.",
+    "Aluminum in quantity means a piston is scuffing its cylinder.",
+    "There is no field fix. Ground the airplane and tell the owner it needs a teardown."
+   ],
+   "tools": [
+    "Magnet",
+    "Shop towel"
+   ],
+   "parts": [
+    "oil_screen"
+   ],
+   "specs": {},
+   "caution": "CAUTION: Don't fly it out. Metal in the oil can stop the engine.",
+   "figure": "",
+   "picture": "res://textures/manual/ref_piston_scuff.png"
+  },
+  {
+   "id": "bronze_bushing",
+   "ata": "79",
+   "title": "Bronze in the oil screen",
+   "job": "bronze_bushing",
+   "summary": "Gold-colored metal is a bushing wearing: the piston pins or the rockers.",
+   "steps": [
+    "Confirm it on the towel: gold flakes that the magnet won't pick up.",
+    "Bronze means a bushing is going.",
+    "There is no field fix. Ground the airplane and tell the owner it needs a teardown."
+   ],
+   "tools": [
+    "Magnet",
+    "Shop towel"
+   ],
+   "parts": [
+    "oil_screen"
+   ],
+   "specs": {},
+   "caution": "CAUTION: Don't fly it out. Metal in the oil can stop the engine.",
+   "figure": "",
+   "picture": "res://textures/manual/ref_bronze_bushing.png"
+  },
+  {
+   "id": "elevator_cable",
+   "ata": "27",
+   "title": "Elevator cables",
+   "job": "elevator_cable",
+   "summary": "A broken strand catches a rag before it catches your eye.",
+   "steps": [
+    "Run a rag along the cable at the terminals and the pulleys. A broken strand snags it.",
+    "Remove the old cable at the turnbuckles and the elevator horn.",
+    "Install the new cable along the same path, through every pulley and fairlead.",
+    "Set the tension at the turnbuckles, then safety-wire them with new wire.",
+    "Move the stick through full travel: smooth, no catches, full up and full down."
+   ],
+   "tools": [
+    "Safety-wire pliers",
+    "Shop rag"
+   ],
+   "parts": [],
+   "specs": {
+    "Elevator cable": "two, 1/8 in 7x19"
+   },
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_elevator_cable.png"
+  },
+  {
+   "id": "compass",
+   "ata": "31",
+   "title": "Swinging the compass",
+   "job": "compass",
+   "summary": "A compass off by twenty degrees gets a pilot lost.",
+   "steps": [
+    "Taxi onto the compass rose. Run the engine at about 1,700 rpm for every reading.",
+    "On north, adjust the N-S screw. On east, adjust the E-W screw.",
+    "On south and on west, take out half the remaining error.",
+    "Record the reading every 30 degrees on the deviation card and mount it by the compass."
+   ],
+   "tools": [
+    "Screwdriver"
+   ],
+   "parts": [],
+   "specs": {
+    "Deviation": "no heading more than 10 degrees off"
+   },
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_compass.png"
+  },
+  {
+   "id": "pitot_static",
+   "ata": "31",
+   "title": "Static line leak",
+   "job": "pitot_static",
+   "summary": "A leaking static line makes the airspeed and altimeter wander.",
+   "steps": [
+    "Inspect the static hoses behind the panel for cracks and loose clamps. Replace any that are hard or cracked.",
+    "Leak-test the static side: pull it to 1,000 ft on the altimeter and hold.",
+    "It may lose no more than 100 ft in a minute.",
+    "Release the test slowly, so the instruments aren't pushed past their stops."
+   ],
+   "tools": [
+    "Screwdriver"
+   ],
+   "parts": [],
+   "specs": {
+    "Static leak": "no more than 100 ft in 1 minute at 1,000 ft"
+   },
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_pitot_static.png"
+  },
+  {
+   "id": "weight_balance",
+   "ata": "08",
+   "title": "Weighing the airplane",
+   "job": "weight_balance",
+   "summary": "New tires and cushions change the empty weight; the paperwork has to follow.",
+   "steps": [
+    "Level the airplane on three scales, one under each wheel.",
+    "Read each scale. Add them for the empty weight.",
+    "Multiply each weight by its distance from the datum, add the moments, and divide by the empty weight. That's the empty-weight CG.",
+    "Take the datum and the CG limits from the airplane's own weight and balance records.",
+    "Write up the new weight and balance and sign it."
+   ],
+   "tools": [],
+   "parts": [],
+   "specs": {},
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_weight_balance.png"
+  },
+  {
+   "id": "jet_fuel",
+   "ata": "28",
+   "title": "Wrong fuel",
+   "job": "jet_fuel",
+   "summary": "Jet-A in an engine built for avgas is a teardown once it has run.",
+   "steps": [
+    "Sump a sample: kerosene is straw-colored, oily and smells like kerosene, not gasoline.",
+    "If the engine never ran on it: drain the tanks, lines and gascolator, and purge with the right fuel.",
+    "If the engine ran on it: do not fly. The engine comes out for teardown."
+   ],
+   "tools": [
+    "Shop rag"
+   ],
+   "parts": [],
+   "specs": {},
+   "caution": "CAUTION: An engine that ran on the wrong fuel doesn't fly.",
+   "figure": "",
+   "picture": "res://textures/manual/ref_jet_fuel.png"
+  },
+  {
+   "id": "prop_strike",
+   "ata": "61",
+   "title": "Prop strike",
+   "job": "prop_strike",
+   "summary": "A prop strike that stopped the engine bent more than the prop.",
+   "steps": [
+    "Look at the blades, the spinner and the cowl. Ask how it happened.",
+    "Any strike needing more than minor blade dressing, or that made the engine lose RPM, means teardown and crack inspection.",
+    "There is no field fix. Ground the airplane and tell the owner."
+   ],
+   "tools": [],
+   "parts": [],
+   "specs": {},
+   "caution": "CAUTION: Don't run an engine after a prop strike.",
+   "figure": "",
+   "picture": "res://textures/manual/ref_prop_strike.png"
+  },
+  {
+   "id": "fabric_rot",
+   "ata": "51",
+   "title": "Fabric that fails the punch test",
+   "job": "fabric_rot",
+   "summary": "Fabric that tears under the tester can tear in flight.",
+   "steps": [
+    "A spot that punches through has failed. The wing needs recovering.",
+    "There is no field fix for rotten fabric. Ground the airplane and tell the owner."
+   ],
+   "tools": [
+    "Fabric punch tester"
+   ],
+   "parts": [],
+   "specs": {},
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_fabric_rot.png"
+  },
+  {
+   "id": "fod",
+   "ata": "72",
+   "title": "Something left under the cowl",
+   "job": "fod",
+   "summary": "A rattle on the run-up after work is often a tool you closed in.",
+   "steps": [
+    "Shut down. Open the cowl and look behind every baffle and under every lead.",
+    "Remove what you find. Check the baffles, leads and fins where it sat.",
+    "Count your tools before you close the cowl again."
+   ],
+   "tools": [
+    "Screwdriver"
+   ],
+   "parts": [],
+   "specs": {},
+   "caution": "",
+   "figure": "",
+   "picture": "res://textures/manual/ref_fod.png"
   }
  ],
  "figures": {
   "fig_cylinder": {
-   "title": "Figure 1. Cylinder assembly",
+   "title": "Cylinder assembly",
    "image": "res://textures/manual/fig_cylinder.png",
    "items": [
     {
@@ -1311,10 +1750,11 @@
      "name": "Seal, pushrod housing",
      "qty": 16
     }
-   ]
+   ],
+   "ata": "72"
   },
   "fig_sump": {
-   "title": "Figure 2. Oil sump assembly",
+   "title": "Oil sump assembly",
    "image": "res://textures/manual/fig_sump.png",
    "items": [
     {
@@ -1373,10 +1813,11 @@
      "name": "Oil gauge and cap",
      "qty": 1
     }
-   ]
+   ],
+   "ata": "79"
   },
   "fig_induction": {
-   "title": "Figure 3. Carburetor and induction",
+   "title": "Carburetor and induction",
    "image": "res://textures/manual/fig_induction.png",
    "items": [
     {
@@ -1456,10 +1897,11 @@
      "name": "Carb heat valve flapper",
      "qty": 1
     }
-   ]
+   ],
+   "ata": "73"
   },
   "fig_ignition": {
-   "title": "Figure 4. Ignition system",
+   "title": "Ignition system",
    "image": "res://textures/manual/fig_ignition.png",
    "items": [
     {
@@ -1532,7 +1974,8 @@
      "name": "Spark plug gasket, copper (8)",
      "qty": 1
     }
-   ]
+   ],
+   "ata": "74"
   }
  }
 }

@@ -71,7 +71,7 @@ const PARTS := {
 	"below": [
 		{"id": "airbox", "name": "Carb air box and filter", "rects": [Rect2(50, 140, 240, 220)], "look": ["air_filter"],
 			"acts": [["screwdriver", "Air filter and carb heat box", "air_filter"], ["screwdriver", "Carb heat cable", "carb_heat"]]},
-		{"id": "sump", "name": "Oil sump and drain plug", "rects": [Rect2(300, 140, 300, 170)], "look": ["oil_leak", "oil_change"],
+		{"id": "sump", "name": "Oil sump and drain plug", "rects": [Rect2(300, 140, 300, 170)], "look": ["oil_leak", "oil_change"], "no_tell": ["oil_change"],
 			"acts": [["pliers", "Drain and change the oil", "oil_change"]]},
 		{"id": "screen", "name": "Oil suction screen", "rects": [Rect2(600, 190, 80, 80)], "look": [],
 			"acts": [["pliers", "Pull the screen and look at it", "oil_screen"]]},
@@ -369,13 +369,20 @@ func _draw() -> void:
 
 ## The tells of visible faults, painted over the part. Strength follows the difficulty: plain on
 ## Medium, stronger with a pulsing glint on Easy, faint on Hard (you have to look closely).
+## Tells that are one object (a nest, a socket, a dipstick): drawn once, at the part's first spot,
+## not repeated on every spot the part has (oil on both rocker covers is right; two nests aren't).
+const ONCE := ["bird_nest", "fod", "fuel_vent", "air_filter", "fuel_strainer", "water_fuel", "jet_fuel", "oil_change"]
+
+
 func _draw_tells(p: Dictionary) -> void:
 	var job: Dictionary = main.current_job
 	var strength: float = 1.0 if main.guide("easy") else (0.75 if main.guide("medium") else 0.45)
 	for id in p.look:
 		if not job.faults.has(id) or job.fixed.has(id) or main._how(job, id) != "walk":
 			continue
-		for r in p.rects:
+		if id in p.get("no_tell", []):  # found by looking here, but nothing of it shows (a dipstick on the sump)
+			continue
+		for r in (p.rects.slice(0, 1) if id in ONCE else p.rects):
 			_tell(id, r, strength)
 		if main.guide("easy") and not job.found.has(id):
 			var c: Vector2 = p.rects[0].get_center()
@@ -385,7 +392,11 @@ func _draw_tells(p: Dictionary) -> void:
 func _tell(id: String, r: Rect2, a: float) -> void:
 	var art := _art("bay/tell_" + id)  # painted tells (ART_PROMPTS.md section 7) replace the placeholders
 	if art:
-		draw_texture_rect(art, r, false, Color(1, 1, 1, a))
+		# Fitted inside the part at its own proportions (never stretched), centered, and never
+		# blown up past a little over its painted size.
+		var sz := art.get_size()
+		var k := minf(minf(r.size.x / sz.x, r.size.y / sz.y), 1.25)
+		draw_texture_rect(art, Rect2(r.get_center() - sz * k / 2, sz * k), false, Color(1, 1, 1, a))
 		return
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(id + str(r.position))  # the same smear every frame

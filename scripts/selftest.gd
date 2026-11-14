@@ -848,6 +848,14 @@ func _faults_test() -> bool:
 		if not f.has_all(["name", "part", "cost", "zone", "symptom"]) or not g.ZONES.has(f.get("zone", "")) or not (g.CLUES.has(id) or f.has("diags")):  # tests find the diags ones
 			print("FAULT ", id, ": needs name, part, cost, zone (one of main.ZONES), symptom, and a CLUES line (or diags)")
 			ok = false
+		elif not id in ["fod", "fabric_rot"] and not g.SQUAWKS.has(id):
+			print("FAULT ", id, ": needs a pilot squawk in main.SQUAWKS")
+			ok = false
+		elif (f.has("diags") or id in g.RUNUP_FAULTS) and g.SQUAWKS.get(id, []).any(func(line): return (f.part != "" and f.part.to_lower() in line.to_lower()) or f.name.to_lower() in line.to_lower()):
+			# A fault the pilot can't see: the squawk is the symptom, never the part. (A cracked
+			# windshield is what they saw, so visible faults may name the thing.)
+			print("FAULT ", id, ": its squawk names the hidden fault or its part; a pilot describes the symptom")
+			ok = false
 		elif not Work.scenes().has(id):
 			print("fault ", id, ": no scene of its own in work.gd yet, repaired behind the access panel")
 	var row := {"part": "Widget", "torque": Vector2i(50, 70)}

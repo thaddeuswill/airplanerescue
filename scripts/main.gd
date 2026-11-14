@@ -684,6 +684,87 @@ func _how(job: Dictionary, id: String) -> String:
 
 
 ## What the owner tells you on the radio: every fault's symptom, in random order.
+## What the pilot wrote on the squawk sheet: what they felt, heard, saw or smelled, never the
+## cause. A plane with several faults gets every line. Faults found only by testing describe the
+## symptom, and look-alike causes share their wording (all four oil-pressure faults read the same)
+## so the squawk starts the trail without handing over the answer. Two versions where it helps,
+## so a regular can't learn "this sentence means that part".
+const SQUAWKS := {
+	"tire": ["It's sitting low on the left side, and it pulled hard left on the last landing roll.",
+		"Left main looks squashed. I had to hold a lot of right rudder just to taxi in."],
+	"brakes": ["Grinding from the right wheel every time I touch the brake, and it barely slows me down.",
+		"Right brake squeals, then grinds. Takes forever to stop on the ramp."],
+	"battery": ["Hit the starter this morning and got one weak click, then nothing. The lights are dim too."],
+	"spark_plugs": ["Runs a little rough at idle and puffs black smoke on start-up. It's been getting worse.",
+		"Rough on the run-up on both mags, and the exhaust stack is black and sooty."],
+	"oil_leak": ["Oil spots on the hangar floor under the nose, and the belly has an oily film after every flight.",
+		"I've been adding a quart every couple of flights, and there's oil streaked down the belly."],
+	"bird_nest": ["Birds flew out of the cowling when I pulled the cover off. Haven't flown it since."],
+	"fuel_line": ["Strong smell of gas in the cockpit on climb-out, and there's a blue stain on the firewall."],
+	"windshield": ["Got caught in a hailstorm on the ramp. There's a long crack right across the windshield."],
+	"starter": ["The starter just clicks, or grinds, and won't turn the prop over. The battery's new."],
+	"control_cables": ["Rudder pedals are stiff, almost binding. Hard to keep it straight on the takeoff roll."],
+	"magneto": ["Engine stumbled and dropped nearly 250 RPM when I switched to the left mag on the run-up. The right mag sounds fine."],
+	"avionics": ["Radio's dead silent. Can't raise anyone, not even a hiss in the headset."],
+	"propeller": ["Found a crack running in from one blade tip on my walk-around. I didn't fly it."],
+	"stale_fuel": ["It's been sitting a long time. The last gas went in years ago, and what I sumped smells off."],
+	"pre_oil": ["Hasn't been started in years. I didn't want to crank it before somebody looked at it."],
+	"door_pin": ["Can't get the cabin door open. The handle turns but the door won't budge."],
+	"carb_heat": ["Ran rough on a damp morning, and pulling carb heat didn't change a thing. The knob feels loose."],
+	"tmp_strut": ["The left wing creaks when I rock it, and something at the bottom of the strut doesn't look right."],
+	"storage": ["The engine was put up properly for storage. There's a tag on the prop that says not to turn it."],
+	"oil_change": ["Honestly, nobody remembers the last oil change. What's on the dipstick looks black."],
+	"bungee": ["Sits low on its gear and bangs hard on every landing, even the soft ones."],
+	"tie_down": ["It's been rocking at its tie-downs all season. The ropes look rough."],
+	"ign_lead": ["Lost a good chunk of RPM on one mag on the run-up, and it coughed a couple of times taxiing over bumps.",
+		"Runs fine on both mags, but on one alone it shakes and drops off. Worse when it's damp out."],
+	"primer_leak": ["Runs rich and sooty at idle, and I smell gas in the cockpit right after I prime it."],
+	"stuck_valve": ["Felt sluggish on the takeoff roll today and had to fight it off the grass. Pulling the prop through, there's a rhythmic chuffing sound.",
+		"Shakes at every RPM, worst when it's cold. One blade comes over way too easy when I pull the prop through."],
+	"worn_rings": ["Shakes a little and it's burning a quart every few hours. Blue smoke when it starts.",
+		"Down on power, a bit rough, and the oil's going somewhere: no drips, but I keep adding it."],
+	"relief_valve": ["Oil pressure starts out normal, then sags toward 20 once it's warm. The temperature's fine."],
+	"cam_wear": ["Oil pressure starts out normal, then sags toward 20 once it's warm. The temperature's fine."],
+	"piston_scuff": ["Oil pressure starts out normal, then sags toward 20 once it's warm. The temperature's fine."],
+	"bronze_bushing": ["Oil pressure starts out normal, then sags toward 20 once it's warm. The temperature's fine."],
+	"hot_mag": ["On the mag check there's no drop at all on one mag. My buddy says that's good, but it seems too good to me."],
+	"mag_timing": ["Feels sluggish and slow to pick up, and the oil temperature runs higher than it used to."],
+	"brake_bleed": ["The right brake pedal goes soft and sinks almost to the floor. Pumping it firms it up a little."],
+	"wire_chafe": ["The radio cuts in and out over bumps on the grass. Sitting still it works fine."],
+	"exhaust_check": ["Got a headache on the way home and the cabin smells like exhaust. There's a black streak on the cowl that wasn't there last week."],
+	"air_filter": ["Down on power on climb-out, and the RPM drops way more than usual when I pull carb heat."],
+	"baffles": ["Oil temperature climbs toward the red line on a long climb. It never used to."],
+	"fuel_vent": ["Starts fine, runs a minute or two, then quits. It'll restart after it sits a while."],
+	"water_fuel": ["Coughed and quit once it warmed up, after a week of rain. It restarted rough."],
+	"fuel_strainer": ["Loses power at full throttle on takeoff, then it's fine once I pull it back."],
+	"aileron_rigging": ["Flies with the left wing low. I'm holding right stick the whole flight."],
+	"wing_rig": ["Won't fly straight hands-off. It always wants to turn a little left."],
+	"elevator_cable": ["The stick feels notchy moving fore and aft, like it catches on something."],
+	"trim_cable": ["I crank the trim and nothing happens. The crank just spins."],
+	"brace_wires": ["The tail shakes in gusty air, and one of the wires back there looks bowed."],
+	"tailwheel": ["The tailwheel shimmies on pavement and won't steer with the pedals."],
+	"prop_dress": ["Picked up a stone on the gravel strip. Heard a sharp tick from the prop."],
+	"prop_track": ["Smooth on the ground, but the whole panel shakes at cruise power."],
+	"compass": ["The compass reads about twenty degrees off the runway heading."],
+	"pitot_static": ["Airspeed and altimeter wander around in smooth air, worse when I open the window."],
+	"weight_balance": ["Put on big tires and new seat cushions. The weight paperwork in the logbook is from 1946."],
+	"jet_fuel": ["The line boy filled it with Jet-A, and we ran it a while before anybody noticed."],
+	"prop_strike": ["Nosed over in soft mud on landing. The prop hit and the engine stopped dead."],
+	"fabric_test": ["The wing fabric looks chalky and tired, with little cracks all over the paint."],
+	"brake_master": ["The left brake pedal sinks to the floor, and there's red fluid on the floor under it."],
+	"instrument_swap": ["The tach needle never leaves zero. The engine sounds normal."],
+	"prop_bolts": ["There's a clunk from the nose at idle, and the prop seems to move a hair when I push on it."],
+}
+
+
+## One line from the squawk sheet for this fault on this plane (the version is fixed per job).
+func squawk_line(job: Dictionary, id: String) -> String:
+	var v: Array = SQUAWKS.get(id, [])
+	if v.is_empty():
+		return ""
+	return v[(job.get("cyl", 0) + int(job.get("seed_squawk", 0)) + id.length()) % v.size()]
+
+
 func _symptoms(job: Dictionary) -> String:
 	var years: int = job.get("years", 0)
 	var sat := (" Sat out in the weather %d years." % years) if years > 0 else ""
@@ -691,13 +772,15 @@ func _symptoms(job: Dictionary) -> String:
 		return "\"Annual's due. Go over it nose to tail and sign it off.\"" + sat
 	var s: PackedStringArray = []
 	for id in job.faults:
-		var sym: String = TESTS[job.diag[id][0]].symptom if job.get("diag", {}).has(id) else FAULTS[id].symptom
-		if sym != "" and not sym in s:
-			s.append(sym)
+		var line := squawk_line(job, id)
+		if line == "":  # no squawk written (found only on site): fall back to the short symptom
+			line = (TESTS[job.diag[id][0]].symptom if job.get("diag", {}).has(id) else FAULTS[id].symptom)
+			line = (line[0].to_upper() + line.substr(1) + ".") if line != "" else ""
+		if line != "" and not line in s:
+			s.append(line)
 	if s.is_empty():
-		s.append("just get it flying")
-	var t := "; ".join(s)
-	return "\"" + t[0].to_upper() + t.substr(1) + ".\"" + sat
+		s.append("Just get it flying, please.")
+	return "\"" + " ".join(s) + "\"" + sat
 
 
 func _advance(days: float) -> void:
@@ -2533,6 +2616,7 @@ func _setup_ui() -> void:
 	_setup_quest()
 	_setup_log()
 	msg = _chip(16, 0.03, 0.2)
+	_setup_squawk()
 	_apply_hud.call_deferred()  # text size, backing, counters: now there's a message to style
 	goal = _chip(14, 0.0, 0.0)
 	goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -2806,12 +2890,62 @@ func _update_hud() -> void:
 	var has_lines: bool = _log_list.get_child_count() > 0 or _log_now.visible
 	_log.visible = has_lines and (preflight or Time.get_ticks_msec() < _log_until)
 	quest.visible = hud.visible
+	_update_squawk()
 	if quest.visible:
 		var next := _objective()
 		_quest_icon.texture = load("res://textures/hud/%s.svg" % next[0])
 		_quest_count.text = next[1]
 	# Toasts sit over the open half of the screen, never on top of a side sheet.
 	msg.get_parent().offset_left = SHEET_W if panel is PanelContainer else 0.0
+
+
+## The pilot's squawk, pinned top right the whole time you're at their plane: a paper slip, the
+## owner's words in type. It's the trail you start from, so it never leaves the screen.
+var squawk: PanelContainer
+var _squawk_text: Label
+var _squawk_for := ""
+
+
+func _setup_squawk() -> void:
+	squawk = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Style.COLOR_SURFACE_PAPER
+	sb.set_corner_radius_all(Style.RADIUS_SM)
+	sb.set_content_margin_all(Style.SPACE_3)
+	sb.border_width_top = 4
+	sb.border_color = Style.COLOR_TEXT_PAPER_ACCENT
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 6
+	squawk.add_theme_stylebox_override("panel", sb)
+	squawk.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	squawk.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	squawk.position += Vector2(-16, 16)
+	squawk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", Style.SPACE_1)
+	squawk.add_child(col)
+	col.add_child(Style.label("PILOT SQUAWK", "accent", Style.SIZE_SM, 900))
+	_squawk_text = Label.new()
+	_squawk_text.add_theme_font_override("font", Style.figures())  # typed on the sheet
+	_squawk_text.add_theme_font_size_override("font_size", Style.SIZE_SM)
+	_squawk_text.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER)
+	_squawk_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_squawk_text.custom_minimum_size.x = 340
+	col.add_child(_squawk_text)
+	squawk.visible = false
+	ui.add_child(squawk)
+
+
+func _update_squawk() -> void:
+	var job = current_job
+	var here: bool = job != null and job.city == location and ferry == null
+	squawk.visible = here and (hud.visible or panel is Station) and not _log.visible
+	if here:
+		var t := _symptoms(job)
+		if t != _squawk_for:
+			_squawk_for = t
+			_squawk_text.text = t
+			squawk.size = Vector2.ZERO
 
 
 ## Bottom-left: what you carry, as icons, each with the key that opens it.

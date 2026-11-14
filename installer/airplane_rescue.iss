@@ -36,6 +36,8 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Source: "..\build\AirplaneRescue.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\fonts\LICENSE-Yellowtail.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 Source: "..\fonts\OFL-BigShouldersDisplay.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "..\fonts\OFL-CourierPrime.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
+Source: "..\fonts\DejaVu-LICENSE.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 Source: "..\models_raw\j3cub_fg\COPYING.txt"; DestDir: "{app}\licenses"; DestName: "GPLv3-J3Cub-model.txt"; Flags: ignoreversion
 Source: "licenses\Godot.txt"; DestDir: "{app}\licenses"; Flags: ignoreversion
 

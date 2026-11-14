@@ -2093,18 +2093,15 @@ static var UI_FONT := _ui_font()
 static var HEAD_FONT := _head_font()
 
 
-static func _ui_font() -> SystemFont:
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["Bahnschrift", "Segoe UI", "Arial", "sans-serif"])
-	return f
+## The HUD and panel face: Big Shoulders at book weight, the same family as the books and
+## catalog. It used to be a system stack (Bahnschrift, else Segoe UI, else Arial), which meant
+## Arial on every Mac and Linux machine.
+static func _ui_font() -> Font:
+	return Style.display(600)
 
 
-static func _head_font() -> FontVariation:
-	var f := FontVariation.new()
-	f.base_font = UI_FONT
-	f.variation_embolden = 0.5
-	f.spacing_glyph = 1
-	return f
+static func _head_font() -> Font:
+	return Style.caps(800, Style.SIZE_LG)  # a real heavier cut, tracked for capitals; not a smeared faux bold
 
 
 # Message of the day: shop wisdom, paged with Q / E on the title screen.
@@ -2800,6 +2797,7 @@ func _update_hud() -> void:
 	cross.visible = hud.visible and settings.crosshair
 	prompt.visible = prompt.text != ""
 	prompt.custom_minimum_size.x = 620.0 if ferry else 0.0  # flight numbers change every frame; a fixed box doesn't shake
+	prompt.add_theme_font_override("font", Style.figures() if ferry else UI_FONT)  # and one-width digits don't jitter inside it
 	msg.visible = msg.text != ""
 	var preflight: bool = ferry != null and (ferry.state != "run" or ferry.mode == "runup") and panel == null
 	goal.visible = preflight
@@ -2971,7 +2969,7 @@ var _side: Control  # something shown beside the sheet, like the chart: goes whe
 func _ui_theme() -> Theme:
 	var t := Theme.new()
 	t.default_font = UI_FONT
-	t.default_font_size = 16
+	t.default_font_size = Style.SIZE_MD  # Big Shoulders is condensed: it reads about 2 px smaller than a regular sans at the same size
 	t.set_color("font_color", "Label", C_PAPER)
 	var fills := {"normal": Color(C_BRASS, 0.1), "hover": C_BRASS, "pressed": C_BRASS.darkened(0.2),
 		"hover_pressed": C_BRASS, "disabled": Color(C_BRASS, 0.04)}
@@ -3274,7 +3272,7 @@ const SETTINGS_PATH := "user://settings.cfg"
 const CREDITS := [
 	["Game\nthaddeuswill. Built with Godot Engine 4.7 (MIT license)."],
 	["Plane model: Piper J-3 Cub for FlightGear\nDon Lavelle (model), David Megginson and Jim Wilson, GPLv3. Converted for this game. Source: github.com/wlbragg/J3Cub, and models_raw/j3cub_fg in this game's repository."],
-	["Fonts: Yellowtail (Apache 2.0), Big Shoulders Display (SIL Open Font License)\nThe full license texts are in the licenses folder where the game is installed."],
+	["Fonts: Big Shoulders Display and Courier Prime (SIL Open Font License), Yellowtail (Apache 2.0), DejaVu Serif Condensed (Bitstream Vera license)\nThe full license texts ship with the game: in the licenses folder on Windows, inside the game data (fonts/) on Mac."],
 	["Music: One Step at a Time, La Da Da Guitar\nFrom OpenGameArt.org, CC0 (public domain)."],
 	["Music: Apple Cider\nFrom OpenGameArt.org, CC0 (public domain)."],
 	["Tool and shop recordings: 68 Workshop Sounds\nFrom OpenGameArt.org, CC0 (public domain)."],

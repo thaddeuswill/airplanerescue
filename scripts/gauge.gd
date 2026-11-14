@@ -24,7 +24,7 @@ func _angle(v: float) -> float:
 func _draw() -> void:
 	var c := size / 2
 	var r := minf(size.x, size.y) / 2
-	var font := ThemeDB.fallback_font
+	var font := Style.display(700)  # condensed instrument lettering, like the period dials
 	draw_circle(c, r, Color(0.55, 0.5, 0.42))  # brass bezel
 	draw_circle(c, r * 0.9, Color(0.06, 0.06, 0.06))
 	if green.x >= 0:

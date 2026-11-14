@@ -86,6 +86,12 @@ const BOOK_MEASURE_CHARS := 75                  # wrap body before this many cha
 const FONT_DISPLAY_PATH := "res://fonts/BigShouldersDisplay.ttf"
 const FONT_SCRIPT_PATH := "res://fonts/Yellowtail-Regular.ttf"  # logo and signatures only
 const FONT_TEXT_PATH := "res://fonts/DejaVuSerifCondensed.ttf"  # long reading: manual summaries and steps
+## Figures and typed records: money, gauges, counters, logbook lines. Courier Prime (OFL): a 1940s
+## typewriter face whose digits are all one width, so changing numbers don't jitter. Big Shoulders
+## has proportional digits and no tabular-figures feature.
+const FONT_FIGURES_PATH := "res://fonts/CourierPrime-Regular.ttf"
+const FONT_FIGURES_BOLD_PATH := "res://fonts/CourierPrime-Bold.ttf"
+const CAPS_TRACKING := 0.06  # all-caps labels are tracked out: +0.06 em (typography: +0.04 to +0.12)
 const TEXT_SIZE := 16  # the serif reads larger than Big Shoulders at the same px
 
 static var _cache := {}
@@ -108,6 +114,28 @@ static func display(weight := 800) -> Font:
 	f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): weight}
 	_cache[key] = f
 	return f
+
+
+## Big Shoulders tracked for ALL-CAPS labels (menu items, section heads, buttons). Capitals set
+## tight read as a block; a little air between them reads as a label. `size_px` sets the spacing.
+static func caps(weight := 800, size_px := SIZE_MD) -> Font:
+	var key := "caps_%d_%d" % [weight, size_px]
+	if not _cache.has(key):
+		# Built straight on the font file: a FontVariation wrapped around another FontVariation
+		# loses the inner weight and falls back to the file's default instance, Thin.
+		var f: FontVariation = display(weight).duplicate()
+		f.spacing_glyph = maxi(1, roundi(size_px * CAPS_TRACKING))
+		_cache[key] = f
+	return _cache[key]
+
+
+## The figures face: anything that counts, ticks or changes while you watch.
+static func figures(bold := false) -> Font:
+	var key := "figures_%s" % bold
+	if not _cache.has(key):
+		var p := FONT_FIGURES_BOLD_PATH if bold else FONT_FIGURES_PATH
+		_cache[key] = load(p) if ResourceLoader.exists(p) else display(700)
+	return _cache[key]
 
 
 ## The reading face for paragraphs and procedure steps; falls back to Big Shoulders 600.

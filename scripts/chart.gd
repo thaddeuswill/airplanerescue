@@ -43,7 +43,7 @@ func course(a: String, b: String) -> float:
 
 
 func draw(map: Control, calls: Array) -> void:
-	var font := ThemeDB.fallback_font
+	var font := Style.display(700)
 	var grid := Color(BLUE, 0.35)
 	# The base map's own decorative compass (bottom right, 1715..1965 x 905..1185 px) would fight the
 	# real compass rose: paper over it with a chart legend box.

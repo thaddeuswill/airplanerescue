@@ -965,8 +965,8 @@ func _draw() -> void:
 		draw_string(font, Vector2(size.x - 264 - 520, 41), need[0], HORIZONTAL_ALIGNMENT_RIGHT, 520, 13,
 			Style.COLOR_TEXT_HUD_BLOCKED if need[1] else main.C_BRASS)
 	var ok := els.filter(func(e): return _complete(e)).size()
-	draw_string(font, Vector2(size.x - 244, 22), ("Day %d   %d s of light left" % [floori(main.day), ceili(light)]) if looking
-		else "Day %d   %d of %d steps in place" % [floori(main.day), ok, els.size()], HORIZONTAL_ALIGNMENT_RIGHT, 220, 13, main.C_BRASS)
+	draw_string(Style.figures(), Vector2(size.x - 244, 22), ("Day %d   %d s of light left" % [floori(main.day), ceili(light)]) if looking
+		else "Day %d   %d of %d steps in place" % [floori(main.day), ok, els.size()], HORIZONTAL_ALIGNMENT_RIGHT, 220, Style.SIZE_XS, main.C_BRASS)  # a counter: one-width digits
 	draw_rect(Rect2(size.x - 244, 31, 220, 4), Color(main.C_BRASS, 0.2))
 	draw_rect(Rect2(size.x - 244, 31, 220.0 * (light / LIGHT if looking else float(ok) / els.size()), 4), main.C_BRASS)
 	# The tool roll.

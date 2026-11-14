@@ -311,6 +311,7 @@ func _slider(text: String, key: String, lo: float, hi: float, step: float, fmt: 
 	sl.add_theme_stylebox_override("grabber_area_highlight", fill)
 	hb.add_child(sl)
 	var val := Style.label(fmt % (sl.value * mult), "body", Style.SIZE_MD, 700)
+	val.add_theme_font_override("font", Style.figures(true))  # the readout changes while you drag
 	val.custom_minimum_size.x = VALUE_W
 	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	hb.add_child(val)

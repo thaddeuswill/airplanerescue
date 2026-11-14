@@ -92,6 +92,10 @@ the design-pass zip. Spark plugs 300-360 in-lb.
 
 ## Conventions
 
+- Type: Big Shoulders Display for all UI (`Style.display(weight)`, `Style.caps()` for capitals),
+  Courier Prime for numbers that change while you watch (`Style.figures()`), DejaVu Serif Condensed
+  for long reading, Yellowtail for the logo only. Never a system font or `ThemeDB.fallback_font`.
+  The project skill `.claude/skills/anti-ai-typography-mastery` has the rules.
 - GDScript 4 with static types (`:=` or `: Type`) and `-> Type` returns. Leave a value untyped only
   when it really is a Variant (JSON, save data, a nullable job).
 - `##` doc comments on functions and constants explain *why*, in plain words.

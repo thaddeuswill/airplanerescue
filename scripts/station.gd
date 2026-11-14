@@ -13,7 +13,7 @@ var main
 var zone: String
 var places: Array = []  # scene ids
 var hover := -1
-var font := ThemeDB.fallback_font
+var font := Style.display(600)
 var _tex := {}
 
 

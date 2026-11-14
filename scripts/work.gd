@@ -53,6 +53,7 @@ const METAL := Color(0.62, 0.63, 0.66)
 const ENGINE := Color(0.3, 0.3, 0.32)
 const RUBBER := Color(0.13, 0.13, 0.13)
 const BAR := 104.0  # the tool roll along the bottom of the screen
+const IDLE_HINT := 20.0  # seconds with no progress before the next step starts to pulse
 const HEAD := 50.0  # the job header along the top
 const SHORT := {"hand": "Hands", "screwdriver": "Screwdriver", "ratchet": "Ratchet", "torque": "Torque", "pliers": "Pliers", "rag": "Rag"}
 ## What a piece sounds like coming off (numbers in ids are dropped: plug0 -> plug). Default: part.
@@ -100,6 +101,8 @@ var _flying := []  # pieces on their way to the bench: [texture, color, from rec
 var _puffs := []  # [position, velocity, age]
 var _shake := 0.0
 var _vignette: GradientTexture2D
+var _idle := 0.0  # seconds since the last finished step
+var _show_next := false  # H held: outline every step you can do right now
 var _beam: GradientTexture2D
 const NIGHT := Color(0.02, 0.02, 0.04, 0.97)
 ## Nothing wrong here (or nothing you can see yet): good parts, finished tasks, nothing to buy.
@@ -348,7 +351,7 @@ func action(e: Dictionary) -> Dictionary:
 				return a
 			var b := _blocker(host)
 			if b != "":
-				a.why = "Take off the %s first." % by_id[b].name
+				a.why = "Remove the %s first." % _n(by_id[b].name)
 				return a
 			match s:
 				"tight":
@@ -371,7 +374,7 @@ func action(e: Dictionary) -> Dictionary:
 		"cover":
 			var b := _blocker(e)
 			if b != "":
-				a.why = "Take off the %s first." % by_id[b].name
+				a.why = "Remove the %s first." % _n(by_id[b].name)
 				return a
 			if s == "on":
 				var left := _fasteners(e.id).filter(func(f): return st[f.id] != "out").size()
@@ -385,7 +388,7 @@ func action(e: Dictionary) -> Dictionary:
 				var waiting := els.filter(func(x): return x.type not in ["fastener", "view"] and not x.get("optional", false) \
 					and not x.has("trap") and e.id in x.get("needs", []) and not _complete(x))
 				if waiting.size() > 0:
-					a.why = "Finish the %s before this goes back." % waiting[0].name
+					a.why = "Complete the %s before reinstalling." % _n(waiting[0].name)
 					return a
 				if e.id == "cowl":  # one cowling for the whole engine: nothing else can be left apart under it
 					var apart: Array = job.work.get("_cowl", {}).get("apart", {}).keys().filter(func(k): return k != fault and job.work._cowl.apart[k])
@@ -399,7 +402,7 @@ func action(e: Dictionary) -> Dictionary:
 		"part":
 			var b := _blocker(e)
 			if b != "":
-				a.why = "Take off the %s first." % by_id[b].name
+				a.why = "Remove the %s first." % _n(by_id[b].name)
 				return a
 			var t: String = e.get("tool", "hand")
 			var hold_s := 0.0 if t == "hand" else 0.9
@@ -422,7 +425,7 @@ func action(e: Dictionary) -> Dictionary:
 					a.merge({"verb": "install", "tool": t, "hold": hold_s}, true)
 					return a
 				if not st._paid and main.inventory.get(part_name, 0) <= 0:
-					a.why = "You need a new %s. Get one from the parts shed." % part_name
+					a.why = "New %s%s required. Obtain one at the parts shed." % [part_name, _part_no()]
 					return a
 				if not holding:
 					a.why = "Pick up the new %s from the bench first (click it)." % part_name
@@ -432,7 +435,7 @@ func action(e: Dictionary) -> Dictionary:
 			if s == "todo":
 				var b := _blocker(e)
 				if b != "":
-					a.why = "Take off the %s first." % by_id[b].name
+					a.why = "Remove the %s first." % _n(by_id[b].name)
 					return a
 				var req := _unmet(e)
 				if req != "":
@@ -440,7 +443,7 @@ func action(e: Dictionary) -> Dictionary:
 					return a
 				for x in e.get("on_first", []):  # a cover that has to be back on first, like the fuel valve
 					if st[x] != "on":
-						a.why = e.get("on_why", "Put the %s back first." % by_id[x].name)
+						a.why = e.get("on_why", "Reinstall the %s first." % _n(by_id[x].name))
 						return a
 				if _out_of(e) != "":
 					a.why = _out_of(e)
@@ -452,6 +455,8 @@ func action(e: Dictionary) -> Dictionary:
 	if a.tool == "torque" and e.has("range"):
 		a.range = e.range  # brought up against the needle, click by click: see _pull
 		a.hold = 0.0
+	if a.hold > 0.0 and main != null and main.settings.get("quick_hold", false):
+		a.hold = 0.15  # Settings > Quick hold: a tap instead of a long press
 	return a
 
 
@@ -467,13 +472,13 @@ func _unmet(e: Dictionary) -> String:
 	for r in e.get("requires", []):
 		var x: Dictionary = by_id[r]
 		if (x.type == "part" and st[r] != "new") or (x.type == "task" and st[r] != "done"):
-			return ("Fit the new %s first." if x.type == "part" else "%s first.") % (x.name if x.type == "part" else x.label)
+			return ("Install the new %s first." % _n(x.name)) if x.type == "part" else ("First: " + _n(x.label) + ".")
 	for p in e.get("out", []):  # a part that has to be off first (rinse the screen once it's out)
 		if st[p] == "old":
-			return "%s first." % by_id[p].get("verb_remove", "Take out the " + by_id[p].name)
+			return "%s first." % by_id[p].get("verb_remove", "Remove the " + _n(by_id[p].name))
 	for c in e.get("with", []):  # gear that has to be in place: a tester hose, a timing light
 		if st[c] != "on":
-			return "%s first." % by_id[c].get("verb_on", "Put on the " + by_id[c].name)
+			return "%s first." % by_id[c].get("verb_on", "Install the " + _n(by_id[c].name))
 	return ""
 
 
@@ -483,12 +488,12 @@ func _verb_text(e: Dictionary, v: String) -> String:
 		"tighten": return "Tighten the " + e.kind
 		"torque": return "Torque the %s to %s" % [e.kind, e.get("spec", "spec")]
 		"soak": return "Seized solid. Soak it in penetrant and let it work"
-		"out": return "Take the %s out (to the tray)" % e.kind
-		"insert": return "Put a %s back in" % e.kind
-		"off": return e.get("verb_off", "Take off the " + e.name)
-		"on": return e.get("verb_on", "Put the %s back on" % e.name)
-		"remove": return e.get("verb_remove", "Pull the old %s out" % e.name)
-		"install": return e.get("verb_install", "Fit the new " + e.name)
+		"out": return "Remove the %s (to the tray)" % e.kind
+		"insert": return "Install the " + e.kind
+		"off": return e.get("verb_off", "Remove the " + _n(e.name))
+		"on": return e.get("verb_on", "Reinstall the " + _n(e.name))
+		"remove": return e.get("verb_remove", "Remove the old " + _n(e.name))
+		"install": return e.get("verb_install", "Install the new " + _n(e.name))
 		"do": return e.label
 		"look": return "Something's wrong here. Write it up"
 	return ""
@@ -544,6 +549,7 @@ func perform(e: Dictionary, v: String) -> bool:
 		main.inventory[e.uses] -= 1  # a fresh length of safety wire, a new cotter pin, a squirt of penetrant
 		main.used_supply(fault, e.uses, healthy)
 	_feel(e, v)
+	_idle = 0.0
 	_sync_shared()
 	if not main._work_time(DAYS[v] + extra):
 		return false
@@ -666,6 +672,62 @@ func _solve_step(apart: bool, placed: Dictionary) -> String:
 	return ""
 
 
+## " (No. 50483)" for this job's part when the parts book knows it, else "". Read once per scene.
+var _no_cache = null
+
+
+func _part_no() -> String:
+	if _no_cache == null:
+		_no_cache = ""
+		if main != null and main.get("parts_book") != null and main.FAULTS.has(fault):
+			var no: String = main.parts_book.no_for_fault(fault)
+			_no_cache = "" if no == "" else " (No. %s)" % no
+	return _no_cache
+
+
+## [text, short?]: the part and consumables this job still needs, e.g. "Needs: Gasket x8 (have 2)".
+func _need_line() -> Array:
+	if looking or healthy:
+		return ["", false]
+	var mats := {}
+	for e in els:
+		if e.has("uses") and not _complete(e):
+			mats[e.uses] = mats.get(e.uses, 0) + 1
+	var bits := []
+	var short := false
+	if part_name != "" and not st._paid:
+		var have: int = main.inventory.get(part_name, 0)
+		bits.append("New %s (have %d)" % [part_name, have])
+		short = short or have <= 0
+	for m in mats:
+		var have: int = main.inventory.get(m, 0)
+		bits.append("%s x%d (have %d)" % [m, mats[m], have])
+		short = short or have < mats[m]
+	return ["" if bits.is_empty() else "Needs: " + ", ".join(bits), short]
+
+
+## The next-step pulse after IDLE_HINT seconds, or every step you can do now while H is held.
+func _draw_next_marks() -> void:
+	var marks: Array = []
+	if _show_next or _idle > IDLE_HINT:
+		marks = els.filter(func(e): return e.type != "view" and action(e).verb != "")
+		if not _show_next and marks.size() > 0:
+			marks = [marks[0]]
+	if marks.is_empty():
+		return
+	var col := Color(Style.COLOR_FOCUS, 0.55 + 0.45 * sin(Time.get_ticks_msec() / 220.0))
+	draw_set_transform(_origin(), 0.0, Vector2(k, k))
+	for e in marks:
+		if e.type == "fastener":
+			draw_arc(e.pos, 18, 0, TAU, 24, col, 3.0)
+		else:
+			var b: Rect2 = e.rect.grow(4)
+			for side in [[b.position, Vector2(b.end.x, b.position.y)], [Vector2(b.end.x, b.position.y), b.end],
+					[b.end, Vector2(b.position.x, b.end.y)], [Vector2(b.position.x, b.end.y), b.position]]:
+				draw_dashed_line(side[0], side[1], col, 3.0, 8.0)
+	draw_set_transform(Vector2.ZERO)
+
+
 # ---------- input ----------
 
 func _gui_input(ev: InputEvent) -> void:
@@ -691,7 +753,7 @@ func _gui_input(ev: InputEvent) -> void:
 				main.sound.sfx("tool")
 				note = ("Holding the new %s. Click where it goes." % part_name) if holding else "Put it back on the bench."
 			elif not have_part:
-				note = "No new %s on the bench. Buy one at the parts shed (or mail-order it)." % part_name
+				note = "No new %s%s on the bench. Buy one at the parts shed (or mail-order it)." % [part_name, _part_no()]
 			queue_redraw()
 			return
 		if ev.pressed and hover != "":
@@ -716,13 +778,18 @@ func _gui_input(ev: InputEvent) -> void:
 			held_done = false
 		queue_redraw()
 	elif ev is InputEventMouseButton and ev.pressed and ev.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-		var keys := TOOLS.keys().filter(func(t): return t == "hand" or main.tools.has(t))
+		var keys := TOOLS.keys().filter(func(t): return t == "hand" or main.tools.has(t))  # tools you own, in roll order
 		var i := (keys.find(tool) + (1 if ev.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1) + keys.size()) % keys.size()
 		_pick_tool(keys[i])
 
 
-func _unhandled_key_input(ev: InputEvent) -> void:  # 1-6 pick a tool from the roll
-	if ev.pressed and not ev.echo and ev.physical_keycode >= KEY_1 and ev.physical_keycode <= KEY_6:
+func _unhandled_key_input(ev: InputEvent) -> void:  # 1-9 pick a tool from the roll, H what's next
+	if ev is InputEventKey and ev.physical_keycode == KEY_H and not ev.echo:
+		_show_next = ev.pressed  # hold H to see every step you can do now
+		queue_redraw()
+		get_viewport().set_input_as_handled()
+		return
+	if ev.pressed and not ev.echo and ev.physical_keycode >= KEY_1 and ev.physical_keycode < KEY_1 + mini(TOOLS.size(), 9):
 		var t: String = TOOLS.keys()[ev.physical_keycode - KEY_1]
 		if t == "hand" or main.tools.has(t):
 			_pick_tool(t)
@@ -745,6 +812,10 @@ func _process(delta: float) -> void:
 	if _settle > 0:
 		_settle -= 1
 		queue_redraw()
+	if not looking:
+		_idle += delta
+		if _idle > IDLE_HINT:
+			queue_redraw()  # keep the pulse moving
 	if _flying.size() > 0 or _puffs.size() > 0 or _shake > 0.0:
 		for f in _flying:
 			f[3] += delta / 0.3
@@ -889,6 +960,10 @@ func _draw() -> void:
 	draw_rect(Rect2(0, HEAD - 1, size.x, 1), Color(main.C_BRASS, 0.5))
 	draw_string(main.HEAD_FONT, Vector2(24, 24), head.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, 20, main.C_PAPER)
 	draw_string(font, Vector2(24, 41), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, main.C_BRASS)
+	var need := _need_line()
+	if need[0] != "":
+		draw_string(font, Vector2(size.x - 264 - 520, 41), need[0], HORIZONTAL_ALIGNMENT_RIGHT, 520, 13,
+			Style.COLOR_TEXT_HUD_BLOCKED if need[1] else main.C_BRASS)
 	var ok := els.filter(func(e): return _complete(e)).size()
 	draw_string(font, Vector2(size.x - 244, 22), ("Day %d   %d s of light left" % [floori(main.day), ceili(light)]) if looking
 		else "Day %d   %d of %d steps in place" % [floori(main.day), ok, els.size()], HORIZONTAL_ALIGNMENT_RIGHT, 220, 13, main.C_BRASS)
@@ -899,8 +974,8 @@ func _draw() -> void:
 	draw_rect(Rect2(0, size.y - BAR, size.x, 1), Color(main.C_BRASS, 0.5))
 	var hint := Vector2(24, size.y - BAR + 40)
 	for line in (["Sweep the flashlight over the plane", "Click anything that looks wrong", "Esc: done looking"] if looking
-			else ["Hold the mouse to turn", "Wheel or 1-6: switch tool", ("Esc: back to the %s" % main.ZONES[main.station_zone].name) if main.station_zone != "" else "Esc: step away, work is kept"] + (["D: wiring diagram"] if diagram else [])):
-		draw_string(font, hint, line, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(main.C_BRASS, 0.8))
+			else ["Hold the mouse to turn", "Wheel or 1-%d: tool    H: what's next" % mini(TOOLS.size(), 9), ("Esc: back to the %s" % main.ZONES[main.station_zone].name) if main.station_zone != "" else "Esc: step away, work is kept"] + (["D: wiring diagram"] if diagram else [])):
+		draw_string(font, hint, line, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.HUD_HINT_SIZE, Color(main.C_BRASS, 0.85))
 		hint.y += 17
 	if holding and _tex("icon_" + fault):  # the part rides along with the cursor until it's fitted
 		draw_texture_rect(_tex("icon_" + fault), Rect2(get_local_mouse_position() + Vector2(30, -10), Vector2(64, 64)), false)
@@ -910,6 +985,8 @@ func _draw() -> void:
 		draw_rect(area, Color(main.C_EARTH, 0.94))
 		draw_texture_rect(diagram, Rect2(area.get_center() - diagram.get_size() * fit / 2.0, diagram.get_size() * fit), false)
 		return
+	if not looking:
+		_draw_next_marks()
 	if hover != "":
 		_draw_hover(by_id[hover])
 	_draw_crosshair()
@@ -1271,6 +1348,21 @@ static func _at(host: String, pts: Array, kind: String, tool: String) -> Array:
 	return out
 
 
+## The rocker cover and its gasket: one cylinder's domed cover on a lobed flange, as on the C-85,
+## with a screw in each of its six lobes. The art (oil_leak_rocker, oil_leak_gasket_*) is cut to this rect.
+const ROCKER_RECT := Rect2(260, 110, 320, 190)
+
+
+## The six cover screws, one per lobe, on an ellipse around the cover's center.
+static func _rocker_screws() -> Array:
+	var c := ROCKER_RECT.get_center()
+	var pts := []
+	for i in 6:
+		var t := deg_to_rad(60.0 * i)
+		pts.append(c + Vector2(cos(t) * 140.0, sin(t) * 80.0))
+	return pts
+
+
 ## Fasteners at the four corners of a rect, inset.
 static func _corners(host: String, r: Rect2, kind: String, tool: String, inset := 16.0) -> Array:
 	var g := r.grow(-inset)
@@ -1281,6 +1373,38 @@ static func _cowl(needs := []) -> Array:  # the side cowling, same on every engi
 	var r := Rect2(40, 40, 760, 300)
 	return [_cover("cowl", "Cowling", r, needs, {"tex": "cowling_metal", "col": SKIN})] + _at("cowl",
 		[Vector2(60, 60), Vector2(420, 52), Vector2(780, 60), Vector2(780, 320), Vector2(420, 328), Vector2(60, 320)], "screw", "screwdriver")
+
+
+const TEXT_PATH := "res://data/job_text.json"
+
+
+## On-screen wording lives in data/job_text.json (service-manual style, keyed by job and piece id), so
+## it can be rewritten without touching the job logic. A missing file or key keeps the built-in text.
+static func _apply_text(s: Dictionary) -> void:
+	if not FileAccess.file_exists(TEXT_PATH):
+		return
+	var d = JSON.parse_string(FileAccess.get_file_as_string(TEXT_PATH))
+	if not d is Dictionary:
+		push_warning("work.gd: can't read " + TEXT_PATH)
+		return
+	for f in d:
+		if not s.has(f):
+			continue
+		if d[f].has("title"):
+			s[f].title = d[f].title
+		var over: Dictionary = d[f].get("els", {})
+		for e in s[f].els:
+			if over.has(e.id):
+				for key in over[e.id]:
+					if key != "label" or e.type == "task":
+						e[key] = over[e.id][key]
+
+
+## A piece's name inside a sentence: "the cowling", but "the No. 4 upper spark plug" and "the P-lead" stay.
+static func _n(name: String) -> String:
+	if name.length() < 2 or name.begins_with("No. ") or name.substr(1, 1) == name.substr(1, 1).to_upper():
+		return name
+	return name.substr(0, 1).to_lower() + name.substr(1)
 
 
 static var _scenes := {}
@@ -1361,13 +1485,12 @@ static func scenes() -> Dictionary:
 		"els": [_task("gap", "Gap the new plugs .016-.021 in", Rect2(150, 400, 520, 36), "hand", ["cowl"], {"hold": 1.5})] + plugs + _cowl()}
 
 	# Oil leak: wipe the mess, rocker cover off, scrape, new gasket.
-	var rc := Rect2(200, 130, 440, 150)
+	var rc := ROCKER_RECT  # one cylinder's domed rocker cover, lobed at its six screws (C-85)
 	s.oil_leak = {"title": "Engine, left side: rocker cover", "deco": engine_deco, "els": [
-		_part("gasket", "Rocker cover gasket", rc.grow(-20), ["cowl", "rocker"], {"col": Color(0.75, 0.35, 0.15), "requires": ["scrape"]}),
+		_part("gasket", "Rocker cover gasket", rc, ["cowl", "rocker"], {"col": Color(0.75, 0.35, 0.15), "requires": ["scrape"]}),
 		_task("scrape", "Scrape the old gasket off both faces", Rect2(rc.position.x + 20, rc.end.y - 50, rc.size.x - 40, 30), "rag", ["cowl", "rocker"], {"hold": 2.0}),
 		_cover("rocker", "Rocker cover", rc, ["cowl"], {"tex": "metal_steel", "col": METAL})]
-		+ _at("rocker", [rc.position + Vector2(18, 18), Vector2(rc.get_center().x, rc.position.y + 18), Vector2(rc.end.x - 18, rc.position.y + 18),
-			rc.end - Vector2(18, 18), Vector2(rc.get_center().x, rc.end.y - 18), Vector2(rc.position.x + 18, rc.end.y - 18)], "screw", "screwdriver")
+		+ _at("rocker", _rocker_screws(), "screw", "screwdriver")
 		+ [_task("wipe", "Wipe the engine down so the leak shows", Rect2(120, 290, 600, 40), "rag", ["cowl"], {"tex": "oil_puddle", "col": Color(0.2, 0.15, 0.05, 0.9), "hold": 2.0})]
 		+ _cowl()}
 
@@ -1385,7 +1508,7 @@ static func scenes() -> Dictionary:
 	st_f[3].kind = "bolt"  # the two through bolts from the front of the crankcase flange
 	st_f[4].kind = "bolt"
 	s.starter = {"title": "Engine, rear accessory case: starter pad", "deco": engine_deco, "els": [
-		_task("gasket", "Scrape the pad, fit a new gasket with paste", Rect2(140, 215, 80, 80), "rag", ["cowl", "master"], {"uses": "Gasket", "out": ["starter"], "col": Color(0.8, 0.5, 0.25, 0.9), "hold": 1.5}),
+		_task("gasket", "Scrape the pad, fit a new gasket with paste", Rect2(125, 195, 100, 120), "rag", ["cowl", "master"], {"uses": "Gasket", "out": ["starter"], "col": Color(0.8, 0.5, 0.25, 0.9), "hold": 1.5}),
 		_part("starter", "Starter motor", sr, ["cowl", "master", "cable", "pull"], {"col": Color(0.25, 0.25, 0.28), "requires": ["gasket"]})]
 		+ st_f
 		+ [_cover("pull", "Starter pull cable", Rect2(250, 150, 150, 46), ["cowl"], {"tool": "pliers", "col": Color(0.3, 0.3, 0.32),
@@ -1587,6 +1710,7 @@ static func scenes() -> Dictionary:
 
 	_troubleshooting(s, engine_deco)
 	_more_jobs(s, engine_deco, wheel_deco, wing_deco)
+	_apply_text(s)
 	_scenes = s
 	return s
 
@@ -1945,11 +2069,11 @@ static func _more_jobs(s: Dictionary, engine_deco: Array, wheel_deco: Array, win
 		_cover("nut", "Packing nut", Rect2(405, 130, 70, 40), [], {"tool": "ratchet", "col": Color(0.7, 0.6, 0.3)}),
 		_cover("valve", "Fuel shut-off", Rect2(700, 420, 100, 90), [], {"col": Color(0.6, 0.1, 0.1), "verb_off": "Turn the fuel OFF", "verb_on": "Turn the fuel back ON"})]}
 
-	var rc := Rect2(200, 130, 440, 150)
-	var rocker := [_cover("rocker", "Rocker cover", rc, ["cowl"], {"tex": "metal_steel", "col": METAL})] + _corners("rocker", rc, "screw", "screwdriver", 18.0)
+	var rc := ROCKER_RECT
+	var rocker := [_cover("rocker", "Rocker cover", rc, ["cowl"], {"tex": "metal_steel", "col": METAL})] + _at("rocker", _rocker_screws(), "screw", "screwdriver")
 	_torque_on(rocker, "rocker")  # 55-65 in-lb
 	s.stuck_valve = {"title": "Engine, rocker cover off", "deco": engine_deco, "desc": "One cylinder head with its rocker cover off: rocker arms, valve springs and stems showing", "els": [
-		_part("gasket", "Rocker cover gasket", rc.grow(-24), ["cowl", "rocker"], {"col": Color(0.75, 0.35, 0.15), "requires": ["free"]}),
+		_part("gasket", "Rocker cover gasket", rc, ["cowl", "rocker"], {"col": Color(0.75, 0.35, 0.15), "requires": ["free"]}),
 		_task("soak", "Soak the valve stem", Rect2(260, 180, 150, 50), "rag", ["cowl", "rocker"], {"uses": "Penetrant", "hold": 2.0}),
 		_task("free", "Work the valve free", Rect2(430, 180, 160, 50), "hand", ["cowl", "rocker"], {"requires": ["soak"], "hold": 3.0})]
 		+ rocker + _cowl()}

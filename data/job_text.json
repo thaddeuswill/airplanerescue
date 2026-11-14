@@ -1,0 +1,1360 @@
+{
+ "aileron_rigging": {
+  "title": "Left wing root, underside: aileron cables · Piper Fig. 1, 6",
+  "els": {
+   "measure": {
+    "name": "Install the tensiometer on the cable; read the tension",
+    "label": "Install the tensiometer on the cable; read the tension"
+   },
+   "cable": {
+    "name": "Aileron cable"
+   },
+   "tb_a": {
+    "name": "Adjust the left turnbuckle (3 threads max exposed)",
+    "label": "Adjust the left turnbuckle (3 threads max exposed)"
+   },
+   "tb_b": {
+    "name": "Adjust the right turnbuckle (3 threads max exposed)",
+    "label": "Adjust the right turnbuckle (3 threads max exposed)"
+   },
+   "check": {
+    "name": "Recheck tension: 25 to 35 lb",
+    "label": "Recheck tension: 25 to 35 lb"
+   },
+   "wire_a": {
+    "name": "Left turnbuckle safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire with new wire"
+   },
+   "wire_b": {
+    "name": "Right turnbuckle safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire with new wire"
+   },
+   "window": {
+    "name": "Inspection window"
+   }
+  }
+ },
+ "air_filter": {
+  "title": "Engine, lower: carburetor air box · Cont. 9-1",
+  "els": {
+   "oil": {
+    "name": "Wash the filter, dip in clean oil, drain",
+    "label": "Wash the filter, dip in clean oil, drain"
+   },
+   "filter": {
+    "name": "Induction air filter"
+   },
+   "valve": {
+    "name": "Operate the carb heat valve: it must seat fully in both positions",
+    "label": "Operate the carb heat valve: it must seat fully in both positions"
+   },
+   "flapper": {
+    "name": "Carburetor heat valve"
+   },
+   "cover": {
+    "name": "Filter retainer"
+   }
+  }
+ },
+ "avionics": {
+  "title": "Cabin: overhead and instrument panel",
+  "els": {
+   "antenna": {
+    "name": "Antenna"
+   },
+   "coax": {
+    "name": "Coaxial cable",
+    "verb_off": "Disconnect the coax",
+    "verb_on": "Reconnect the coax"
+   },
+   "radio": {
+    "name": "Transceiver"
+   },
+   "check": {
+    "name": "Operational check: radio check on the ground",
+    "label": "Operational check: radio check on the ground"
+   }
+  }
+ },
+ "baffles": {
+  "title": "Engine, top: cylinder baffles · Cont. 9-1i, 9-3h",
+  "els": {
+   "packed0": {
+    "name": "Clear debris from the cooling fins",
+    "label": "Clear debris from the cooling fins"
+   },
+   "packed1": {
+    "name": "Clear debris from the cooling fins",
+    "label": "Clear debris from the cooling fins"
+   },
+   "packed2": {
+    "name": "Clear debris from the cooling fins",
+    "label": "Clear debris from the cooling fins"
+   },
+   "packed3": {
+    "name": "Clear debris from the cooling fins",
+    "label": "Clear debris from the cooling fins"
+   },
+   "seal_l": {
+    "name": "Left baffle seal"
+   },
+   "seal_r": {
+    "name": "Right baffle seal"
+   },
+   "fit": {
+    "name": "Inspect seals: must lie flat against the cowling, curled inward",
+    "label": "Inspect seals: must lie flat against the cowling, curled inward"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "battery": {
+  "title": "Battery box, right side",
+  "els": {
+   "battery": {
+    "name": "Battery"
+   },
+   "strap": {
+    "name": "Hold-down strap"
+   },
+   "pos": {
+    "name": "Positive (+) cable",
+    "verb_off": "Disconnect the positive terminal",
+    "verb_on": "Connect the positive terminal"
+   },
+   "neg": {
+    "name": "Negative (-) cable",
+    "verb_off": "Disconnect the negative terminal (always first)",
+    "verb_on": "Connect the negative terminal (always last)"
+   },
+   "hatch": {
+    "name": "Access door"
+   },
+   "master": {
+    "name": "Master switch",
+    "verb_off": "Master switch OFF before disconnecting",
+    "verb_on": "Master switch ON"
+   },
+   "charge": {
+    "name": "Run-up: ammeter indicates charge",
+    "label": "Run-up: ammeter indicates charge"
+   }
+  }
+ },
+ "bird_nest": {
+  "title": "Engine, top: induction and cooling fins · Cont. 9-1i",
+  "els": {
+   "check": {
+    "name": "Inspect fins and air intake for remaining nest material",
+    "label": "Inspect fins and air intake for remaining nest material"
+   },
+   "straw": {
+    "name": "Remove loose debris",
+    "label": "Remove loose debris"
+   },
+   "nest": {
+    "name": "Remove the nest",
+    "label": "Remove the nest"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "brace_wires": {
+  "title": "Tail, left side: tail brace wires · Piper Fig. 6",
+  "els": {
+   "inspect": {
+    "name": "Inspect for bends, corrosion and worn clevis pins",
+    "label": "Inspect for bends, corrosion and worn clevis pins"
+   },
+   "upper": {
+    "name": "Upper tail brace wire"
+   },
+   "lower": {
+    "name": "Lower tail brace wire"
+   },
+   "cotters": {
+    "name": "Install new cotter pins in all four clevis pins",
+    "label": "Install new cotter pins in all four clevis pins"
+   }
+  }
+ },
+ "brake_bleed": {
+  "title": "Left main wheel, inboard: brake bleeder · Piper Fig. 8",
+  "els": {
+   "hose": {
+    "name": "Attach a clear hose to the bleeder; other end in the container",
+    "label": "Attach a clear hose to the bleeder; other end in the container"
+   },
+   "pump": {
+    "name": "Open the bleeder; pump the pedal until free of bubbles",
+    "label": "Open the bleeder; pump the pedal until free of bubbles"
+   },
+   "close": {
+    "name": "Close the bleeder; remove the hose",
+    "label": "Close the bleeder; remove the hose"
+   },
+   "topup": {
+    "name": "Service the reservoir with hydraulic fluid",
+    "label": "Service the reservoir with hydraulic fluid"
+   },
+   "cap": {
+    "name": "Bleeder dust cap"
+   }
+  }
+ },
+ "brake_master": {
+  "title": "Rear floorboard: brake master cylinders · Piper Fig. 8",
+  "els": {
+   "puddle": {
+    "name": "Clean off spilled fluid to locate the leak",
+    "label": "Clean off spilled fluid to locate the leak"
+   },
+   "cylinder": {
+    "name": "Left master cylinder"
+   },
+   "line": {
+    "name": "Brake line fitting",
+    "verb_off": "Loosen the line B-nut",
+    "verb_on": "Connect the line; tighten the B-nut"
+   },
+   "fill": {
+    "name": "Service the new cylinder with hydraulic fluid",
+    "label": "Service the new cylinder with hydraulic fluid"
+   },
+   "bleed": {
+    "name": "Bleed the brake at the wheel until free of bubbles",
+    "label": "Bleed the brake at the wheel until free of bubbles"
+   },
+   "cover": {
+    "name": "Floorboard inspection cover"
+   }
+  }
+ },
+ "brakes": {
+  "title": "Right main wheel, inboard: drum brake · Piper Fig. 8",
+  "els": {
+   "bleed": {
+    "name": "Bleed the brake until the fluid runs clear",
+    "label": "Bleed the brake until the fluid runs clear"
+   },
+   "disc": {
+    "name": "Brake shoes and expander tube"
+   },
+   "wheel": {
+    "name": "Wheel and drum"
+   },
+   "pin": {
+    "name": "Axle nut cotter pin",
+    "verb_off": "Remove the cotter pin",
+    "verb_on": "Install a new cotter pin; bend the legs"
+   },
+   "caliper": {
+    "name": "Brake line bracket",
+    "verb_off": "Disconnect the brake line; remove its bracket"
+   },
+   "jack": {
+    "name": "Axle jack",
+    "verb_off": "Jack the axle",
+    "verb_on": "Lower the aircraft"
+   }
+  }
+ },
+ "bungee": {
+  "title": "Left main gear: shock cord rings · Piper Fig. 5",
+  "els": {
+   "read": {
+    "name": "Read the color code: year and quarter of manufacture",
+    "label": "Read the color code: year and quarter of manufacture"
+   },
+   "cord": {
+    "name": "Shock cord rings",
+    "verb_remove": "Remove the old rings with the installation tool",
+    "verb_install": "Install the new rings with the installation tool"
+   },
+   "boot": {
+    "name": "Shock cord cover",
+    "verb_off": "Unlace the cover",
+    "verb_on": "Lace the cover"
+   },
+   "jack": {
+    "name": "Axle jack",
+    "verb_off": "Jack the axle until the gear hangs free",
+    "verb_on": "Lower the aircraft; check it sits level"
+   }
+  }
+ },
+ "cold_cylinder": {
+  "title": "Engine, lower: exhaust stacks and intake tubes · Cont. Sec. VIII",
+  "els": {
+   "mark0": {
+    "name": "Mark the No. 4 exhaust stack with temperature crayon",
+    "label": "Mark the No. 4 exhaust stack with temperature crayon"
+   },
+   "mark1": {
+    "name": "Mark the No. 2 exhaust stack with temperature crayon",
+    "label": "Mark the No. 2 exhaust stack with temperature crayon"
+   },
+   "mark2": {
+    "name": "Mark the No. 3 exhaust stack with temperature crayon",
+    "label": "Mark the No. 3 exhaust stack with temperature crayon"
+   },
+   "mark3": {
+    "name": "Mark the No. 1 exhaust stack with temperature crayon",
+    "label": "Mark the No. 1 exhaust stack with temperature crayon"
+   },
+   "run": {
+    "name": "Start; run 30 seconds at 1,200 rpm; shut down",
+    "label": "Start; run 30 seconds at 1,200 rpm; shut down"
+   },
+   "read0": {
+    "name": "Inspect the No. 4 mark: melted indicates firing",
+    "label": "Inspect the No. 4 mark: melted indicates firing"
+   },
+   "read1": {
+    "name": "Inspect the No. 2 mark: melted indicates firing",
+    "label": "Inspect the No. 2 mark: melted indicates firing"
+   },
+   "read2": {
+    "name": "Inspect the No. 3 mark: melted indicates firing",
+    "label": "Inspect the No. 3 mark: melted indicates firing"
+   },
+   "read3": {
+    "name": "Inspect the No. 1 mark: melted indicates firing",
+    "label": "Inspect the No. 1 mark: melted indicates firing"
+   },
+   "hose": {
+    "name": "No. 3 intake hose"
+   },
+   "rerun": {
+    "name": "Repeat the run: all four marks must melt",
+    "label": "Repeat the run: all four marks must melt"
+   }
+  }
+ },
+ "compression": {
+  "title": "Engine, left side: differential compression, No. 4 · Cont. 9-3d",
+  "els": {
+   "warm": {
+    "name": "Run the engine to operating temperature",
+    "label": "Run the engine to operating temperature"
+   },
+   "plug": {
+    "name": "Remove the No. 4 upper spark plug",
+    "label": "Remove the No. 4 upper spark plug"
+   },
+   "hookup": {
+    "name": "Install the tester adapter in the spark plug hole",
+    "label": "Install the tester adapter in the spark plug hole"
+   },
+   "tdc": {
+    "name": "Position the piston at top center, compression stroke; hold the propeller",
+    "label": "Position the piston at top center, compression stroke; hold the propeller"
+   },
+   "test": {
+    "name": "Apply 80 psi; read cylinder pressure",
+    "label": "Apply 80 psi; read cylinder pressure"
+   },
+   "ear_ex": {
+    "name": "Listen at the exhaust stack (exhaust valve)",
+    "label": "Listen at the exhaust stack (exhaust valve)"
+   },
+   "ear_in": {
+    "name": "Listen at the carburetor air intake (intake valve)",
+    "label": "Listen at the carburetor air intake (intake valve)"
+   },
+   "ear_oil": {
+    "name": "Listen at the oil filler (piston rings)",
+    "label": "Listen at the oil filler (piston rings)"
+   },
+   "refit": {
+    "name": "Remove the tester; install the plug with a new gasket, 300-360 in-lb",
+    "label": "Remove the tester; install the plug with a new gasket, 300-360 in-lb"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "control_cables": {
+  "title": "Tail: inspection plate, rudder cables · Piper Fig. 6",
+  "els": {
+   "rag": {
+    "name": "Draw a cloth along the cable: it snags on broken strands",
+    "label": "Draw a cloth along the cable: it snags on broken strands"
+   },
+   "cable": {
+    "name": "Rudder cable"
+   },
+   "tb_a": {
+    "name": "Adjust the left turnbuckle",
+    "label": "Adjust the left turnbuckle"
+   },
+   "tb_b": {
+    "name": "Adjust the right turnbuckle",
+    "label": "Adjust the right turnbuckle"
+   },
+   "wire_a": {
+    "name": "Left turnbuckle safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire the turnbuckle"
+   },
+   "wire_b": {
+    "name": "Right turnbuckle safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire the turnbuckle"
+   },
+   "plate": {
+    "name": "Inspection plate"
+   },
+   "tension": {
+    "name": "Check tension with the tensiometer: within limits",
+    "label": "Check tension with the tensiometer: within limits"
+   }
+  }
+ },
+ "door_pin": {
+  "title": "Cabin door, hinge side",
+  "els": {
+   "pin": {
+    "name": "Hinge pin",
+    "verb_remove": "Remove the seized hinge pin"
+   },
+   "soak": {
+    "name": "Apply penetrating oil to the pin; allow to soak",
+    "label": "Apply penetrating oil to the pin; allow to soak"
+   },
+   "cotter": {
+    "name": "Cotter pin",
+    "verb_off": "Remove the cotter pin",
+    "verb_on": "Install a new cotter pin; bend the legs"
+   },
+   "trim": {
+    "name": "Door trim panel"
+   }
+  }
+ },
+ "exhaust_check": {
+  "title": "Engine, lower: muffler and heater shroud · Piper Fig. 10",
+  "els": {
+   "inspect": {
+    "name": "Inspect for cracks and gray-white streaks (exhaust leak, CO hazard)",
+    "label": "Inspect for cracks and gray-white streaks (exhaust leak, CO hazard)"
+   },
+   "gaskets": {
+    "name": "Install new exhaust gaskets at the stack flanges",
+    "label": "Install new exhaust gaskets at the stack flanges"
+   },
+   "muffler": {
+    "name": "Muffler"
+   },
+   "shroud": {
+    "name": "Heater shroud"
+   },
+   "scat": {
+    "name": "Heater hose",
+    "verb_off": "Loosen the clamp; remove the heater hose"
+   }
+  }
+ },
+ "fabric_test": {
+  "title": "Left wing, upper surface: fabric strength · AC 43.13",
+  "els": {
+   "test0": {
+    "name": "Apply the punch tester squarely at test point 1",
+    "label": "Apply the punch tester squarely at test point 1"
+   },
+   "test1": {
+    "name": "Apply the punch tester squarely at test point 2",
+    "label": "Apply the punch tester squarely at test point 2"
+   },
+   "test2": {
+    "name": "Apply the punch tester squarely at test point 3",
+    "label": "Apply the punch tester squarely at test point 3"
+   },
+   "seal0": {
+    "name": "Seal the test indentation with dope",
+    "label": "Seal the test indentation with dope"
+   },
+   "seal2": {
+    "name": "Seal the test indentation with dope",
+    "label": "Seal the test indentation with dope"
+   },
+   "writeup": {
+    "name": "A test point failed: record the wing as unairworthy; recover",
+    "label": "A test point failed: record the wing as unairworthy; recover"
+   }
+  }
+ },
+ "fuel_line": {
+  "title": "Firewall: fuel line to the strainer · Piper Fig. 9, 10",
+  "els": {
+   "mop": {
+    "name": "Clean up spilled fuel",
+    "label": "Clean up spilled fuel"
+   },
+   "line": {
+    "name": "Fuel line",
+    "verb_remove": "Loosen both B-nuts (back up each fitting with a second wrench); remove the line"
+   },
+   "fairing": {
+    "name": "Lower cowl panel"
+   },
+   "valve": {
+    "name": "Fuel shutoff valve",
+    "verb_off": "Fuel valve OFF",
+    "verb_on": "Fuel valve ON"
+   },
+   "leak": {
+    "name": "Fuel ON: inspect both fittings for stains",
+    "label": "Fuel ON: inspect both fittings for stains"
+   }
+  }
+ },
+ "fuel_strainer": {
+  "title": "Firewall: fuel strainer (gascolator) · Piper Fig. 9, Cont. 9-3n",
+  "els": {
+   "off": {
+    "name": "Fuel valve OFF",
+    "label": "Fuel valve OFF"
+   },
+   "gasket": {
+    "name": "Install a new bowl gasket",
+    "label": "Install a new bowl gasket"
+   },
+   "wash": {
+    "name": "Clean the bowl and screen in clean fuel",
+    "label": "Clean the bowl and screen in clean fuel"
+   },
+   "screen": {
+    "name": "Strainer screen"
+   },
+   "bowl": {
+    "name": "Sediment bowl"
+   },
+   "nut": {
+    "name": "Bail and thumb nut",
+    "verb_off": "Loosen the thumb nut; swing the bail clear",
+    "verb_on": "Position the bail; tighten the thumb nut by hand"
+   },
+   "wire": {
+    "name": "Safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire with new wire"
+   },
+   "leak": {
+    "name": "Fuel ON: inspect the bowl for leaks",
+    "label": "Fuel ON: inspect the bowl for leaks"
+   }
+  }
+ },
+ "fuel_vent": {
+  "title": "Nose deck: fuel cap vent · Cont. 9-1e",
+  "els": {
+   "nest": {
+    "name": "Remove the insect nest from the vent",
+    "label": "Remove the insect nest from the vent"
+   },
+   "probe": {
+    "name": "Clear the vent with a wire; blow through to confirm",
+    "label": "Clear the vent with a wire; blow through to confirm"
+   },
+   "crumbs": {
+    "name": "Clean debris from the deck",
+    "label": "Clean debris from the deck"
+   }
+  }
+ },
+ "hot_mag": {
+  "title": "Accessory case: left magneto ground lead · Cont. 7-4, 10-13",
+  "els": {
+   "tag": {
+    "name": "Hang a DANGER tag on the propeller before starting work",
+    "label": "Hang a DANGER tag on the propeller before starting work"
+   },
+   "plead": {
+    "name": "Magneto ground lead (P-lead)"
+   },
+   "check": {
+    "name": "Run-up: magneto drop, L and R, each under 75 rpm",
+    "label": "Run-up: magneto drop, L and R, each under 75 rpm"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "instrument_swap": {
+  "title": "Instrument panel: tachometer · Piper Fig. 7",
+  "els": {
+   "shaft": {
+    "name": "Turn the propeller: the drive shaft turns, so the instrument is faulty",
+    "label": "Turn the propeller: the drive shaft turns, so the instrument is faulty"
+   },
+   "tach": {
+    "name": "Tachometer"
+   },
+   "cable": {
+    "name": "Tach drive shaft nut",
+    "verb_off": "Ease the instrument forward; disconnect the drive shaft",
+    "verb_on": "Connect the drive shaft; tighten the nut"
+   },
+   "run": {
+    "name": "Run-up: tachometer indicates rpm",
+    "label": "Run-up: tachometer indicates rpm"
+   }
+  }
+ },
+ "mag_timing": {
+  "title": "Accessory case: timing the left magneto · Cont. 10-11, 10-12",
+  "els": {
+   "plugs": {
+    "name": "Remove all upper spark plugs",
+    "label": "Remove all upper spark plugs"
+   },
+   "leads": {
+    "name": "Connect the timing light to the magneto ground terminal and to ground",
+    "label": "Connect the timing light to the magneto ground terminal and to ground"
+   },
+   "light": {
+    "name": "Timing light ON",
+    "label": "Timing light ON"
+   },
+   "back": {
+    "name": "No. 1 on compression: back up 10 deg, then advance to 30 deg BTC",
+    "label": "No. 1 on compression: back up 10 deg, then advance to 30 deg BTC"
+   },
+   "tap": {
+    "name": "Loosen the mounting nuts; rotate the magneto until the light just comes on",
+    "label": "Loosen the mounting nuts; rotate the magneto until the light just comes on"
+   },
+   "tighten": {
+    "name": "Tighten the mounting nuts",
+    "label": "Tighten the mounting nuts"
+   },
+   "recheck": {
+    "name": "Back up and advance again: light comes on at 30 deg BTC",
+    "label": "Back up and advance again: light comes on at 30 deg BTC"
+   },
+   "refit": {
+    "name": "Timing light off; install upper plugs with new gaskets, 300-360 in-lb",
+    "label": "Timing light off; install upper plugs with new gaskets, 300-360 in-lb"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "magneto": {
+  "title": "Accessory case: left magneto · Cont. 10-8 to 10-12",
+  "els": {
+   "timing": {
+    "name": "Time to engine: No. 1 at 30 deg BTC; rotate until the points open",
+    "label": "Time to engine: No. 1 at 30 deg BTC; rotate until the points open"
+   },
+   "gasket": {
+    "name": "Install a new flange gasket with sealing compound",
+    "label": "Install a new flange gasket with sealing compound"
+   },
+   "magneto": {
+    "name": "Magneto"
+   },
+   "cap": {
+    "name": "Ignition harness outlet plate"
+   },
+   "plead": {
+    "name": "Magneto ground lead (P-lead)",
+    "verb_off": "Disconnect the ground lead at the terminal",
+    "verb_on": "Connect the ground lead (if open, the magneto is HOT)"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "oil_change": {
+  "title": "Engine, lower: sump drain and suction screen · Cont. 7-12, 7-13",
+  "els": {
+   "warm": {
+    "name": "Run the engine to warm the oil (about 90 F) before draining",
+    "label": "Run the engine to warm the oil (about 90 F) before draining"
+   },
+   "pan": {
+    "name": "Position the drain pan under the sump",
+    "label": "Position the drain pan under the sump"
+   },
+   "drain": {
+    "name": "Drain the oil completely",
+    "label": "Drain the oil completely"
+   },
+   "pgasket": {
+    "name": "Install a new copper-asbestos gasket on the drain plug",
+    "label": "Install a new copper-asbestos gasket on the drain plug"
+   },
+   "plug": {
+    "name": "Sump drain plug",
+    "verb_remove": "Remove the drain plug",
+    "verb_install": "Install the drain plug; tighten"
+   },
+   "wire": {
+    "name": "Drain plug safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire with new wire"
+   },
+   "inspect": {
+    "name": "Inspect the suction screen for metal (see Oil screen)",
+    "label": "Inspect the suction screen for metal (see Oil screen)"
+   },
+   "sgasket": {
+    "name": "Install a new gasket on the screen",
+    "label": "Install a new gasket on the screen"
+   },
+   "screen": {
+    "name": "Oil suction screen",
+    "verb_remove": "Remove the suction screen",
+    "verb_install": "Install the suction screen; tighten"
+   },
+   "swire": {
+    "name": "Suction screen safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire with new wire"
+   },
+   "quart0": {
+    "name": "Add one quart of aviation oil",
+    "label": "Add one quart of aviation oil"
+   },
+   "quart1": {
+    "name": "Add one quart of aviation oil",
+    "label": "Add one quart of aviation oil"
+   },
+   "quart2": {
+    "name": "Add one quart of aviation oil",
+    "label": "Add one quart of aviation oil"
+   },
+   "quart3": {
+    "name": "Add one quart of aviation oil",
+    "label": "Add one quart of aviation oil"
+   },
+   "quart4": {
+    "name": "Fill to FULL on the gauge (4-1/2 qt)",
+    "label": "Fill to FULL on the gauge (4-1/2 qt)"
+   },
+   "leak": {
+    "name": "Run the engine; inspect for leaks; recheck the oil level",
+    "label": "Run the engine; inspect for leaks; recheck the oil level"
+   }
+  }
+ },
+ "oil_leak": {
+  "title": "Engine, left side: rocker box cover · Cont. 9-2i, 9-3e",
+  "els": {
+   "gasket": {
+    "name": "Rocker box cover gasket"
+   },
+   "scrape": {
+    "name": "Remove all old gasket material from both faces",
+    "label": "Remove all old gasket material from both faces"
+   },
+   "rocker": {
+    "name": "Rocker box cover"
+   },
+   "wipe": {
+    "name": "Clean the engine to locate the leak",
+    "label": "Clean the engine to locate the leak"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "oil_screen": {
+  "title": "Bench: oil suction screen · Cont. 7-13",
+  "els": {
+   "rinse": {
+    "name": "Wash the screen in unleaded gasoline over a clean cloth",
+    "label": "Wash the screen in unleaded gasoline over a clean cloth"
+   },
+   "metal": {
+    "name": "Inspect the residue on the cloth",
+    "label": "Inspect the residue on the cloth"
+   },
+   "magnet": {
+    "name": "Test the particles with a magnet: steel is magnetic; aluminum and bronze are not",
+    "label": "Test the particles with a magnet: steel is magnetic; aluminum and bronze are not"
+   },
+   "log": {
+    "name": "Record the findings: light steel particles, recheck next oil change",
+    "label": "Record the findings: light steel particles, recheck next oil change"
+   }
+  }
+ },
+ "pre_oil": {
+  "title": "Engine, left side: pre-oiling · Cont. 7-1, 7-3",
+  "els": {
+   "turn": {
+    "name": "Pump the pre-oiler and turn the propeller by hand until oil pressure indicates",
+    "label": "Pump the pre-oiler and turn the propeller by hand until oil pressure indicates"
+   },
+   "plug0": {
+    "name": "No. 4 upper spark plug",
+    "verb_off": "Remove the spark plug",
+    "verb_on": "Install the spark plug"
+   },
+   "plug1": {
+    "name": "No. 4 lower spark plug",
+    "verb_off": "Remove the spark plug",
+    "verb_on": "Install the spark plug"
+   },
+   "plug2": {
+    "name": "No. 2 upper spark plug",
+    "verb_off": "Remove the spark plug",
+    "verb_on": "Install the spark plug"
+   },
+   "plug3": {
+    "name": "No. 2 lower spark plug",
+    "verb_off": "Remove the spark plug",
+    "verb_on": "Install the spark plug"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "prop_bolts": {
+  "title": "Nose: wood propeller hub bolts · Cont. Table of Limits",
+  "els": {
+   "look": {
+    "name": "Inspect the hub: a dark gap indicates wood shrinkage",
+    "label": "Inspect the hub: a dark gap indicates wood shrinkage"
+   },
+   "wire": {
+    "name": "Hub bolt safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire the bolts in pairs"
+   },
+   "mags": {
+    "name": "Magneto switch",
+    "verb_off": "Magnetos OFF; ground leads checked",
+    "verb_on": "Work complete: remove the tag"
+   }
+  }
+ },
+ "prop_dress": {
+  "title": "Bench: metal propeller, leading edge · AC 43.13",
+  "els": {
+   "measure": {
+    "name": "Measure the nick: within limits, it may be dressed",
+    "label": "Measure the nick: within limits, it may be dressed"
+   },
+   "nick": {
+    "name": "File across the edge to a smooth radius",
+    "label": "File across the edge to a smooth radius"
+   },
+   "emery": {
+    "name": "Polish with emery cloth until no file marks remain",
+    "label": "Polish with emery cloth until no file marks remain"
+   },
+   "protect": {
+    "name": "Apply corrosion protection to the dressed area",
+    "label": "Apply corrosion protection to the dressed area"
+   }
+  }
+ },
+ "prop_track": {
+  "title": "Nose, left side: propeller track · Cont. 9-3c",
+  "els": {
+   "mags": {
+    "name": "Magnetos OFF; ground leads checked",
+    "label": "Magnetos OFF; ground leads checked"
+   },
+   "block": {
+    "name": "Position a reference block just below the blade tip",
+    "label": "Position a reference block just below the blade tip"
+   },
+   "mark_a": {
+    "name": "Mark the tip path of blade A",
+    "label": "Mark the tip path of blade A"
+   },
+   "turn": {
+    "name": "Rotate the propeller 180 deg: blade B down",
+    "label": "Rotate the propeller 180 deg: blade B down"
+   },
+   "mark_b": {
+    "name": "Mark the tip path of blade B",
+    "label": "Mark the tip path of blade B"
+   },
+   "measure": {
+    "name": "Measure between the marks: 1/16 in. maximum",
+    "label": "Measure between the marks: 1/16 in. maximum"
+   }
+  }
+ },
+ "propeller": {
+  "title": "Nose: propeller hub · Cont. 9-3c, Table of Limits",
+  "els": {
+   "track": {
+    "name": "Check track: blade tips within 1/16 in.",
+    "label": "Check track: blade tips within 1/16 in."
+   },
+   "prop": {
+    "name": "Propeller"
+   },
+   "plate": {
+    "name": "Hub face plate"
+   },
+   "wire": {
+    "name": "Hub bolt safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire the bolts in pairs"
+   },
+   "mags": {
+    "name": "Magneto switch",
+    "verb_off": "Magnetos OFF; check ground leads before touching the propeller",
+    "verb_on": "Work complete: remove the OFF tag"
+   }
+  }
+ },
+ "reading_plugs": {
+  "title": "Bench: spark plug tray, cylinders 1 to 4 · Cont. 9-3g",
+  "els": {
+   "read0": {
+    "name": "Inspect the upper spark plug, cylinder 1",
+    "label": "Inspect the upper spark plug, cylinder 1"
+   },
+   "read1": {
+    "name": "Inspect the upper spark plug, cylinder 2",
+    "label": "Inspect the upper spark plug, cylinder 2"
+   },
+   "read2": {
+    "name": "Inspect the upper spark plug, cylinder 3",
+    "label": "Inspect the upper spark plug, cylinder 3"
+   },
+   "read3": {
+    "name": "Inspect the upper spark plug, cylinder 4",
+    "label": "Inspect the upper spark plug, cylinder 4"
+   },
+   "read4": {
+    "name": "Inspect the lower spark plug, cylinder 1",
+    "label": "Inspect the lower spark plug, cylinder 1"
+   },
+   "read5": {
+    "name": "Inspect the lower spark plug, cylinder 2",
+    "label": "Inspect the lower spark plug, cylinder 2"
+   },
+   "read6": {
+    "name": "Inspect the lower spark plug, cylinder 3",
+    "label": "Inspect the lower spark plug, cylinder 3"
+   },
+   "read7": {
+    "name": "Inspect the lower spark plug, cylinder 4",
+    "label": "Inspect the lower spark plug, cylinder 4"
+   },
+   "clean": {
+    "name": "Clean; gap .016-.021 in.; rotate upper and lower plugs",
+    "label": "Clean; gap .016-.021 in.; rotate upper and lower plugs"
+   }
+  }
+ },
+ "spark_plugs": {
+  "title": "Engine, left side, cylinders 4 and 2 (right side similar) · Cont. 9-3g",
+  "els": {
+   "gasket0": {
+    "name": "Install a new copper gasket",
+    "label": "Install a new copper gasket"
+   },
+   "gasket1": {
+    "name": "Install a new copper gasket",
+    "label": "Install a new copper gasket"
+   },
+   "gasket2": {
+    "name": "Install a new copper gasket",
+    "label": "Install a new copper gasket"
+   },
+   "gasket3": {
+    "name": "Install a new copper gasket",
+    "label": "Install a new copper gasket"
+   },
+   "plug0": {
+    "name": "No. 4 upper spark plug"
+   },
+   "plug1": {
+    "name": "No. 4 lower spark plug"
+   },
+   "plug2": {
+    "name": "No. 2 upper spark plug"
+   },
+   "plug3": {
+    "name": "No. 2 lower spark plug"
+   },
+   "lead0": {
+    "name": "Ignition cable 1",
+    "verb_off": "Loosen the terminal nut; pull the cable straight out",
+    "verb_on": "Insert the cable terminal; tighten the nut"
+   },
+   "lead1": {
+    "name": "Ignition cable 2",
+    "verb_off": "Loosen the terminal nut; pull the cable straight out",
+    "verb_on": "Insert the cable terminal; tighten the nut"
+   },
+   "lead2": {
+    "name": "Ignition cable 3",
+    "verb_off": "Loosen the terminal nut; pull the cable straight out",
+    "verb_on": "Insert the cable terminal; tighten the nut"
+   },
+   "lead3": {
+    "name": "Ignition cable 4",
+    "verb_off": "Loosen the terminal nut; pull the cable straight out",
+    "verb_on": "Insert the cable terminal; tighten the nut"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "spark_test": {
+  "title": "Engine, left side: spark check, plugs grounded on the case · Cont. Sec. VIII",
+  "els": {
+   "plug0": {
+    "name": "Remove the No. 4 upper plug; lay it on the crankcase, cable attached",
+    "label": "Remove the No. 4 upper plug; lay it on the crankcase, cable attached"
+   },
+   "plug1": {
+    "name": "Remove the No. 4 lower plug; lay it on the crankcase, cable attached",
+    "label": "Remove the No. 4 lower plug; lay it on the crankcase, cable attached"
+   },
+   "plug2": {
+    "name": "Remove the No. 2 upper plug; lay it on the crankcase, cable attached",
+    "label": "Remove the No. 2 upper plug; lay it on the crankcase, cable attached"
+   },
+   "plug3": {
+    "name": "Remove the No. 2 lower plug; lay it on the crankcase, cable attached",
+    "label": "Remove the No. 2 lower plug; lay it on the crankcase, cable attached"
+   },
+   "watch0": {
+    "name": "Turn the propeller; observe the No. 4 upper plug gap (stand clear: magnetos HOT)",
+    "label": "Turn the propeller; observe the No. 4 upper plug gap (stand clear: magnetos HOT)"
+   },
+   "watch1": {
+    "name": "Turn the propeller; observe the No. 4 lower plug gap (stand clear: magnetos HOT)",
+    "label": "Turn the propeller; observe the No. 4 lower plug gap (stand clear: magnetos HOT)"
+   },
+   "watch2": {
+    "name": "Turn the propeller; observe the No. 2 upper plug gap (stand clear: magnetos HOT)",
+    "label": "Turn the propeller; observe the No. 2 upper plug gap (stand clear: magnetos HOT)"
+   },
+   "watch3": {
+    "name": "Turn the propeller; observe the No. 2 lower plug gap (stand clear: magnetos HOT)",
+    "label": "Turn the propeller; observe the No. 2 lower plug gap (stand clear: magnetos HOT)"
+   },
+   "lead": {
+    "name": "No. 2 upper ignition cable",
+    "verb_remove": "Remove the faulty cable (no spark at its plug)"
+   },
+   "refit": {
+    "name": "Install all 8 plugs with new gaskets, 300-360 in-lb",
+    "label": "Install all 8 plugs with new gaskets, 300-360 in-lb"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "stale_fuel": {
+  "title": "Nose tank and fuel strainer · Piper Fig. 9",
+  "els": {
+   "fuel": {
+    "name": "Fuel",
+    "verb_remove": "Drain the stale fuel",
+    "verb_install": "Refuel with fresh 100LL"
+   },
+   "sump_l": {
+    "name": "Drain the tank through the strainer",
+    "label": "Drain the tank through the strainer"
+   },
+   "sump_r": {
+    "name": "Sample the strainer drain until the fuel is clear and blue",
+    "label": "Sample the strainer drain until the fuel is clear and blue"
+   },
+   "cap": {
+    "name": "Fuel cap",
+    "verb_off": "Remove the fuel cap",
+    "verb_on": "Install the fuel cap"
+   }
+  }
+ },
+ "starter": {
+  "title": "Accessory case: starter mounting pad · Cont. 10-25, 10-26",
+  "els": {
+   "gasket": {
+    "name": "Clean the pad; install a new gasket with sealing compound",
+    "label": "Clean the pad; install a new gasket with sealing compound"
+   },
+   "starter": {
+    "name": "Starter"
+   },
+   "pull": {
+    "name": "Starter control cable",
+    "verb_off": "Disconnect the control cable from the shift lever",
+    "verb_on": "Connect the control cable; check the lever returns"
+   },
+   "cable": {
+    "name": "Starter power cable",
+    "verb_off": "Disconnect the power cable; insulate the terminal"
+   },
+   "cowl": {
+    "name": "Cowling"
+   },
+   "master": {
+    "name": "Master and ignition switches",
+    "verb_off": "Master and ignition OFF",
+    "verb_on": "Master ON for the starter check"
+   }
+  }
+ },
+ "storage": {
+  "title": "Engine, left side: return to service from storage · Cont. 5-5, 5-6",
+  "els": {
+   "tag": {
+    "name": "Read the storage tag: account for every plug and bag listed",
+    "label": "Read the storage tag: account for every plug and bag listed"
+   },
+   "bag_intake": {
+    "name": "Remove the desiccant bag from the carburetor intake",
+    "label": "Remove the desiccant bag from the carburetor intake"
+   },
+   "bag_exhaust": {
+    "name": "Remove the desiccant bag from the exhaust stack",
+    "label": "Remove the desiccant bag from the exhaust stack"
+   },
+   "dehy0": {
+    "name": "Remove the dehydrator plug",
+    "label": "Remove the dehydrator plug"
+   },
+   "dehy1": {
+    "name": "Remove the dehydrator plug",
+    "label": "Remove the dehydrator plug"
+   },
+   "dehy2": {
+    "name": "Remove the dehydrator plug",
+    "label": "Remove the dehydrator plug"
+   },
+   "dehy3": {
+    "name": "Remove the dehydrator plug",
+    "label": "Remove the dehydrator plug"
+   },
+   "look": {
+    "name": "Inspect each cylinder: pink crystals indicate moisture; check for rust",
+    "label": "Inspect each cylinder: pink crystals indicate moisture; check for rust"
+   },
+   "oil": {
+    "name": "Wipe off the preservative oil",
+    "label": "Wipe off the preservative oil"
+   },
+   "plugs": {
+    "name": "Install spark plugs with new gaskets, 300-360 in-lb",
+    "label": "Install spark plugs with new gaskets, 300-360 in-lb"
+   },
+   "change": {
+    "name": "Drain the preservative oil and refill; pre-oil before first start",
+    "label": "Drain the preservative oil and refill; pre-oil before first start"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
+ "tailwheel": {
+  "title": "Tail, left side: tailwheel · Piper Fig. 5",
+  "els": {
+   "stand": {
+    "name": "Raise the tail onto a stand",
+    "label": "Raise the tail onto a stand"
+   },
+   "steer": {
+    "name": "Steering springs and chains"
+   },
+   "leaf": {
+    "name": "Tailwheel spring"
+   },
+   "grime": {
+    "name": "Clean old grease from the fitting",
+    "label": "Clean old grease from the fitting"
+   },
+   "grease": {
+    "name": "Lubricate until fresh grease appears",
+    "label": "Lubricate until fresh grease appears"
+   }
+  }
+ },
+ "tire": {
+  "title": "Left main wheel, outboard · Piper Fig. 5",
+  "els": {
+   "pump": {
+    "name": "Inflate to 18 psi",
+    "label": "Inflate to 18 psi"
+   },
+   "deflate": {
+    "name": "Deflate completely (remove the valve core)",
+    "label": "Deflate completely (remove the valve core)"
+   },
+   "tire": {
+    "name": "Tire and tube"
+   },
+   "pin": {
+    "name": "Axle nut cotter pin",
+    "verb_off": "Remove the cotter pin",
+    "verb_on": "Install a new cotter pin; bend the legs"
+   },
+   "hubcap": {
+    "name": "Hub cap"
+   },
+   "jack": {
+    "name": "Axle jack",
+    "verb_off": "Jack the axle",
+    "verb_on": "Lower the aircraft"
+   }
+  }
+ },
+ "trim_cable": {
+  "title": "Tail, left side: stabilizer trim · Piper Fig. 6",
+  "els": {
+   "cable": {
+    "name": "Trim cable"
+   },
+   "look": {
+    "name": "Inspect the cable: oil-soaked, gritty, slipping on the drum",
+    "label": "Inspect the cable: oil-soaked, gritty, slipping on the drum"
+   },
+   "tb_a": {
+    "name": "Adjust the left turnbuckle",
+    "label": "Adjust the left turnbuckle"
+   },
+   "tb_b": {
+    "name": "Adjust the right turnbuckle",
+    "label": "Adjust the right turnbuckle"
+   },
+   "tensio": {
+    "name": "Check tension: 12 to 18 lb",
+    "label": "Check tension: 12 to 18 lb"
+   },
+   "travel": {
+    "name": "Operate the trim stop to stop: smooth, no slipping",
+    "label": "Operate the trim stop to stop: smooth, no slipping"
+   },
+   "wire_a": {
+    "name": "Left turnbuckle safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire with new wire"
+   },
+   "wire_b": {
+    "name": "Right turnbuckle safety wire",
+    "verb_off": "Cut and remove the safety wire",
+    "verb_on": "Safety-wire with new wire"
+   },
+   "plate": {
+    "name": "Tail inspection plate"
+   }
+  }
+ },
+ "water_fuel": {
+  "title": "Under the nose: fuel strainer drain · Cont. 9-1c",
+  "els": {
+   "sample": {
+    "name": "Drain a fuel sample into the tester",
+    "label": "Drain a fuel sample into the tester"
+   },
+   "dump": {
+    "name": "Discard the sample",
+    "label": "Discard the sample"
+   },
+   "sample2": {
+    "name": "Repeat until the sample is free of water",
+    "label": "Repeat until the sample is free of water"
+   }
+  }
+ },
+ "windshield": {
+  "title": "Windshield, from the front · Piper Fig. 7",
+  "els": {
+   "screen": {
+    "name": "Windshield"
+   },
+   "bead": {
+    "name": "Apply a new bead of sealant",
+    "label": "Apply a new bead of sealant"
+   },
+   "sealant": {
+    "name": "Remove all old sealant",
+    "label": "Remove all old sealant"
+   },
+   "top": {
+    "name": "Upper retainer strip"
+   },
+   "left": {
+    "name": "Left retainer strip"
+   },
+   "right": {
+    "name": "Right retainer strip"
+   }
+  }
+ },
+ "wing_rig": {
+  "title": "Head-on: wing dihedral and washout · Piper Fig. 1",
+  "els": {
+   "string": {
+    "name": "Stretch a string from tip to tip",
+    "label": "Stretch a string from tip to tip"
+   },
+   "ruler": {
+    "name": "Measure from the string to the wing at the root",
+    "label": "Measure from the string to the wing at the root"
+   },
+   "block": {
+    "name": "Place the rigging block on the tip rib",
+    "label": "Place the rigging block on the tip rib"
+   },
+   "level": {
+    "name": "Level on the block: read the washout",
+    "label": "Level on the block: read the washout"
+   },
+   "fork_l": {
+    "name": "Left front strut fork"
+   },
+   "fork_r": {
+    "name": "Right front strut fork"
+   },
+   "recheck": {
+    "name": "Remeasure: both sides must match",
+    "label": "Remeasure: both sides must match"
+   }
+  }
+ },
+ "wire_chafe": {
+  "title": "Behind the instrument panel: harness at a bracket · AC 43.13",
+  "els": {
+   "find": {
+    "name": "Locate the chafe: bare conductor at the bracket",
+    "label": "Locate the chafe: bare conductor at the bracket"
+   },
+   "wire": {
+    "name": "Wire section",
+    "verb_remove": "Cut out the damaged section",
+    "verb_install": "Butt-splice a new section; shrink the sleeves"
+   },
+   "clamp": {
+    "name": "Install a cushioned clamp to hold the harness clear of the bracket",
+    "label": "Install a cushioned clamp to hold the harness clear of the bracket"
+   },
+   "master": {
+    "name": "Master switch",
+    "verb_off": "Master switch OFF",
+    "verb_on": "Master ON: check the circuit operates"
+   }
+  }
+ }
+}

@@ -87,10 +87,15 @@ bungee boot, tire proportions, jack pad, fabric look inside the older 2D scenes)
 
 Settled from the manuals: C-85 mag timing right 28°, left 30° (the timing jobs work on the left mag);
 mag drop 75 rpm max; prop track 1/16 in; oil SAE 40 above 40 °F, SAE 20 below.
+Settled by Thad (2026-11-13): wood prop hub bolts 175-225 in-lb (AN6, 3/8 in.), not the 200-220 in
+the design-pass zip. Spark plugs 300-360 in-lb.
 
 ## Conventions
 
 - GDScript 4 with static types (`:=` or `: Type`) and `-> Type` returns. Leave a value untyped only
   when it really is a Variant (JSON, save data, a nullable job).
 - `##` doc comments on functions and constants explain *why*, in plain words.
-- Player-facing text sounds like a mechanic talking: short sentences, no jargon a pilot wouldn't use.
+- Job text (work scenes) is in service-manual style, settled by Thad 2026-11-13: imperative, the
+  manuals' terms ("Remove... / Install... / Safety-wire with new wire"), paraphrased, never copied.
+  It lives in `data/job_text.json`, keyed by scene and piece id; `work.gd` `_apply_text` lays it over
+  the built-in text. Other player text (radio, owners, messages) stays short and plain.

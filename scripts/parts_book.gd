@@ -54,7 +54,7 @@ func sections(money: int, inventory: Dictionary, needed: Dictionary, buy_cb: Cal
 			if icon == "" and ResourceLoader.exists("res://textures/catalog/%s.png" % p.id):
 				icon = "res://textures/catalog/%s.png" % p.id
 			items.append({"name": p.name, "no": p.no, "blurb": p.blurb, "icon": icon, "price": price, "mail": mail,
-				"have": str(inventory.get(p.id, inventory.get(p.name, 0))), "needed": needed.has(p.id) or needed.has(p.name), "can": money >= price,
+				"have": str(inventory.get(p.id, inventory.get(p.name, 0))), "needed": needed.has(p.id) or needed.has(p.name), "can": money >= price, "short": maxi(0, price - money),
 				"buy": buy_cb.bind(p, price, mail)})
 		items.sort_custom(func(a, b): return a.needed and not b.needed)
 		out.append({"id": s.id, "tab": s.tab, "head": s.head, "items": items})

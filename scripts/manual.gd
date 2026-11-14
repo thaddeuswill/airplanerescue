@@ -9,18 +9,22 @@ extends Control
 
 signal close_requested
 
-const INK := Color("1E1B17")
-const RED := Color("A8261F")
-const CREAM := Color("EEE6CF")
-const MUSTARD := Color("D9A62E")
-const FADED := Color("6B5E4B")
+# Colors come from the shared tokens in style.gd.
+const INK := Style.COLOR_TEXT_PAPER
+const RED := Style.COLOR_TEXT_PAPER_ACCENT
+const RED_DK := Style.COLOR_STATUS_WARN
+const CREAM := Style.COLOR_SURFACE_PAPER
+const MUSTARD := Style.COLOR_PRICE
+const FADED := Style.COLOR_TEXT_PAPER_MUTED
+const PAGE_BOTTOM := 700.0  # lowest y page content may reach (the footer rule sits below)
 const BOOK := Vector2(1320, 800)
 const PAGE_W := 660.0
 
 static var SCRIPT := _font_file("res://fonts/Yellowtail-Regular.ttf")
-static var BLOCK := _block(800)
-static var BLACK := _block(900)
-static var BODY := _block(600)
+static var BLOCK := Style.display(800)
+static var BLACK := Style.display(900)
+static var BODY := Style.display(600)
+static var TEXT := Style.text_font()  # the reading face for summaries and steps
 static var _last := 0  # remembers the open spread between visits
 
 var _data := {}
@@ -300,7 +304,7 @@ func _procedure(L: Control, R: Control, p: Dictionary) -> void:
 	col.size = Vector2(PAGE_W - 60, 0)
 	col.add_theme_constant_override("separation", 6)
 	L.add_child(col)
-	col.add_child(_para(String(p.summary), 19, Color(INK, 0.9)))
+	col.add_child(_text(String(p.summary)))
 	var specs: Dictionary = p.get("specs", {})
 	if specs.size() > 0:
 		col.add_child(_head("Specifications"))
@@ -321,48 +325,69 @@ func _procedure(L: Control, R: Control, p: Dictionary) -> void:
 		cb.border_color = RED
 		cb.set_content_margin_all(10)
 		box.add_theme_stylebox_override("panel", cb)
-		var c := _para("CAUTION  " + String(p.caution), 17, Color("7E1C16"))
+		var c := _para("CAUTION  " + String(p.caution), 17, RED_DK)
 		c.add_theme_font_override("font", BLOCK)
 		box.add_child(c)
 		col.add_child(_spacer(4))
 		col.add_child(box)
-	# ---- right: picture, then numbered steps
+	_layout_figure_and_steps(L, R, p, col)
+
+
+## The picture goes under the left column when it fits there (so a short left page isn't half
+## empty), otherwise at the top of the right page; the steps take the rest of the right page.
+## Waits one frame so the left column has its real height.
+func _layout_figure_and_steps(L: Control, R: Control, p: Dictionary, col: Control) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(col) or not is_instance_valid(R):
+		return  # the page was turned meanwhile
+	var left_bottom := col.position.y + col.size.y + 18
 	var y := 26.0
 	var pic_path := String(p.get("picture", ""))
 	var fig_id := String(p.get("figure", ""))
 	if pic_path == "" or not ResourceLoader.exists(pic_path):
 		var figs: Dictionary = _data.get("figures", {})
 		pic_path = String(figs[fig_id].image) if figs.has(fig_id) else ""
-	if pic_path != "" and ResourceLoader.exists(pic_path):
+	var has_pic := pic_path != "" and ResourceLoader.exists(pic_path)
+	var room := PAGE_BOTTOM - left_bottom - 30  # 30 for the "See Figure" link
+	var on_left := has_pic and room >= 200
+	var host: Control = L if on_left else R
+	var py: float = left_bottom if on_left else y
+	var ph: float = minf(336.0, room) if on_left else 336.0
+	if has_pic:
 		var frame := Panel.new()
 		var fb := _flat(Color(1, 1, 1, 0.0), 0)
 		fb.set_border_width_all(2)
 		fb.border_color = INK
 		frame.add_theme_stylebox_override("panel", fb)
-		frame.position = Vector2(30, y)
-		frame.size = Vector2(PAGE_W - 60, 336)
+		frame.position = Vector2(30, py)
+		frame.size = Vector2(PAGE_W - 60, ph)
 		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		R.add_child(frame)
+		host.add_child(frame)
 		var pic := TextureRect.new()
 		pic.texture = load(pic_path)
 		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		pic.position = Vector2(36, y + 6)
-		pic.size = Vector2(PAGE_W - 72, 324)
+		pic.position = Vector2(36, py + 6)
+		pic.size = Vector2(PAGE_W - 72, ph - 12)
 		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		R.add_child(pic)
-		y += 346
+		host.add_child(pic)
+		py += ph + 10
+		if not on_left:
+			y = py
 	if fig_id != "" and _find_figure(fig_id) >= 0:
 		var fl := _link("See " + String(_data.figures[fig_id].title) + "  >", _find_figure(fig_id))
 		fl.add_theme_font_override("font", BLOCK)
 		fl.add_theme_color_override("font_color", RED)
-		_put(R, fl, 30, y - 4)
-		y += 22
+		if on_left:
+			_put(L, fl, 30, py - 4)
+		else:
+			_put(R, fl, 30, y - 4)
+			y += 22
 	_put(R, _head("Procedure"), 30, y)
 	var steps := VBoxContainer.new()
-	steps.position = Vector2(30, y + 40)
+	steps.position = Vector2(30, y + 46)
 	steps.size = Vector2(PAGE_W - 60, 0)
-	steps.add_theme_constant_override("separation", 5)
+	steps.add_theme_constant_override("separation", 8)
 	R.add_child(steps)
 	var n := 1
 	for s in p.get("steps", []):
@@ -372,7 +397,7 @@ func _procedure(L: Control, R: Control, p: Dictionary) -> void:
 		num.custom_minimum_size = Vector2(26, 0)
 		num.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 		row.add_child(num)
-		var tx := _para(String(s), 18, INK)
+		var tx := _text(String(s))
 		tx.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(tx)
 		steps.add_child(row)
@@ -505,7 +530,17 @@ func _head(t: String) -> Control:
 	box.add_child(_spacer(4))
 	box.add_child(_label(t.to_upper(), BLACK, 20, RED))
 	box.add_child(_rule(1.5, INK, PAGE_W - 60))
+	box.add_child(_spacer(Style.SPACE_1))  # air under the rule so the first line doesn't touch it
 	return box
+
+
+## A reading paragraph: serif text face, 16 px, comfortable line spacing, wrapped well under 75 characters.
+func _text(t: String) -> Label:
+	var l := _label(t, TEXT, Style.TEXT_SIZE, INK)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(PAGE_W - 100, 0)
+	l.add_theme_constant_override("line_spacing", 4)
+	return l
 
 
 func _row(a: String, b: String) -> Control:

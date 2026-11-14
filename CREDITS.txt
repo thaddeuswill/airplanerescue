@@ -1,0 +1,47 @@
+Airplane Rescue - new third-party assets (Nov 2026 round)
+Merge these into CREDITS.md, which already covers the Cub model, OpenGameArt audio and fonts.
+All assets below are CC0 (public domain). Credit is not required but is given here.
+
+SKY (Poly Haven, polyhaven.com, CC0)
+sky_golden.hdr ............ "Kloppenheim 06 (Pure Sky)" by Poly Haven
+
+TEXTURES (Poly Haven, polyhaven.com, CC0)
+concrete_oil .............. "Concrete Floor Worn 001"
+workbench_top ............. "Weathered Brown Planks"
+wood_dock ................. "Wood Planks Grey"
+brick_faded ............... "Red Brick"
+
+TEXTURES (ambientCG, ambientcg.com, CC0)
+gravel .................... Gravel023
+dirt_red .................. Gravel025
+ground_wheat .............. Ground109
+plane_body_worn ........... PaintedMetal012
+toolbox_red ............... PaintedMetal004
+hangar_door ............... CorrugatedSteel007A
+metal_galvanized .......... CorrugatedSteel009
+seat_vinyl ................ Leather038
+barn_red .................. PaintedWood003
+clapboard_white ........... PaintedWood009C
+
+MODELS AND SOUNDS (Kenney, kenney.nl, CC0)
+Nature Kit, City Kit (Suburban), Car Kit, Survival Kit, Furniture Kit,
+Input Prompts, Impact Sounds, Interface Sounds
+
+MODELS (Quaternius, quaternius.com, CC0)
+Stylized Nature MegaKit
+
+SOUNDS (Freesound, freesound.org, all CC0)
+"Small plane (Cessna) engine start, idle, and takeoff" by JLWSound (#322321)
+"plane idling on small airport" by wniebelski (#695971)
+"pipper plane idling in distance" by wniebelski (#695970)
+"G03-10-Light Plane Piper Cub Interior" by craigsmith (#437758)
+"Propeller Plane" by clif_creates (#251971)
+"Runway Ambience" by clif_creates (#251977)
+"wind in the grass small town" by strangy (#176252)
+"Spring Birds Loop with Low-Cut (New Jersey)" by hargissssound (#345852)
+"Rocky Mountain Outdoors: wind and birds" by petebuchwald (#288899)
+"Radio Interference/Static" by harveyjnz (#337700)
+"Static.wav" by Jace (#17804)
+
+FONTS (new)
+DejaVu Serif Condensed (Bitstream Vera license) - only if the manual font change is taken

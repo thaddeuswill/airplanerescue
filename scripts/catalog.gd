@@ -7,7 +7,7 @@ extends Control
 ## setup(title, town, money, sections, note, sfx):
 ##   sections: [{"id": "parts", "tab": "Parts", "head": "Section A: Aircraft parts", "items": [entry...]}]
 ##   entry: {"name", "no", "blurb", "icon" (res:// path or ""), "price" (int), "mail" (bool),
-##           "have" (String), "needed" (bool), "owned" (bool), "can" (bool), "buy" (Callable)}
+##           "have" (String), "needed" (bool), "owned" (bool), "can" (bool), "short" (int, optional), "buy" (Callable)}
 
 signal close_requested
 
@@ -363,19 +363,29 @@ func _card(e: Dictionary, index: int) -> Array:
 		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(pic)
 	var x := 156.0
-	var name_l := _label(String(e.name).to_upper(), BLACK, 30, INK)
-	name_l.position = Vector2(x, 12)
-	name_l.size = Vector2(300, 0)
-	name_l.clip_text = true
+	# One title size per row: a name too long for one line wraps to two at a smaller size,
+	# and the blurb gives up a line to make room.
+	var upper := String(e.name).to_upper().replace("-", "-\u2060")  # never break a line at a hyphen ("P-LEAD")
+	var two := BLACK.get_string_size(upper, HORIZONTAL_ALIGNMENT_LEFT, -1, 28).x > 296
+	var name_l := _label(upper, BLACK, 22 if two else 28, INK)
+	name_l.position = Vector2(x, 10 if two else 12)
+	name_l.size = Vector2(296, 0)
+	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_l.max_lines_visible = 2
+	name_l.add_theme_constant_override("line_spacing", -4)
 	row.add_child(name_l)
+	var dy := 14.0 if two else 0.0
 	var no := _label("No. " + String(e.get("no", "")), BLOCK, 17, RED)
-	no.position = Vector2(x, 48)
+	no.position = Vector2(x, 48 + dy)
 	row.add_child(no)
 	var blurb := _label(e.get("blurb", ""), BODY, 18, Color(INK, 0.85))
 	blurb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	blurb.max_lines_visible = 2
+	blurb.max_lines_visible = 1 if two else 2
+	blurb.text_overrun_behavior = TextServer.OVERRUN_TRIM_WORD_ELLIPSIS  # a cut-off blurb says so
+	blurb.tooltip_text = String(e.get("blurb", ""))  # full text on hover
+	blurb.mouse_filter = Control.MOUSE_FILTER_PASS
 	blurb.custom_minimum_size = Vector2(286, 0)
-	blurb.position = Vector2(x, 72)
+	blurb.position = Vector2(x, 72 + dy)
 	blurb.size = Vector2(286, 48)
 	row.add_child(blurb)
 	var stock: String
@@ -389,6 +399,8 @@ func _card(e: Dictionary, index: int) -> Array:
 		stock = "IN STOCK AT THIS COUNTER"
 	if e.get("have", "") != "" and not e.get("owned", false):
 		stock += "   |   YOU HAVE " + String(e.have).to_upper()
+	if e.get("needed", false) and not e.get("owned", false):  # in words too, not only the red stamp
+		stock = stock.replace("IN STOCK AT THIS COUNTER", "NEEDED  -  IN STOCK")
 	var st := _label(stock, BLOCK, 16, stock_col)
 	st.position = Vector2(x, 128)
 	row.add_child(st)
@@ -396,9 +408,9 @@ func _card(e: Dictionary, index: int) -> Array:
 	var tag := PriceTag.new()
 	tag.text = "OWNED" if e.get("owned", false) else "$" + _commas(int(e.get("price", 0)))
 	tag.font = BLACK
-	tag.position = Vector2(452, 14)
-	tag.size = Vector2(130, 62)
-	tag.rotation = -0.06
+	tag.position = Vector2(464, 18)  # about 15% smaller than before, so BUY leads the row
+	tag.size = Vector2(112, 54)
+	tag.rotation = -0.04
 	row.add_child(tag)
 	var buy: Button = null
 	if not e.get("owned", false):
@@ -406,6 +418,13 @@ func _card(e: Dictionary, index: int) -> Array:
 		buy.text = "ORDER" if e.get("mail", false) else "BUY"
 		buy.disabled = not e.get("can", false)
 		buy.tooltip_text = "" if e.get("can", false) else "Not enough cash."
+		if not e.get("can", false):  # say why on the page, not only in a tooltip
+			var short := int(e.get("short", 0))
+			var why := _label("SHORT $" + _commas(short) if short > 0 else "NOT ENOUGH CASH", BLOCK, 15, RED_DK)
+			why.position = Vector2(462, 144)
+			why.size = Vector2(118, 0)
+			why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			row.add_child(why)
 		_style_button(buy, RED, CREAM, 24)
 		buy.position = Vector2(462, 96)
 		buy.size = Vector2(118, 46)
@@ -418,7 +437,7 @@ func _card(e: Dictionary, index: int) -> Array:
 		var stamp := Stamp.new()
 		stamp.text = "NEEDED"
 		stamp.font = BLACK
-		stamp.position = Vector2(318, 6)
+		stamp.position = Vector2(8, 96)  # across the foot of the picture, clear of the part name
 		stamp.size = Vector2(124, 44)
 		stamp.rotation = 0.12
 		row.add_child(stamp)

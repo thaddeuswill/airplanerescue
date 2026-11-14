@@ -414,7 +414,7 @@ func _ready() -> void:
 		_greeting = "Couldn't read your saved game, so it was left untouched. This session won't be saved over it."
 	else:
 		tools = STARTER_TOOLS.duplicate()  # a new career starts with a screwdriver and a rag
-		inventory = {"Gasket": 3}  # and a few gaskets in the truck
+		inventory = STARTER_SUPPLIES.duplicate()  # and a few consumables in the truck
 		while jobs.size() < MAX_JOBS:
 			_spawn_job()
 		_load_field(START_CITY, null)
@@ -609,7 +609,12 @@ func _spawn_job() -> void:
 	var picks := ids.slice(0, rng.randi_range(fewest, most))
 	# Some planes were just parked; others sat in the weather for years (Rebuild Rescue style):
 	# grimy, stale gas, a dry or pickled engine, old oil, tired cords, maybe a door rusted shut.
-	var years := 0 if rng.randf() < 0.45 else rng.randi_range(2, mini(15, 4 + r * 3 / 2))
+	var first := r == 0 and jobs.is_empty() and not "--self-test" in OS.get_cmdline_user_args()
+	if first:  # the first win comes fast
+		var easy := FIRST_JOBS.filter(func(id): return FAULTS.has(id))
+		if easy.size() > 0:
+			picks = [easy[0]]
+	var years := 0 if first or rng.randf() < 0.45 else rng.randi_range(2, mini(15, 4 + r * 3 / 2))
 	if years >= 2:
 		picks += ["stale_fuel", "oil_change"]
 		if rng.randf() < 0.3:
@@ -2295,6 +2300,20 @@ func _menu_key(e: InputEventKey) -> bool:
 	return true
 
 
+## Gamepad on the title menu: d-pad, A to pick, shoulder buttons page the shop wisdom like Q / E.
+## The stick is left out: past the deadzone it repeats every frame.
+func _menu_pad(e: InputEventJoypadButton) -> bool:
+	match e.button_index:
+		JOY_BUTTON_DPAD_UP: _menu_select(posmod(_menu.sel - 1, _menu.items.size()))
+		JOY_BUTTON_DPAD_DOWN: _menu_select(posmod(_menu.sel + 1, _menu.items.size()))
+		JOY_BUTTON_A: _menu_activate()
+		JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER:
+			_menu.page = posmod(_menu.page + (1 if e.button_index == JOY_BUTTON_RIGHT_SHOULDER else -1), MOTD.size())
+			_open_menu()
+		_: return false
+	return true
+
+
 var _menu_cam: Camera3D
 var _menu_t := 0.0
 
@@ -2452,6 +2471,8 @@ func _unhandled_input(e: InputEvent) -> void:
 		var view := get_viewport()  # a menu key can restart the game, which leaves the tree
 		if e is InputEventKey and e.pressed and not e.echo and _menu_key(e):
 			view.set_input_as_handled()
+		elif e is InputEventJoypadButton and e.pressed and _menu_pad(e):
+			view.set_input_as_handled()  # the title menu works from a gamepad too
 		return
 	if e.is_action_pressed("interact") and panel and panel_closable:  # E toggles panels shut too
 		if panel_kind == "manual":
@@ -3214,7 +3235,7 @@ func _recapture() -> void:
 # ---------- pause, settings, credits ----------
 
 var _sub_back := Callable()  # where Esc goes from a screen opened off the title or pause menu
-var settings := {"master": 1.0, "music": 0.7, "sfx": 0.9, "sens": 1.0, "fullscreen": false, "invert": false, "shake": true, "station": 0}
+var settings := {"master": 1.0, "music": 0.7, "sfx": 0.9, "sens": 1.0, "fullscreen": false, "invert": false, "shake": true, "station": 0, "quick_hold": false}
 const SETTINGS_PATH := "user://settings.cfg"
 const CREDITS := [
 	["Game\nthaddeuswill. Built with Godot Engine 4.7 (MIT license)."],
@@ -3327,7 +3348,8 @@ func _open_settings(back: Callable) -> void:
 		["Graphics: %s\nLow drops haze, bounce light and dust for weaker PCs." % graphics.capitalize(), "Switch", _switch_graphics.bind(back), true],
 		["Display: %s" % ("Fullscreen" if settings.fullscreen else "Window"), "Switch", _switch_setting.bind("fullscreen", back), true],
 		["Invert mouse look: %s" % ("On" if settings.invert else "Off"), "Switch", _switch_setting.bind("invert", back), true],
-		["Screen shake: %s" % ("On" if settings.shake else "Off"), "Switch", _switch_setting.bind("shake", back), true]], back)
+		["Screen shake: %s" % ("On" if settings.shake else "Off"), "Switch", _switch_setting.bind("shake", back), true],
+		["Quick hold (tap instead of press-and-hold): %s" % ("On" if settings.quick_hold else "Off"), "Switch", _switch_setting.bind("quick_hold", back), true]], back)
 	var at := 0
 	for s in [["Master volume", "master", 0.0, 1.0], ["Music volume", "music", 0.0, 1.0], ["Sound effects volume", "sfx", 0.0, 1.0], ["Mouse sensitivity", "sens", 0.3, 2.5]]:
 		var hb := HBoxContainer.new()
@@ -3780,6 +3802,10 @@ const SUPPLIES := {
 	"Penetrant": {"name": "Penetrant (can, 3 uses)", "cost": 12, "qty": 3},
 }
 const STARTER_TOOLS := {"screwdriver": true, "rag": true}
+## A new career's shelf: enough consumables that the first jobs don't stall for one gasket.
+const STARTER_SUPPLIES := {"Gasket": 4, "Safety wire": 5, "Cotter pin": 5}
+## A career's first call is one short job you can do with the starter screwdriver and rag.
+const FIRST_JOBS := ["water_fuel", "bird_nest"]
 
 
 ## Each town's shed stocks a fixed part of the list.
@@ -3879,7 +3905,7 @@ func _supply_entry(key: String, mail: bool) -> Dictionary:
 	return {"name": s.name, "no": "AR-T%02d" % (20 + SUPPLIES.keys().find(key)), "blurb": CATALOG_BLURB.get(key, ""),
 		"icon": _catalog_icon(key, "work/tool_" + key), "price": price, "mail": mail,
 		"have": "" if tool else str(inventory.get(key, 0)), "owned": tool and tools.has(key),
-		"can": money >= price, "buy": func(): _buy_supply(key, price, mail)}
+		"can": money >= price, "short": maxi(0, price - money), "buy": func(): _buy_supply(key, price, mail)}
 
 
 func _supply_sections(keys: Array, mail: bool) -> Array:
@@ -3974,7 +4000,7 @@ func _open_shop() -> void:
 		var part: String = f.part
 		parts.append({"name": part, "no": "AR-%d" % (1100 + i * 7), "blurb": CATALOG_BLURB.get(id, f.name),
 			"icon": _catalog_icon(id, "icon_" + id), "price": price, "mail": mail,
-			"have": str(inventory.get(part, 0)), "needed": needed.has(part), "can": money >= price,
+			"have": str(inventory.get(part, 0)), "needed": needed.has(part), "can": money >= price, "short": maxi(0, price - money),
 			"buy": func(): _buy(part, price, mail)})
 	parts.sort_custom(func(a, b): return a.needed and not b.needed)  # what this job needs comes first
 	var shelf := SUPPLIES.keys().filter(_on_shelf)  # the rest is mail order from the hangar

@@ -3204,6 +3204,47 @@ var _side: Control  # something shown beside the sheet, like the chart: goes whe
 
 
 ## One look for every screen: warm near-black enamel, paper-colored type, thin brass lines.
+## The paperwork sheets: what a mechanic writes on or carries in a pocket goes on cream stock with
+## ink (the design system's paper surface), like the catalog and the manual. Menus stay on the
+## dark hangar surface.
+const PAPER_SHEETS := ["Work order", "Clipboard", "Logbook", "Aircraft logbook", "Wallet", "Toolbox", "Parts on hand", "Weight and balance", "Fuel truck"]
+var _paper_sheet := false
+
+
+func _is_paper(title: String) -> bool:
+	return PAPER_SHEETS.any(func(p): return title.begins_with(p))
+
+
+## The paper sheet's look: ink text, quiet outlined buttons (the edge at 4.2:1 on cream), a
+## mustard focus ring.
+func _paper_theme() -> Theme:
+	var t := Theme.new()
+	t.default_font = UI_FONT
+	t.default_font_size = Style.SIZE_MD
+	t.set_color("font_color", "Label", Style.COLOR_TEXT_PAPER)
+	var fills := {"normal": 0.0, "hover": 0.12, "pressed": 0.22, "hover_pressed": 0.22, "disabled": 0.0}
+	for state in fills:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(Style.COLOR_TEXT_PAPER, fills[state])
+		sb.set_border_width_all(1)
+		sb.border_color = Color(Style.COLOR_TEXT_PAPER, 0.3 if state == "disabled" else 0.6)
+		sb.set_corner_radius_all(Style.RADIUS_SM)
+		sb.set_content_margin_all(7)
+		sb.content_margin_left = 14
+		sb.content_margin_right = 14
+		t.set_stylebox(state, "Button", sb)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+		t.set_color(c, "Button", Style.COLOR_TEXT_PAPER)
+	t.set_color("font_disabled_color", "Button", Color(Style.COLOR_TEXT_PAPER, 0.4))
+	var focus := StyleBoxFlat.new()
+	focus.draw_center = false
+	focus.set_border_width_all(2)
+	focus.border_color = Style.COLOR_FOCUS
+	focus.set_corner_radius_all(Style.RADIUS_SM)
+	t.set_stylebox("focus", "Button", focus)
+	return t
+
+
 func _ui_theme() -> Theme:
 	var t := Theme.new()
 	t.default_font = UI_FONT
@@ -3252,11 +3293,14 @@ func _open_panel(title: String, rows: Array, closable := true, stamp := "") -> V
 	panel = sheet
 	sheet.anchor_bottom = 1.0
 	sheet.offset_right = SHEET_W
-	sheet.theme = _ui_theme()
+	_paper_sheet = _is_paper(title)
+	sheet.theme = _paper_theme() if _paper_sheet else _ui_theme()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(C_EARTH, 0.96)
-	sb.border_width_right = 1
-	sb.border_color = Color(C_BRASS, 0.6)
+	sb.bg_color = Style.COLOR_SURFACE_PAPER if _paper_sheet else Color(C_EARTH, 0.96)
+	sb.border_width_right = 4 if _paper_sheet else 1
+	sb.border_color = Style.COLOR_TEXT_PAPER_ACCENT if _paper_sheet else Color(C_BRASS, 0.6)
+	sb.shadow_color = Color(0, 0, 0, 0.35 if _paper_sheet else 0.0)
+	sb.shadow_size = 10 if _paper_sheet else 0
 	sb.content_margin_left = 32
 	sb.content_margin_right = 28
 	sb.content_margin_top = 26
@@ -3286,8 +3330,10 @@ func _open_panel(title: String, rows: Array, closable := true, stamp := "") -> V
 		s.rotation = -0.12
 		s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(s)
+	if _paper_sheet:
+		head.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER_ACCENT)  # a red heading, like the catalog's
 	var rule := ColorRect.new()
-	rule.color = C_BRASS
+	rule.color = Style.COLOR_TEXT_PAPER_ACCENT if _paper_sheet else C_BRASS
 	rule.custom_minimum_size.y = 2
 	frame.add_child(rule)
 	var vb := VBoxContainer.new()
@@ -3417,9 +3463,9 @@ func _add_row(vb: VBoxContainer, r: Array) -> void:
 		l.text = parts[i]
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.custom_minimum_size.x = _text_width(r)
-		l.add_theme_font_size_override("font_size", 16 if i == 0 else 14)
+		l.add_theme_font_size_override("font_size", Style.SIZE_MD if i == 0 else Style.SIZE_SM)
 		if i > 0:
-			l.add_theme_color_override("font_color", C_BRASS)
+			l.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER_MUTED if _paper_sheet else C_BRASS)
 		words.add_child(l)
 	if r.size() > 1 and r[1] != "":
 		var b := Button.new()
@@ -3436,11 +3482,11 @@ func _add_row(vb: VBoxContainer, r: Array) -> void:
 			var why := Label.new()
 			why.text = short
 			why.custom_minimum_size.x = _text_width(r)
-			why.add_theme_font_size_override("font_size", 14)
-			why.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
+			why.add_theme_font_size_override("font_size", Style.SIZE_SM)
+			why.add_theme_color_override("font_color", Style.COLOR_STATUS_WARN if _paper_sheet else Style.COLOR_TEXT_HUD_BLOCKED)
 			words.add_child(why)
 	var line := ColorRect.new()
-	line.color = Color(C_BRASS, 0.14)
+	line.color = Color(Style.COLOR_TEXT_PAPER, 0.15) if _paper_sheet else Color(C_BRASS, 0.14)
 	line.custom_minimum_size.y = 1
 	vb.add_child(line)
 
@@ -4163,7 +4209,7 @@ func _open_inspection(at := standing_at) -> void:
 		rows.append(["Replaced: %s. %s" % [FAULTS[c].name, "It made no difference." if tried[c] else "Run it up again to see if that cured it."], "", null, false, _fault_icon(c)])
 	if not job.get("washed", true):
 		rows.append(["Sat %d years: filthy, lichen on the wings." % job.years, "Wash it down" if at != "" else "", _wash, at != ""])
-	elif at != "":
+	elif at != "" and at != "engine":  # the engine bay is always open to another look
 		rows.append(["Not sure you saw everything on the %s? Another look is two more hours." % ZONES[at].name, "Look again", func(): _look(at), true])
 	var ran: bool = job.get("runup", "") == "ran"
 	var runup_text: String = "Run-up: " + {"": "not done yet", "dead": "wouldn't start", "ran": "engine runs"}[job.get("runup", "")]

@@ -19,6 +19,7 @@ const FADED := Style.COLOR_TEXT_PAPER_MUTED
 const PAGE_BOTTOM := 700.0  # lowest y page content may reach (the footer rule sits below)
 const BOOK := Vector2(1320, 800)
 const PAGE_W := 660.0
+const MEASURE := 500.0  # reading width: about 65 characters of the 16 px serif (it was 73)
 
 static var SCRIPT := _font_file("res://fonts/Yellowtail-Regular.ttf")
 static var BLOCK := Style.display(800)
@@ -65,12 +66,26 @@ func setup(data: Dictionary, sfx := Callable(), open_to := "", parts := {}) -> v
 	_sfx = sfx
 	for p in parts.get("parts", []):
 		_parts[p.id] = p
+	# Book order: chapter by chapter (ATA number), each chapter's procedures, then its exploded
+	# parts drawing, so the figure numbers run in the order you turn the pages.
 	_pages = [{"kind": "contents"}]
-	for p in data.get("pages", []):
-		_pages.append({"kind": "page", "p": p})
 	var figs: Dictionary = data.get("figures", {})
+	var placed := {}
+	for ch in data.get("chapters", []):
+		for p in data.get("pages", []):
+			if p.ata == ch.ata:
+				_pages.append({"kind": "page", "p": p})
+				placed[p.id] = true
+		for id in figs:
+			if String(figs[id].get("ata", "")) == ch.ata:
+				_pages.append({"kind": "figure", "id": id, "f": figs[id]})
+				placed["fig:" + id] = true
+	for p in data.get("pages", []):  # anything in a chapter the contents doesn't list goes last
+		if not placed.has(p.id):
+			_pages.append({"kind": "page", "p": p})
 	for id in figs:
-		_pages.append({"kind": "figure", "id": id, "f": figs[id]})
+		if not placed.has("fig:" + id):
+			_pages.append({"kind": "figure", "id": id, "f": figs[id]})
 	_number_figures()
 	_spread = clampi(_last, 0, _pages.size() - 1)
 	if open_to != "":
@@ -250,16 +265,16 @@ func _contents(L: Control, R: Control) -> void:
 	for ch in _data.get("chapters", []):
 		var items := []
 		for i in _pages.size():
-			if _pages[i].kind == "page" and _pages[i].p.ata == ch.ata:
+			if (_pages[i].kind == "page" and _pages[i].p.ata == ch.ata) or (_pages[i].kind == "figure" and String(_pages[i].f.get("ata", "")) == ch.ata):
 				items.append(i)
 		if items.is_empty():
 			continue
 		rows.append({"head": "%s  %s" % [ch.ata, String(ch.title).to_upper()]})
 		for i in items:
 			rows.append({"link": i})
-	var figs := []
+	var figs := []  # drawings listed under their chapters; only an unfiled one gets its own heading
 	for i in _pages.size():
-		if _pages[i].kind == "figure":
+		if _pages[i].kind == "figure" and String(_pages[i].f.get("ata", "")) == "":
 			figs.append(i)
 	if figs.size() > 0:
 		rows.append({"head": "ILLUSTRATED PARTS"})
@@ -274,7 +289,9 @@ func _contents(L: Control, R: Control) -> void:
 	var c := 0
 	for r in rows:
 		var h := 26.0 if r.has("head") else 19.0
-		if y + h > BOOK.y - 86 and c < cols.size() - 1:
+		# a heading keeps at least two of its pages with it, never stranded at a column's foot
+		var need := h + (38.0 if r.has("head") else 0.0)
+		if y + need > BOOK.y - 86 and c < cols.size() - 1:
 			c += 1
 			page = cols[c][0]
 			x = cols[c][1]
@@ -298,7 +315,7 @@ func _title_of(i: int) -> String:
 
 func _link(text: String, i: int) -> Button:
 	var b := Button.new()
-	b.text = text
+	b.text = typeset(text)
 	b.flat = true
 	b.focus_mode = Control.FOCUS_NONE
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -330,7 +347,7 @@ func _procedure(L: Control, R: Control, p: Dictionary) -> void:
 	t.custom_minimum_size = Vector2(PAGE_W - 60, 0)
 	_put(L, t, 30, 56)
 	var col := VBoxContainer.new()
-	col.position = Vector2(30, 150 if t.get_line_count() < 2 else 190)
+	col.position = Vector2(30, 124 if t.get_line_count() < 2 else 166)
 	col.size = Vector2(PAGE_W - 60, 0)
 	col.add_theme_constant_override("separation", 6)
 	L.add_child(col)
@@ -424,7 +441,7 @@ func _layout_figure_and_steps(L: Control, R: Control, p: Dictionary, col: Contro
 	_put(R, _head("Procedure"), 30, y)
 	var steps := VBoxContainer.new()
 	steps.position = Vector2(30, y + 46)
-	steps.size = Vector2(PAGE_W - 60, 0)
+	steps.size = Vector2(minf(PAGE_W - 60, MEASURE + 34), 0)
 	steps.add_theme_constant_override("separation", 8)
 	R.add_child(steps)
 	var n := 1
@@ -486,7 +503,7 @@ func _table_row(a: String, b: String, c: String, d: String, head: bool) -> Contr
 func _footer(p: Control, side: int) -> void:
 	var y := BOOK.y - 74
 	_put(p, _rule(1.5, INK, PAGE_W - 60), 30, y)
-	_put(p, _label("- %d -" % (_spread * 2 + side + 1), BLOCK, 18, FADED), PAGE_W / 2 - 18, BOOK.y - 34)
+	_put(p, _label("– %d –" % (_spread * 2 + side + 1), BLOCK, 18, FADED), PAGE_W / 2 - 18, BOOK.y - 34)
 	if side == 0:
 		var hint := _label("A / D TURN PAGES   ·   C CONTENTS", BLOCK, 17, FADED)
 		_put(p, hint, 30, y + 16)
@@ -545,9 +562,37 @@ func _put(parent: Control, c: Control, x: float, y: float) -> void:
 	parent.add_child(c)
 
 
+## Printer's punctuation for text kept as plain ASCII in the data: curly quotes and apostrophes,
+## en dashes in number ranges (not in part numbers or thread sizes), ×, °, an ellipsis, and a
+## non-breaking space so a number never wraps away from its unit.
+static func typeset(t: String) -> String:
+	var rx := RegEx.new()
+	var subs := [
+		["(\\w)'(\\w)", "$1’$2"], ["'(\\w)", "‘$1"], ["(\\w)'", "$1’"],
+		["\"(\\S)", "“$1"], ["(\\S)\"", "$1”"],
+		["(?<![\\w/.])(\\d+(?:\\.\\d+)?)-(\\d+(?:\\.\\d+)?)(?![\\w/])", "$1–$2"],
+		["(\\d) ?x ?(\\d)", "$1×$2"],
+		["(\\d) ?deg\\b", "$1°"],
+		["\\.\\.\\.", "…"],
+		["(\\d) (in-lb|in|lb|psi|rpm|qt|gal|ft|oz|knots|mph|hours|°F)\\b", "$1 $2"],
+	]
+	for sub in subs:
+		rx.compile(sub[0])
+		t = rx.sub(t, sub[1], true)
+	return t
+
+
+## All-caps labels get a little air between the letters (+0.06 em); set tight, capitals read as a block.
+func _caps_font(f: Font, t: String, s: int) -> Font:
+	if s > 24 or t != t.to_upper() or t.to_lower() == t:
+		return f
+	return Style.caps({BLACK: 900, BLOCK: 800, BODY: 600}.get(f, 800), s) if f in [BLACK, BLOCK, BODY] else f
+
+
 func _label(t: String, f: Font, s: int, c: Color) -> Label:
 	var l := Label.new()
-	l.text = t
+	l.text = typeset(t)
+	f = _caps_font(f, t, s)
 	l.add_theme_font_override("font", f)
 	l.add_theme_font_size_override("font_size", s)
 	l.add_theme_color_override("font_color", c)
@@ -576,8 +621,8 @@ func _head(t: String) -> Control:
 func _text(t: String) -> Label:
 	var l := _label(t, TEXT, Style.TEXT_SIZE, INK)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(PAGE_W - 100, 0)
-	l.add_theme_constant_override("line_spacing", 4)
+	l.custom_minimum_size = Vector2(minf(PAGE_W - 100, MEASURE), 0)
+	l.add_theme_constant_override("line_spacing", 6)  # 1.54x leading for DejaVu Serif Condensed at 16 px (was 1.41x)
 	return l
 
 
@@ -586,6 +631,9 @@ func _row(a: String, b: String) -> Control:
 	row.add_theme_constant_override("separation", 12)
 	var is_no := a.contains("-") or (a.length() > 0 and a.substr(0, 1).is_valid_int())
 	var l := _label(a, BLOCK, 17, RED if is_no else INK)
+	if is_no:  # a typed parts list: one width for every digit, so the numbers line up
+		l.add_theme_font_override("font", Style.figures(true))
+		l.add_theme_font_size_override("font_size", 16)
 	l.custom_minimum_size = Vector2(150, 0)
 	row.add_child(l)
 	var r := _label(b, BODY, 17, INK)

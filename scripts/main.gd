@@ -3584,7 +3584,10 @@ func _apply_audio() -> void:
 	AudioServer.set_bus_effect_enabled(0, 1, settings.mono)
 
 
-var _applied_display := ""  # display mode and size last applied: a slider drag mustn't resize the window
+## Display mode and size last applied: a slider drag mustn't resize the window. Static, so it
+## outlives a scene reload (quit to title, a new career): reapplying it then snapped a window
+## you'd resized or maximized back to the settings size and recentered it.
+static var _applied_display := ""
 
 
 func _apply_display() -> void:

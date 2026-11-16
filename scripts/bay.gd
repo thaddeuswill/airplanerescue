@@ -91,6 +91,7 @@ const PARTS := {
 }
 
 var main
+var zone := "engine"  # which spot: the engine (VIEWS/PARTS above) or any other (built from its jobs' art)
 var view := "cowled"
 var hover := ""
 var card: PanelContainer
@@ -99,12 +100,93 @@ var _tex := {}
 var _t := 0.0
 
 
-func setup(m) -> void:
+func setup(m, z := "engine") -> void:
 	main = m
-	view = m.bay_view if not m.cowl_closed(m.current_job) or m.bay_view == "cowled" else "cowled"
+	zone = z
+	if zone == "engine":
+		view = m.bay_view if not m.cowl_closed(m.current_job) or m.bay_view == "cowled" else "cowled"
+	else:
+		_build_spot()
+		view = m.spot_view.get(zone, "")
+		if not _spot.defs.has(view):
+			view = _spot.order[0]
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_tabs()
+
+
+# ---------- the other spots: views made from the jobs' own paintings ----------
+
+## Every spot but the engine is built from its jobs: one view per painting (the tire job's wheel,
+## the windshield job's windshield...), showing the parts themselves as installed, with no access
+## panels or covers over them. A part that's broken and shows from outside is drawn as its "old"
+## painting (the flat tire, the cracked windshield): that's the tell. Each view is one part you
+## look closer at, and offers every job and test done there.
+var _spot := {}  # order: [view ids], defs: view -> {name, art, scenes, pieces}, parts: view -> [part]
+
+
+func _build_spot() -> void:
+	var order := []
+	var defs := {}
+	var loose := []  # jobs with no painting of their own: offered on the first view
+	var places: Array = main.station_places(zone)
+	for id in main.FAULTS:  # faults with no job of their own here (grounding finds) still show
+		if main.FAULTS[id].zone == zone and not id in places:
+			places.append(id)
+	for id in places:
+		var d: Dictionary = Work.scene_for(id, main.FAULTS.get(id, {}))
+		var a: String = d.get("art", id)
+		if not ResourceLoader.exists("res://textures/work/%s_bg.png" % a):
+			loose.append(id)
+			continue
+		if not defs.has(a):
+			order.append(a)
+			defs[a] = {"name": String(main.PLACES.get(id, d.get("title", id))), "art": a, "scenes": [], "pieces": []}
+		defs[a].scenes.append(id)
+		for e in d.els:
+			if e.type == "part":
+				defs[a].pieces.append({"scene": id, "art": e.get("art", e.id), "rect": e.get("art_rect", e.rect)})
+	if order.is_empty():
+		order.append("none")
+		defs["none"] = {"name": main.ZONES[zone].name.capitalize(), "art": "", "scenes": [], "pieces": []}
+	defs[order[0]].scenes.append_array(loose)
+	var parts := {}
+	for v in order:
+		var r := Rect2()
+		for pc in defs[v].pieces:
+			r = pc.rect if r.size == Vector2.ZERO else r.merge(pc.rect)
+		r = r.intersection(Rect2(Vector2.ZERO, VIEW)) if r.size != Vector2.ZERO else Rect2(Vector2(30, 30), VIEW - Vector2(60, 60))
+		if r.size.x < 120 or r.size.y < 90:
+			r = r.grow_individual(maxf(0, (120 - r.size.x) / 2), maxf(0, (90 - r.size.y) / 2), maxf(0, (120 - r.size.x) / 2), maxf(0, (90 - r.size.y) / 2))
+		var acts := []
+		for id in defs[v].scenes:
+			if main.PLACES.has(id):
+				acts.append([_gate(id), String(main.PLACES[id]), id])
+		parts[v] = [{"id": v, "name": defs[v].name, "rects": [r],
+			"look": defs[v].scenes.filter(func(id): return main.FAULTS.has(id) and main.FAULTS[id].zone == zone), "acts": acts}]
+	_spot = {"order": order, "defs": defs, "parts": parts}
+
+
+## The tool a job at this spot is offered with: the test instrument it needs, else the first hand
+## tool it uses, else your hands. The job itself still asks for every tool in turn.
+func _gate(id: String) -> String:
+	var d: Dictionary = Work.scene_for(id, main.FAULTS.get(id, {}))
+	var first := "hand"
+	for e in d.els:
+		var t: String = e.get("tool", "hand")
+		if t in main.INSTRUMENTS:
+			return t
+		if first == "hand" and t != "hand" and Work.TOOLS.has(t):
+			first = t
+	return first
+
+
+func views() -> Array:
+	return OPEN_VIEWS if zone == "engine" else _spot.order
+
+
+func vdef(v: String) -> Dictionary:
+	return VIEWS[v] if zone == "engine" else _spot.defs[v]
 
 
 # ---------- layout ----------
@@ -132,9 +214,9 @@ func _build_tabs() -> void:
 	add_child(_tabs)
 	if view == "cowled":
 		return
-	for v in OPEN_VIEWS:
+	for v in views():
 		var b := Button.new()
-		b.text = VIEWS[v].name.split(":")[0].split(",")[0].to_upper()
+		b.text = vdef(v).name.split(":")[0].split(",")[0].to_upper()
 		if v == view:
 			Style.button(b, "primary")
 		else:
@@ -145,12 +227,16 @@ func _build_tabs() -> void:
 		b.pressed.connect(func(): _go(v))
 		_tabs.add_child(b)
 	var close := Button.new()
-	close.text = "CLOSE THE COWL"
+	close.text = "CLOSE THE COWL" if zone == "engine" else "DONE HERE"
 	_hud_quiet(close)
 	close.add_theme_font_size_override("font_size", Style.SIZE_SM)
 	close.custom_minimum_size.y = 40
 	close.focus_mode = Control.FOCUS_NONE
 	close.pressed.connect(func():
+		if zone != "engine":
+			main.station_zone = ""
+			main._open_inspection(zone)
+			return
 		var why: String = main.bay_close_cowl()
 		if why != "":
 			main._say(why)
@@ -183,7 +269,10 @@ func _notification(what: int) -> void:
 
 func _go(v: String) -> void:
 	view = v
-	main.bay_view = v
+	if zone == "engine":
+		main.bay_view = v
+	else:
+		main.spot_view[zone] = v
 	_close_card()
 	_build_tabs()
 	_notification(NOTIFICATION_RESIZED)
@@ -194,6 +283,8 @@ func _go(v: String) -> void:
 
 func parts() -> Array:
 	var job: Dictionary = main.current_job
+	if zone != "engine":
+		return _spot.parts[view]
 	return PARTS[view].filter(func(p): return not p.has("only") or job.faults.has(p.only) and not job.fixed.has(p.only))
 
 
@@ -294,12 +385,19 @@ func _do(part: Dictionary, what: String) -> void:
 			if main.bay_open_cowl():
 				_go("left")
 		_:
-			main.bay_open_scene(what)
+			main.bay_open_scene(what, zone)
 
 
 ## Self-test helper: open it up, look closer at every part in every view, close it back up and
 ## hand over to the work order, as the flashlight walk-around did.
 func solve() -> bool:
+	if zone != "engine":
+		for v in views():
+			view = v
+			for p in parts():
+				main.bay_look(p)
+		main._open_inspection(zone)
+		return true
 	main.tools["screwdriver"] = true
 	if main.cowl_closed(main.current_job) and not main.bay_open_cowl():
 		return false
@@ -335,25 +433,30 @@ func _draw() -> void:
 	var o := _origin()
 	var k := _k()
 	draw_rect(Rect2(Vector2.ZERO, size), Style.COLOR_SURFACE_HUD)
-	draw_string(Style.caps(900, Style.SIZE_XL), Vector2(o.x, 38), "%s  -  %s" % [job.type.to_upper(), VIEWS[view].name.to_upper()],
+	draw_string(Style.caps(900, Style.SIZE_XL), Vector2(o.x, 38), "%s  -  %s" % [job.type.to_upper(), vdef(view).name.to_upper()],
 		HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_XL, Style.COLOR_TEXT_HUD)
 	var status: String = ("Cowl closed and fastened. Unlatch it with the screwdriver to get in." if view == "cowled"
-		else "Cowl open. Close it up before you leave the engine.")
+		else "Cowl open. Close it up before you leave the engine." if zone == "engine"
+		else "The %s. Look closer at each part; the tabs below walk you round it." % main.ZONES[zone].name)
 	if main.held != "":
 		status += "   In hand: " + main.SUPPLIES[main.held].name + "."
 	draw_string(font, Vector2(o.x, 64), status + "   Click a part. Esc steps back.", HORIZONTAL_ALIGNMENT_LEFT, size.x - o.x * 2, Style.SIZE_SM, Style.COLOR_TEXT_HUD_MUTED)
 	draw_set_transform(o, 0.0, Vector2(k, k))
-	var bg := _art("work/%s_bg" % VIEWS[view].art)
+	var bg := _art("work/%s_bg" % vdef(view).art)
 	if bg:
 		draw_texture_rect_region(bg, Rect2(Vector2.ZERO, VIEW), Rect2(Vector2.ZERO, VIEW))
 	else:
 		draw_rect(Rect2(Vector2.ZERO, VIEW), Color(0.2, 0.19, 0.18))
-	if VIEWS[view].get("cowl", false):
+	if zone != "engine":
+		_draw_pieces()
+	if vdef(view).get("cowl", false):
 		var cowl := _art("work/spark_plugs_cowl")
 		if cowl:
 			draw_texture_rect(cowl, Rect2(40, 40, 760, 300), false)
 	for p in parts():
 		_draw_tells(p)
+	for p in parts():
+		_draw_written_up(p)
 	for p in parts():
 		if p.id == hover:
 			for r in p.rects:
@@ -365,6 +468,43 @@ func _draw() -> void:
 		var w := font.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_MD).x + 16
 		draw_rect(Rect2(mp - Vector2(8, 20), Vector2(w, 28)), Color(Style.COLOR_SURFACE_HUD, 0.9))
 		draw_string(font, mp, name, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_MD, Style.COLOR_TEXT_HUD)
+
+
+## A spot's parts as installed: each job's part painting, "old" (the damage) while that fault is on
+## the plane and shows from outside, else the sound one. One painting per piece, the damaged one first.
+func _draw_pieces() -> void:
+	var job: Dictionary = main.current_job
+	var d: Dictionary = vdef(view)
+	var drawn := {}
+	for bad in [true, false]:
+		for pc in d.pieces:
+			var id: String = pc.scene
+			var broken: bool = job.faults.has(id) and not job.fixed.has(id) and main._how(job, id) == "walk"
+			if broken != bad or drawn.has(pc.art):
+				continue
+			var t := _art("work/%s_%s_%s" % [d.art, pc.art, "old" if bad else "new"])
+			if t == null:
+				t = _art("work/%s_%s_%s" % [d.art, pc.art, "new" if bad else "old"])
+			if t:
+				drawn[pc.art] = true
+				draw_texture_rect(t, pc.rect, false)
+
+
+## Written up and not fixed yet: a "!" stays on the part until the job's done, on every difficulty
+## (you wrote it, so it's no hint). Looks at the faults you can see here and the jobs done here.
+func _draw_written_up(p: Dictionary) -> void:
+	var job: Dictionary = main.current_job
+	var ids: Array = p.look + p.acts.map(func(a): return a[2])
+	if not ids.any(func(id): return job.faults.has(id) and job.found.has(id) and not job.fixed.has(id)):
+		return
+	var r: Rect2 = p.rects[0]
+	var c := Vector2(minf(r.end.x - 4, VIEW.x - 22), maxf(r.position.y + 4, 22))
+	draw_circle(c, 17, Color(0.08, 0.06, 0.04, 0.6))
+	draw_circle(c, 15, Style.COLOR_TEXT_PAPER_ACCENT)
+	draw_arc(c, 15, 0, TAU, 32, Style.COLOR_TEXT_HUD, 2.0)
+	var f := Style.display(900)
+	var w := f.get_string_size("!", HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
+	draw_string(f, c + Vector2(-w / 2, 9), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 24, Style.COLOR_TEXT_HUD)
 
 
 ## The tells of visible faults, painted over the part. Strength follows the difficulty: plain on

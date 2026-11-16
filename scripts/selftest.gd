@@ -41,6 +41,8 @@ func run(main, args: PackedStringArray) -> void:
 	for a in args:
 		if a.begins_with("--settings-shot="):  # every settings tab, for checking the sheet
 			var pre := a.trim_prefix("--settings-shot=")
+			g._open_pause()  # the pause menu that leads to it
+			await _snap(pre, "pause", 0.5)
 			g._open_settings(g._open_pause)
 			for t in g.panel.TABS:
 				g.panel.tab = t[0]
@@ -210,6 +212,14 @@ func run(main, args: PackedStringArray) -> void:
 		g.panel._close_card()
 		g.bay_close_cowl()
 		g._close_panel()
+		for z in g.ZONES:  # every other spot: its parts, as painted
+			if z == "engine":
+				continue
+			g._open_bay(z)
+			for v in g.panel.views():
+				g.panel._go(v)
+				await _snap(shot, "spot_%s_%s" % [z, v])
+		g._close_panel()
 		g.station_zone = ""
 	if not g.guide("medium"):  # hard: no clues; you find things by opening up the right place
 		for id in job.faults:
@@ -219,6 +229,14 @@ func run(main, args: PackedStringArray) -> void:
 	# The walk-around finds what you can see; the rest shows on a run-up or in troubleshooting.
 	ok = ok and job.checked.size() == g.ZONES.size() and job.faults.all(func(id): return job.found.has(id) == (g._how(job, id) == "walk"))
 	_chk(ok, 68)
+	g._refresh_markers()  # a written-up spot keeps its "!" until the job's done, on every difficulty
+	for id in job.faults:
+		if job.found.has(id) and not job.fixed.has(id):
+			var mk: Label3D = g.plane.get_node_or_null("marker_" + g.FAULTS[id].zone)
+			if mk == null or not mk.visible or mk.text != "!":
+				print("MARKER ", id, ": written up but its spot shows no \"!\"")
+				ok = false
+	_chk(ok, 69)
 	_run_up()
 	# A clean start hears every run-up fault; a dead battery or starter cuts the test short.
 	# On Easy the run-up is refused while known don't-run-it work is open.

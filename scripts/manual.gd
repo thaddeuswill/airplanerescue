@@ -37,11 +37,7 @@ var _book: Control
 
 
 static func _font_file(path: String) -> Font:
-	if ResourceLoader.exists(path):
-		return load(path)
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray(["Bahnschrift", "Arial Narrow", "sans-serif"])
-	return f
+	return Style.font_file(path)
 
 
 static func _block(weight: int) -> FontVariation:
@@ -225,18 +221,26 @@ var _fig_no := {}  # "page:<id>" or "fig:<id>" -> "74-2"
 
 
 func _number_figures() -> void:
-	_fig_no.clear()
-	var figs: Dictionary = _data.get("figures", {})
-	for ch in _data.get("chapters", []):
+	_fig_no = figure_numbers(_data)
+
+
+## Figure numbers per ATA chapter in reading order ("page:<id>" or "fig:<id>" -> "74-5"): each
+## pictured page in turn, then the chapter's exploded drawing. Static so a work-order write-up can
+## cite the same figure the book prints.
+static func figure_numbers(data: Dictionary) -> Dictionary:
+	var out := {}
+	var figs: Dictionary = data.get("figures", {})
+	for ch in data.get("chapters", []):
 		var n := 0
-		for p in _data.get("pages", []):
+		for p in data.get("pages", []):
 			if p.ata == ch.ata and ResourceLoader.exists(String(p.get("picture", ""))):
 				n += 1
-				_fig_no["page:" + p.id] = "%s-%d" % [ch.ata, n]
+				out["page:" + p.id] = "%s-%d" % [ch.ata, n]
 		for id in figs:
 			if String(figs[id].get("ata", "")) == ch.ata:
 				n += 1
-				_fig_no["fig:" + id] = "%s-%d" % [ch.ata, n]
+				out["fig:" + id] = "%s-%d" % [ch.ata, n]
+	return out
 
 
 ## "Figure 74-2. Ignition system": an exploded drawing's full caption.

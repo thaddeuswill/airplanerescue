@@ -97,18 +97,30 @@ const TEXT_SIZE := 16  # the serif reads larger than Big Shoulders at the same p
 static var _cache := {}
 
 
+## A font file, by its imported resource; if Godot hasn't imported it (a fresh checkout run before
+## the editor has scanned it, a broken .godot cache), straight from the .ttf; only if the file is
+## missing altogether, a system face, with a warning so it never passes silently.
+static func font_file(path: String) -> Font:
+	if ResourceLoader.exists(path):
+		var r = load(path)
+		if r is Font:
+			return r
+	if FileAccess.file_exists(path):
+		var ff := FontFile.new()
+		if ff.load_dynamic_font(path) == OK:
+			return ff
+	push_warning("Style: font %s is missing; using a system face" % path)
+	var sf := SystemFont.new()
+	sf.font_names = PackedStringArray(["Bahnschrift", "Arial Narrow", "sans-serif"])
+	return sf
+
+
 ## Big Shoulders at a weight: 900 titles, 800 labels, 600 body.
 static func display(weight := 800) -> Font:
 	var key := "display_%d" % weight
 	if _cache.has(key):
 		return _cache[key]
-	var base: Font
-	if ResourceLoader.exists(FONT_DISPLAY_PATH):
-		base = load(FONT_DISPLAY_PATH)
-	else:
-		var sf := SystemFont.new()
-		sf.font_names = PackedStringArray(["Bahnschrift", "Arial Narrow", "sans-serif"])
-		base = sf
+	var base: Font = font_file(FONT_DISPLAY_PATH)
 	var f := FontVariation.new()
 	f.base_font = base
 	f.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): weight}
@@ -134,19 +146,21 @@ static func figures(bold := false) -> Font:
 	var key := "figures_%s" % bold
 	if not _cache.has(key):
 		var p := FONT_FIGURES_BOLD_PATH if bold else FONT_FIGURES_PATH
-		_cache[key] = load(p) if ResourceLoader.exists(p) else display(700)
+		_cache[key] = font_file(p)
 	return _cache[key]
 
 
 ## The reading face for paragraphs and procedure steps; falls back to Big Shoulders 600.
 static func text_font() -> Font:
 	if not _cache.has("text"):
-		_cache["text"] = load(FONT_TEXT_PATH) if ResourceLoader.exists(FONT_TEXT_PATH) else display(600)
+		_cache["text"] = font_file(FONT_TEXT_PATH)
 	return _cache["text"]
 
 
 static func script_font() -> Font:
-	return load(FONT_SCRIPT_PATH) if ResourceLoader.exists(FONT_SCRIPT_PATH) else display(900)
+	if not _cache.has("script"):
+		_cache["script"] = font_file(FONT_SCRIPT_PATH)
+	return _cache["script"]
 
 
 ## A label on paper or HUD. role: "body", "muted", "accent", "ok", "warn", "hud", "hud_muted".

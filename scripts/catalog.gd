@@ -41,11 +41,7 @@ var _pages: Array[Control] = []
 
 
 static func _font_file(path: String) -> Font:
-	if ResourceLoader.exists(path):
-		return load(path)
-	var f := SystemFont.new()  # fonts folder missing: fall back to something condensed
-	f.font_names = PackedStringArray(["Bahnschrift", "Arial Narrow", "sans-serif"])
-	return f
+	return Style.font_file(path)
 
 
 static func _block(weight: int) -> FontVariation:

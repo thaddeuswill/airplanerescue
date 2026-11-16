@@ -136,5 +136,18 @@ What's in:
 4. **Tells**: drawn over the parts, stronger on Easy (with a glint), faint on Hard. Placeholders in
    code until the art in `ART_PROMPTS.md` section 7 exists.
 
-Not yet: the other spots (cabin, gear, tail, wings, prop) still use the flashlight look and the
-station grid; the same treatment would fit them. A 3D cowl you physically unlatch.
+## Every spot (2026-11-16)
+
+Playtest: the flashlight looks showed named boxes and access panels, not parts; a found fault's
+marker vanished; the write-ups were one line. Now:
+- **Every spot opens like the bay** (`bay.gd _build_spot`): one view per job painting at that spot
+  (the wheel, the brake drum, the windshield, the tail feathers...), with the parts drawn as
+  installed and no covers over them. A broken part that shows from outside is drawn from its
+  `_old` painting: the flat tire, the cracked windshield, the rusted disc. The flashlight scenes and
+  the station grid are no longer opened.
+- **"!" stays**: a written-up, unfixed fault keeps a "!" on its spot's 3D marker and on its part in
+  the view, on every difficulty (it's your own note, not a hint). Self-test check 69.
+- **Write-ups** (`main.writeup`): what was found and where, the manual chapter, page and figure, the
+  manual's first step, the parts with their numbers and stock, and the caution if the page has one.
+
+Not yet: a 3D cowl you physically unlatch.

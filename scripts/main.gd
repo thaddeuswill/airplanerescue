@@ -970,8 +970,10 @@ func _hide_loading() -> void:
 	_bar = null
 
 
-## Walk-around inspection of one spot. The first time you go straight to the flashlight; after
-## that it's the work order, which offers another look.
+## Walk-around inspection of one spot. The first time you open it up and look it over (bay.gd:
+## the parts themselves, painted, where you look closer at each); after that it's the work order,
+## which opens it up again. A first look at a spot is about two hours, so skipping one saves real
+## time: that's the gamble. (The engine's first look is opening the cowl.)
 func _inspect_zone(zone: String) -> void:
 	standing_at = zone
 	if not current_job.get("washed", true):  # years of dirt and lichen hide everything
@@ -983,26 +985,9 @@ func _inspect_zone(zone: String) -> void:
 		return
 	current_job.checked[zone] = true
 	playlog("inspect " + zone)
-	if zone == "engine":  # the engine has no separate look: you walk up to it and open it up
-		_open_bay()
+	if zone != "engine" and not _work_time(0.08):  # the owner gave up while you were looking
 		return
-	_look(zone)
-
-
-## The close look at one spot (work.gd, the look_<zone> scenes): you find what's wrong yourself,
-## by flashlight. Each look is about two hours, so skipping a spot saves real time: that's the gamble.
-func _look(zone: String) -> void:
-	if not _work_time(0.08):  # the owner gave up while you were looking
-		return
-	_open_work("look_" + zone, func():
-		var seen: PackedStringArray = []
-		for id in current_job.faults:
-			if FAULTS[id].zone == zone and current_job.found.has(id) and not current_job.fixed.has(id) and _how(current_job, id) == "walk":
-				seen.append(clue(id))
-		_say(("%s: %s." % [ZONES[zone].name.capitalize(), "; ".join(seen)]) if seen.size() > 0
-			else "%s: nothing wrong you can see." % ZONES[zone].name.capitalize())
-		_save_game()
-		_open_inspection(zone))
+	_open_bay(zone)
 
 
 ## Bucket, brush and a hose: an afternoon's work, and then you can see what you bought.
@@ -1331,37 +1316,25 @@ func _open_station(zone: String) -> void:
 	if not current_job.get("washed", true):
 		_say("It's caked in grime and lichen. Wash it down first.")
 		return
-	if zone == "engine":
-		current_job.checked["engine"] = true
-		_open_bay()
-		return
 	if not current_job.checked.has(zone):
-		_inspect_zone(zone)  # the close look comes first: it counts as checking the spot
+		_inspect_zone(zone)  # the first look comes first: it counts as checking the spot
 		return
-	standing_at = zone
-	station_zone = zone
-	_close_panel()
-	var st = Station.new()
-	st.setup(self, zone)
-	ui.add_child(st)
-	panel = st
-	panel_closable = true
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	player.frozen = true
+	_open_bay(zone)
 
 
 # ---------- the engine bay (scripts/bay.gd) ----------
 
 const Bay := preload("res://scripts/bay.gd")
 var bay_view := "cowled"  # where you were standing at the engine, so a job's Back returns there
+var spot_view := {}  # the same at every other spot: zone -> view
 
 
-func _open_bay() -> void:
-	standing_at = "engine"
-	station_zone = "engine"
+func _open_bay(zone := "engine") -> void:
+	standing_at = zone
+	station_zone = zone
 	_close_panel()
 	var b = Bay.new()
-	b.setup(self)
+	b.setup(self, zone)
 	ui.add_child(b)
 	panel = b
 	panel_closable = true
@@ -1420,13 +1393,13 @@ func bay_close_cowl() -> String:
 
 
 ## A job or a test on a part, from the bay; Back comes home to the bay.
-func bay_open_scene(scene: String) -> void:
-	station_zone = "engine"
-	standing_at = "engine"
+func bay_open_scene(scene: String, zone := "engine") -> void:
+	station_zone = zone
+	standing_at = zone
 	if TESTS.has(scene):
 		_run_test(scene)
 	else:
-		station_open("engine", scene)
+		station_open(zone, scene)
 
 
 ## Opens one place from a station. A fault you can see is found by looking at it; one inside a
@@ -2655,11 +2628,11 @@ func _unhandled_input(e: InputEvent) -> void:
 			elif panel is Bay:
 				if is_instance_valid(panel.card):
 					panel._close_card()
-				elif panel.view != "cowled" and panel.view != "left":
+				elif panel.zone == "engine" and panel.view != "cowled" and panel.view != "left":
 					panel._go("left")  # step back out of a close view to the open cowl
 				else:
 					station_zone = ""
-					_open_inspection("engine")
+					_open_inspection(panel.zone)
 			elif panel_closable:
 				_close_panel()
 		elif not is_instance_valid(_loader):
@@ -2887,7 +2860,7 @@ func _banner(title: String, sub: String) -> void:
 	var box_ := CenterContainer.new()
 	box_.anchor_right = 1.0
 	box_.anchor_bottom = 0.5
-	box_.offset_left = SHEET_W if panel is PanelContainer else 0.0
+	box_.offset_left = _sheet_edge()
 	box_.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vb := VBoxContainer.new()
 	vb.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2994,7 +2967,7 @@ func _update_hud() -> void:
 		_quest_icon.texture = load("res://textures/hud/%s.svg" % next[0])
 		_quest_count.text = next[1]
 	# Toasts sit over the open half of the screen, never on top of a side sheet.
-	msg.get_parent().offset_left = SHEET_W if panel is PanelContainer else 0.0
+	msg.get_parent().offset_left = _sheet_edge()
 
 
 ## The pilot's squawk, pinned top right the whole time you're at their plane: a paper slip, the
@@ -3037,7 +3010,7 @@ func _setup_squawk() -> void:
 func _update_squawk() -> void:
 	var job = current_job
 	var here: bool = job != null and job.city == location and ferry == null
-	squawk.visible = here and (hud.visible or panel is Station) and not _log.visible
+	squawk.visible = here and (hud.visible or panel is Station or panel is Bay) and not _log.visible
 	if here:
 		var t := _symptoms(job)
 		if t != _squawk_for:
@@ -3828,13 +3801,150 @@ func _can_quit() -> bool:
 
 func _open_pause() -> void:
 	var parked_in_cockpit: bool = ferry != null and ferry.alt <= 0.0 and ferry.speed < 1.0 and ferry._result == ""
-	_open_panel("Paused", [["Everything stops until you come back."], ["", "Resume", _close_panel, true]]
-		+ ([["", "Climb out of the plane", _leave_cockpit, true]] if parked_in_cockpit else []) + [
-		["", "Settings", _open_settings.bind(_open_pause), true], ["", "Controls", _open_controls, true],
-		["", "Credits", _open_credits.bind(_open_pause), true],
-		] + ([["Your game saves after every step.", "Quit to title", _quit_to_title, true], ["", "Quit to desktop", _quit_game, true]] if _can_quit()
-		else [["Finish the emergency first: what happens next counts."]]))
+	var fresh := panel == null
+	_close_panel()
+	panel_closable = true
+	# The world dims behind an opaque menu: nothing shows through the words.
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.process_mode = Node.PROCESS_MODE_ALWAYS
+	var scrim := ColorRect.new()
+	scrim.color = Color(0, 0, 0, 0.5)
+	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(scrim)
+	var sheet := PanelContainer.new()
+	sheet.anchor_bottom = 1.0
+	sheet.offset_right = PAUSE_W
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Style.COLOR_SURFACE_HUD
+	sb.border_width_right = 2
+	sb.border_color = Color(C_BRASS, 0.5)
+	sb.content_margin_left = Style.SPACE_8 + Style.SPACE_2
+	sb.content_margin_right = Style.SPACE_8
+	sb.content_margin_top = Style.SPACE_8 + Style.SPACE_4
+	sb.content_margin_bottom = Style.SPACE_8
+	sheet.add_theme_stylebox_override("panel", sb)
+	root.add_child(sheet)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", Style.SPACE_2)
+	sheet.add_child(col)
+	col.add_child(Style.label("AIRPLANE RESCUE", "hud_muted", Style.SIZE_XS, 800))
+	col.get_child(-1).add_theme_font_override("font", Style.caps(800, Style.SIZE_XS))
+	var title := Style.label("PAUSED", "hud", Style.SIZE_3XL, 900)
+	title.add_theme_font_override("font", Style.caps(900, Style.SIZE_3XL))
+	col.add_child(title)
+	# Where you stand, in figures: the day, the town, the money (the paused game, at a glance).
+	var at := Label.new()
+	at.text = "DAY %d   %s   $%s" % [floori(day), location.to_upper(), _thousands(money)]
+	at.add_theme_font_override("font", Style.figures(true))
+	at.add_theme_font_size_override("font_size", Style.SIZE_SM)
+	at.add_theme_color_override("font_color", Style.COLOR_TEXT_HUD_MUTED)
+	col.add_child(at)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = Style.SPACE_6
+	col.add_child(gap)
+	var first := _pause_button(col, "Resume", _close_panel, "primary", "Esc")
+	if parked_in_cockpit:
+		_pause_button(col, "Climb out of the plane", _leave_cockpit)
+	_pause_button(col, "Settings", _open_settings.bind(_open_pause))
+	_pause_button(col, "Controls", _open_controls)
+	_pause_button(col, "Credits", _open_credits.bind(_open_pause))
+	var fill := Control.new()
+	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(fill)
+	var rule := ColorRect.new()
+	rule.color = Color(C_BRASS, 0.35)
+	rule.custom_minimum_size.y = 1
+	col.add_child(rule)
+	if _can_quit():
+		var note := Style.label("Saved after every step: quitting loses nothing.", "hud_muted", Style.SIZE_SM, 600)
+		col.add_child(note)
+		_pause_button(col, "Quit to title", _quit_to_title)
+		_pause_button(col, "Quit to desktop", _quit_game)
+	else:
+		var note := Style.label("Finish the emergency first: what happens next counts.", "blocked", Style.SIZE_SM, 700)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		col.add_child(note)
+	root.set_meta("pause", true)
+	ui.add_child(root)
+	panel = root
+	first.grab_focus.call_deferred()
+	if fresh:  # slides out from the edge, like the paperwork
+		sheet.modulate.a = 0.0
+		sheet.position.x = -30.0
+		var tw := sheet.create_tween().set_parallel().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		tw.tween_property(sheet, "modulate:a", 1.0, 0.16)
+		tw.tween_property(sheet, "position:x", 0.0, 0.16)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
 	get_tree().paused = true
+
+
+const PAUSE_W := 420.0  # a menu, not a page of paperwork: narrower than SHEET_W
+
+
+## Where the open sheet ends on the left, so a message centers in the world beside it, not under it.
+func _sheet_edge() -> float:
+	if panel is PanelContainer:
+		return SHEET_W
+	if is_instance_valid(panel) and panel.has_meta("pause"):
+		return PAUSE_W
+	return 0.0
+
+
+## 12450 -> "12,450" (negative too): money reads at a glance.
+static func _thousands(n: int) -> String:
+	var t := str(absi(n))
+	var out := ""
+	while t.length() > 3:
+		out = "," + t.substr(t.length() - 3) + out
+		t = t.substr(0, t.length() - 3)
+	return ("-" if n < 0 else "") + t + out
+
+
+## One pause-menu item: full width, left-aligned so the words line up down the column, with an
+## optional key on the right. "primary" is the one red button (Resume); the rest are quiet.
+func _pause_button(col: VBoxContainer, text: String, act: Callable, kind := "quiet", key := "") -> Button:
+	var b := Button.new()
+	b.text = text.to_upper()
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.custom_minimum_size.y = 48
+	b.focus_mode = Control.FOCUS_ALL
+	b.add_theme_font_override("font", Style.caps(800, Style.SIZE_MD))
+	b.add_theme_font_size_override("font_size", Style.SIZE_MD)
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var st := StyleBoxFlat.new()
+		if kind == "primary":
+			st.bg_color = Style.COLOR_ACTION_PRIMARY.lightened(0.08 if state in ["hover", "focus"] else 0.0)
+		else:
+			st.bg_color = Color(Style.COLOR_TEXT_HUD, {"hover": 0.1, "focus": 0.1, "pressed": 0.16}.get(state, 0.0))
+		if state == "focus":
+			st.border_color = Style.COLOR_FOCUS
+			st.set_border_width_all(2)
+			st.draw_center = true
+		st.set_corner_radius_all(Style.RADIUS_SM)
+		st.content_margin_left = Style.SPACE_4
+		st.content_margin_right = Style.SPACE_4
+		b.add_theme_stylebox_override(state, st)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(c, Style.COLOR_ACTION_PRIMARY_TEXT if kind == "primary" else Style.COLOR_TEXT_HUD)
+	b.pressed.connect(sound.sfx.bind("thread"))
+	b.pressed.connect(act)
+	col.add_child(b)
+	if key != "":
+		var k := Label.new()
+		k.text = key.to_upper()
+		k.add_theme_font_override("font", Style.caps(700, Style.SIZE_XS))
+		k.add_theme_font_size_override("font_size", Style.SIZE_XS)
+		k.add_theme_color_override("font_color", Color(Style.COLOR_ACTION_PRIMARY_TEXT if kind == "primary" else Style.COLOR_TEXT_HUD_MUTED, 0.8))
+		k.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+		k.offset_left = -60
+		k.offset_right = -Style.SPACE_4
+		k.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		k.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		k.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(k)
+	return b
 
 
 func _notification(what: int) -> void:  # alt-tabbing away shouldn't leave a take-off running
@@ -4070,13 +4180,15 @@ func _refresh_markers() -> void:
 		var open: bool = job.faults.any(func(id): return FAULTS[id].zone == z and job.found.has(id) and not job.fixed.has(id))
 		if z == "cabin" and job.get("runup", "") != "ran" and job.checked.has(z):
 			open = true  # the run-up still waits here
-		m.visible = guide("medium") and (guide("easy") or not job.checked.has(z))  # medium: "?" only; hard: none
-		if not job.checked.has(z):
-			m.text = "?"
-			m.modulate = Color(1.0, 0.9, 0.3)
-		elif open:
+		# "?" (not looked at yet) on Easy and Medium; "!" (written up, not fixed) on every difficulty:
+		# you wrote it up, so it's your own note, not a hint, and it stays until the job's done.
+		m.visible = open or (guide("medium") and not job.checked.has(z))
+		if open:
 			m.text = "!"
 			m.modulate = Color(1.0, 0.55, 0.15)
+		elif not job.checked.has(z):
+			m.text = "?"
+			m.modulate = Color(1.0, 0.9, 0.3)
 		else:
 			m.text = ""
 		var ring: Sprite3D = m.get_node("ring")
@@ -4211,8 +4323,6 @@ func _open_inspection(at := standing_at) -> void:
 		rows.append(["Replaced: %s. %s" % [FAULTS[c].name, "It made no difference." if tried[c] else "Run it up again to see if that cured it."], "", null, false, _fault_icon(c)])
 	if not job.get("washed", true):
 		rows.append(["Sat %d years: filthy, lichen on the wings." % job.years, "Wash it down" if at != "" else "", _wash, at != ""])
-	elif at != "" and at != "engine":  # the engine bay is always open to another look
-		rows.append(["Not sure you saw everything on the %s? Another look is two more hours." % ZONES[at].name, "Look again", func(): _look(at), true])
 	var ran: bool = job.get("runup", "") == "ran"
 	var runup_text: String = "Run-up: " + {"": "not done yet", "dead": "wouldn't start", "ran": "engine runs"}[job.get("runup", "")]
 	if at == "cabin":
@@ -4261,12 +4371,58 @@ func _fault_icon(id: String) -> String:
 func _fault_row(id: String, at: String, suspect: bool) -> Array:
 	var f: Dictionary = FAULTS[id]
 	var title: String = ("Suspect: " if suspect else "") + f.name
-	var need := "No part needed" if f.part == "" else "Needs %s (have %d)" % [f.part, inventory.get(f.part, 0)]
-	if f.zone == "engine" and not guide("easy"):  # no shortcut past the bay: open it up and find the part
-		return ["%s\n%s. Open up the engine and work on it there." % [title, need], "Open up the engine" if at == "engine" else "", _open_bay, at == "engine", _fault_icon(id)]
-	if at == f.zone:
-		return ["%s\n%s" % [title, need], "Work on it", func(): _repair(id), true, _fault_icon(id)]
-	return ["%s\n%s. Work on it at the %s." % [title, need, ZONES[f.zone].name], "", null, false, _fault_icon(id)]
+	var text := "%s\n%s" % [title, "\n".join(writeup(id))]
+	if f.zone != "engine" or guide("easy"):
+		if at == f.zone:
+			return [text, "Work on it", func(): _repair(id), true, _fault_icon(id)]
+	var where := "Open up the %s and work on it there." % ZONES[f.zone].name if at == f.zone else "Work on it at the %s." % ZONES[f.zone].name
+	return [text + "\n" + where, ("Open up the " + ZONES[f.zone].name) if at == f.zone else "", func(): _open_bay(f.zone), at == f.zone, _fault_icon(id)]
+
+
+## The service manual page for a job: the one whose "job" (or id) is this scene.
+func manual_page(id: String) -> Dictionary:
+	for p in manual_data.get("pages", []):
+		if p.get("job", "") == id or p.id == id:
+			return p
+	return {}
+
+
+var _fig_cache := {}
+
+
+## A discrepancy write-up as a mechanic puts it on the work order: what was found and where, what
+## it takes to put right (the manual's page and figure, so you can look it up), and the parts with
+## their numbers and how many you have. Lines, without the title.
+func writeup(id: String) -> PackedStringArray:
+	var f: Dictionary = FAULTS[id]
+	var out: PackedStringArray = []
+	var job: Dictionary = current_job if current_job else {}
+	var seen: String = clue(id) if CLUES.has(id) else String(job.get("dnote", {}).get(id, f.get("symptom", f.name)))
+	var at: String = PLACES.get(id, ZONES[f.zone].name)
+	out.append("Found: %s%s (%s, %s)." % [seen.substr(0, 1).to_upper(), seen.substr(1).trim_suffix("."), ZONES[f.zone].name, at.to_lower()])
+	var p := manual_page(id)
+	if not p.is_empty():
+		if _fig_cache.is_empty():
+			_fig_cache = ManualUI.figure_numbers(manual_data)
+		var ch: String = String(p.ata)
+		for c in manual_data.get("chapters", []):
+			if c.ata == p.ata:
+				ch = "%s, %s" % [c.ata, String(c.title).to_lower()]
+		var fig: String = _fig_cache.get("page:" + p.id, "")
+		out.append("Fix: service manual chapter %s, \"%s\"%s. Press M." % [ch, String(p.title), (", figure " + fig) if fig != "" else ""])
+		var steps: Array = p.get("steps", [])
+		if steps.size() > 0:
+			out.append("First: " + String(steps[0]))
+	var pns: PackedStringArray = []
+	for pid in p.get("parts", []):
+		for q in parts_data.get("parts", []):
+			if q.id == pid and String(q.get("no", "")) != "":
+				pns.append(String(q.no))
+	var need := "None" if f.part == "" else "%s, have %d in stock" % [f.part, inventory.get(f.part, 0)]
+	out.append("Parts: %s%s." % [need, ("  (P/N " + ", ".join(pns.slice(0, 3)) + ")") if pns.size() > 0 else ""])
+	if String(p.get("caution", "")) != "":
+		out.append("Caution: " + String(p.caution))
+	return out
 
 
 ## Each town's shed stocks only some parts (fixed per town); the rest come by mail, slower and dearer.

@@ -61,15 +61,23 @@ func setup(m, back_to: Callable, start := "video") -> void:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(title)
 	head.add_child(Style.label("Changes apply at once and are saved.", "muted", Style.SIZE_SM))
+	var air0 := Control.new()
+	air0.custom_minimum_size.y = Style.SPACE_2
+	col.add_child(air0)
 	_tabs = HBoxContainer.new()
-	_tabs.add_theme_constant_override("separation", Style.SPACE_2)
+	_tabs.add_theme_constant_override("separation", Style.SPACE_6)
 	col.add_child(_tabs)
 	var rule := ColorRect.new()
-	rule.color = Style.COLOR_TEXT_PAPER_ACCENT
-	rule.custom_minimum_size.y = 2
+	rule.color = Color(Style.COLOR_TEXT_PAPER, 0.35)
+	rule.custom_minimum_size.y = 1
 	col.add_child(rule)
+	col.add_theme_constant_override("separation", 0)
+	var air := Control.new()
+	air.custom_minimum_size.y = Style.SPACE_3
+	col.add_child(air)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_ink_scrollbar(scroll.get_v_scroll_bar())
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(scroll)
 	var gutter := MarginContainer.new()
@@ -80,11 +88,18 @@ func setup(m, back_to: Callable, start := "video") -> void:
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rows.add_theme_constant_override("separation", Style.SPACE_3)
 	gutter.add_child(rows)
+	var foot_rule := ColorRect.new()
+	foot_rule.color = Color(Style.COLOR_TEXT_PAPER, 0.35)
+	foot_rule.custom_minimum_size.y = 1
+	col.add_child(foot_rule)
+	var air2 := Control.new()
+	air2.custom_minimum_size.y = Style.SPACE_3
+	col.add_child(air2)
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", Style.SPACE_3)
 	col.add_child(foot)
 	var reset := Button.new()
-	reset.text = "Restore this tab's defaults"
+	reset.text = "RESTORE THIS TAB'S DEFAULTS"
 	_quiet(reset)
 	reset.custom_minimum_size.y = 44
 	reset.pressed.connect(func():
@@ -109,17 +124,14 @@ func _build() -> void:
 	for t in TABS:
 		var b := Button.new()
 		b.text = t[1].to_upper()
-		if t[0] == tab:
-			Style.button(b, "primary")
-		else:
-			_quiet(b)
-		b.add_theme_font_size_override("font_size", Style.BUTTON_QUIET_FONT_SIZE)  # the fill marks the tab, not a size jump
+		_tab_style(b, t[0] == tab)
 		b.custom_minimum_size.y = CONTROL.y
 		b.pressed.connect(func():
 			tab = t[0]
 			_build())
 		_tabs.add_child(b)
 	for c in rows.get_children():
+		rows.remove_child(c)  # now, not at frame end: the first new row mustn't see an old one above it
 		c.queue_free()
 	_waiting = ""
 	call("_tab_" + tab)
@@ -209,6 +221,27 @@ func _tab_access() -> void:
 # ---------- rows ----------
 
 ## A quiet control with a visible edge (the fill alone is 1.27:1 on paper).
+## A tab is a word on the form, not a button: ink caps, the open one in red with a red bar under
+## it standing on the rule. A row of filled boxes read as a toolbar.
+func _tab_style(b: Button, on: bool) -> void:
+	b.add_theme_font_override("font", Style.caps(800, Style.SIZE_MD))
+	b.add_theme_font_size_override("font_size", Style.SIZE_MD)
+	b.focus_mode = Control.FOCUS_NONE
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0, 0, 0, 0)
+		sb.draw_center = false
+		sb.content_margin_left = 0
+		sb.content_margin_right = 0
+		sb.border_color = Style.COLOR_TEXT_PAPER_ACCENT if on else Color(Style.COLOR_TEXT_PAPER, 0.4)
+		sb.border_width_bottom = 3 if on else (2 if state == "hover" else 0)
+		b.add_theme_stylebox_override(state, sb)
+	var c: Color = Style.COLOR_TEXT_PAPER_ACCENT if on else Style.COLOR_TEXT_PAPER_MUTED
+	for k in ["font_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(k, c)
+	b.add_theme_color_override("font_hover_color", Style.COLOR_TEXT_PAPER_ACCENT if on else Style.COLOR_TEXT_PAPER)
+
+
 func _quiet(b: Button) -> void:
 	Style.button(b, "quiet")
 	for state in ["normal", "hover", "pressed", "disabled"]:
@@ -216,6 +249,21 @@ func _quiet(b: Button) -> void:
 		sb.border_color = Color(Style.COLOR_TEXT_PAPER, OUTLINE * (0.5 if state == "disabled" else 1.0))
 		sb.set_border_width_all(1)
 		b.add_theme_stylebox_override(state, sb)
+
+
+## A thin ink scrollbar on the paper: no grey engine-default trough.
+func _ink_scrollbar(bar: ScrollBar) -> void:
+	var trough := StyleBoxFlat.new()
+	trough.bg_color = Color(Style.COLOR_TEXT_PAPER, 0.08)
+	trough.set_corner_radius_all(3)
+	trough.content_margin_left = 3
+	trough.content_margin_right = 3
+	bar.add_theme_stylebox_override("scroll", trough)
+	for st in ["grabber", "grabber_highlight", "grabber_pressed"]:
+		var g := StyleBoxFlat.new()
+		g.bg_color = Color(Style.COLOR_TEXT_PAPER, {"grabber": 0.45, "grabber_highlight": 0.65, "grabber_pressed": 0.8}[st])
+		g.set_corner_radius_all(3)
+		bar.add_theme_stylebox_override(st, g)
 
 
 func _row(text: String, note := "") -> HBoxContainer:
@@ -232,6 +280,11 @@ func _row(text: String, note := "") -> HBoxContainer:
 		n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lab.add_child(n)
 	hb.add_child(lab)
+	if rows.get_child_count() > 0 and rows.get_child(-1) is HBoxContainer:  # a hairline between rows, as on a printed form
+		var hr := ColorRect.new()
+		hr.color = Color(Style.COLOR_TEXT_PAPER, 0.12)
+		hr.custom_minimum_size.y = 1
+		rows.add_child(hr)
 	rows.add_child(hb)
 	return hb
 
@@ -335,7 +388,7 @@ func _bind(action: String, text: String, group: Array) -> void:
 	b.pressed.connect(func():
 		_waiting = action
 		_wait_button = b
-		b.text = "Press a key..."
+		b.text = "Press a key…"
 		Style.button(b, "primary"))
 	hb.add_child(b)
 

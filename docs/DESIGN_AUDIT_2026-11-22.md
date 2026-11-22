@@ -211,9 +211,9 @@ spot). Everywhere else there should be **one obvious next action**. Where that f
 ## Next step
 
 Tell me which recommendations to build. In rough order of value for the least work:
-1. Cut the dead station grid and flashlight scenes; move "Start a new career", Controls and Credits.
-2. Net estimate and "closest you can afford" on the map.
-3. Part cards: written-up work first, the rest folded.
+1. **Done (2026-11-22).** Cut the dead station grid and flashlight scenes; "Start a new career" moved from the wallet to the pause menu (and the title screen); Controls and Credits out of the pause menu.
+2. **Done.** Net estimate per call (`main.call_estimate`), calls sorted best first, and "closest you can afford" marked.
+3. **Done.** Part cards: written-up work first as the red button (and on Easy/Medium the test the work order names next); two or more other actions fold under *Other work here* (`bay.gd _due`). Self-test check 70.
 4. Ferry start checklist that ticks, for the first two flights.
 5. A wall of saved planes in the hangar, and the tally on the map.
 6. Merge the two stores; merge wallet and parts table.

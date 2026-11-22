@@ -260,7 +260,11 @@ func run(main, args: PackedStringArray) -> void:
 		g.panel._go("left")
 		g.tools["tester"] = true
 		g.held = "tester"
-		g.panel._open_card(g.panel._part("plugs"), Vector2(420, 300))
+		var with_work := "plugs"  # the card of a part with written-up work on it, if this plane has one
+		for p in g.panel.parts():
+			if p.look.any(func(i): return job.faults.has(i)):
+				with_work = p.id
+		g.panel._open_card(g.panel._part(with_work), Vector2(420, 300))
 		await _snap(shot, "bay_card")
 		g.held = ""
 		g.panel._close_card()
@@ -291,6 +295,25 @@ func run(main, args: PackedStringArray) -> void:
 				print("MARKER ", id, ": written up but its spot shows no \"!\"")
 				ok = false
 	_chk(ok, 69)
+	# A part's card puts what's written up first: its job is "due" there (bay.gd _due), on every difficulty.
+	var tools_before: Dictionary = g.tools.duplicate()
+	for id in job.faults:
+		if job.found.has(id) and not job.fixed.has(id) and g.PLACES.has(id) and not g.FAULTS[id].get("ground", false):
+			var bay = Bay.new()
+			bay.setup(g, g.FAULTS[id].zone)
+			var hit := false
+			for v in bay.views():
+				bay.view = v
+				for p in bay.parts():
+					if p.acts.any(func(a): return a[2] == id):
+						g.tools.merge({"screwdriver": true, "ratchet": true, "pliers": true, "rag": true, "torque": true})
+						hit = hit or bay.actions(p).any(func(a): return a.do == id and a.get("due", false))
+			bay.free()
+			if not hit:
+				print("CARD ", id, ": written up, but no part card puts its job first")
+				ok = false
+	g.tools = tools_before
+	_chk(ok, 70)
 	_run_up()
 	# A clean start hears every run-up fault; a dead battery or starter cuts the test short.
 	# On Easy the run-up is refused while known don't-run-it work is open.
@@ -1092,7 +1115,7 @@ func _scene_tests() -> bool:
 		g.current_job = j
 		return j
 	for scene in Work.scenes():
-		if scene in g.TESTS or scene.begins_with("look_"):  # driven elsewhere; a look never finishes, the light runs out
+		if scene in g.TESTS:  # driven elsewhere
 			continue  # driven below, through each fault it can find
 		var j: Dictionary = fake.call([scene] if g.FAULTS.has(scene) else [])
 		j.found[scene] = true

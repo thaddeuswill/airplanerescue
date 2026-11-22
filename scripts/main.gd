@@ -1259,12 +1259,11 @@ func _repair(id: String) -> void:
 var _last_work: Array = []  # [scene, on_done] of the work scene last opened
 
 
-# ---------- stations: a spot opened up, every place you can work there (scripts/station.gd) ----------
+# ---------- spots: every place you can work at one spot (opened up in scripts/bay.gd) ----------
 
-const Station := preload("res://scripts/station.gd")
-var station_zone := ""  # the station a work scene was opened from: Esc goes back there
+var station_zone := ""  # the spot a work scene was opened from: Esc goes back there
 
-## What each place is called on its station tile: the place or the job, never the diagnosis.
+## What each place at a spot is called: the place or the job, never the diagnosis.
 const PLACES := {
 	"propeller": "Prop hub & blades", "prop_dress": "Blade leading edges", "prop_track": "Track the blades", "prop_bolts": "Prop bolts",
 	"spark_plugs": "Spark plugs", "oil_leak": "Rocker cover gaskets", "bird_nest": "Top of the engine", "starter": "Starter",
@@ -1293,25 +1292,6 @@ func station_places(zone: String) -> Array:
 		if z == zone and PLACES.has(id) and (id != "fod" or current_job.faults.has("fod")):
 			out.append(id)
 	return out
-
-
-func station_title(zone: String) -> String:
-	return "%s  -  %s, opened up" % [current_job.type, ZONES[zone].name.capitalize()]
-
-
-func station_status(zone: String) -> String:
-	if zone != "engine":
-		return "Day %d. Owner waits %d more day(s)." % [floori(day), maxi(0, ceili(current_job.deadline - day))]
-	var c := "Cowling on and screwed down." if cowl_closed(current_job) else "Cowling's off."
-	return "Day %d. %s" % [floori(day), c + (" Put it back before you leave the engine." if guide("medium") and not cowl_closed(current_job) else "")]
-
-
-## Easy marks each tile: "!" work waiting, "OK" done.
-func station_mark(id: String) -> String:
-	var job: Dictionary = current_job
-	if not guide("easy") or not job.faults.has(id) or not job.found.has(id):
-		return ""
-	return "OK" if job.fixed.has(id) else "!"
 
 
 ## The shared engine cowling: on, and every screw tight.
@@ -2637,9 +2617,6 @@ func _unhandled_input(e: InputEvent) -> void:
 				_close_manual()
 			elif panel is Work and station_zone != "":
 				_open_station(station_zone)
-			elif panel is Station:
-				station_zone = ""
-				_open_inspection(standing_at)
 			elif panel is Bay:
 				if is_instance_valid(panel.card):
 					panel._close_card()
@@ -3031,7 +3008,7 @@ func _setup_squawk() -> void:
 func _update_squawk() -> void:
 	var job = current_job
 	var here: bool = job != null and job.city == location and ferry == null
-	squawk.visible = here and (hud.visible or panel is Station or panel is Bay) and not _log.visible
+	squawk.visible = here and (hud.visible or panel is Bay) and not _log.visible
 	if here:
 		var t := _symptoms(job)
 		if t != _squawk_for:
@@ -3136,7 +3113,6 @@ func _open_wallet() -> void:
 	rows.append(["Tool roll: " + (", ".join(have) if have.size() > 0 else "empty")])
 	rows.append(["Materials: " + ", ".join(SUPPLIES.keys().filter(func(k): return SUPPLIES[k].has("qty")).map(func(k): return "%s %d" % [k, inventory.get(k, 0)]))])
 	rows.append(["Hangar rent and insurance: $%d a day" % DAILY_COST])
-	rows.append(["", "Start a new career", _confirm_restart, true])
 	_open_panel("Wallet", rows)
 
 
@@ -3871,8 +3847,6 @@ func _open_pause() -> void:
 	if parked_in_cockpit:
 		_pause_button(col, "Climb out of the plane", _leave_cockpit)
 	_pause_button(col, "Settings", _open_settings.bind(_open_pause))
-	_pause_button(col, "Controls", _open_controls)
-	_pause_button(col, "Credits", _open_credits.bind(_open_pause))
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(fill)
@@ -3885,6 +3859,7 @@ func _open_pause() -> void:
 		col.add_child(note)
 		_pause_button(col, "Quit to title", _quit_to_title)
 		_pause_button(col, "Quit to desktop", _quit_game)
+		_pause_button(col, "Start a new career", _confirm_restart)  # here and on the title screen, behind a yes: never in a pocket
 	else:
 		var note := Style.label("Finish the emergency first: what happens next counts.", "blocked", Style.SIZE_SM, 700)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -4017,15 +3992,6 @@ func _open_settings(back: Callable) -> void:
 	_sub_back = back
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	player.frozen = true
-
-
-func _open_controls() -> void:
-	_sub_panel("Controls", [["On foot\nW A S D walk, mouse looks, Space jumps, E uses what you're looking at."],
-		["Tab / J / L\nWallet, clipboard, logbook."], ["Esc\nPause. On a screen, closes it."],
-		["On the walk-around\nSweep the flashlight over the plane and click anything that looks wrong, before the light runs out."],
-		["In a repair\nHold the left mouse to turn. Wheel or 1-6 switches tools.\nTorque wrench: click fast to bring the needle up, then keep it in the green."],
-		["Starting the engine\nF fuel, M master, P primer, I mags, W/S throttle, hold Space for the starter."],
-		["Flying\nW/S throttle, A/D rudder, Up arrow stick forward, Down arrow stick back."]], _open_pause)
 
 
 func _open_credits(back: Callable) -> void:
@@ -4719,17 +4685,21 @@ func _open_shop() -> void:
 func _open_travel() -> void:
 	var rows := []
 	var can_fly := false
-	for job in jobs:
-		if job == current_job:
-			continue
-		var cost := int(miles(location, job.city) * FUEL_PER_MILE)
+	var calls_here: Array = jobs.filter(func(j): return j != current_job)
+	# One anchor for the comparison: the nearest call you can pay the fare and the parts for.
+	var closest = null
+	for job in calls_here:
+		var est := call_estimate(job)
+		if money >= est.fare + est.parts and (closest == null or est.fare < call_estimate(closest).fare):
+			closest = job
+	calls_here.sort_custom(func(a, b): return call_estimate(a).net > call_estimate(b).net)  # best estimate first
+	for job in calls_here:
+		var est := call_estimate(job)
+		var cost: int = est.fare
 		can_fly = can_fly or money >= cost
-		var trip := miles(location, job.city) / 700.0
-		var parts := 0
-		for id in job.faults:
-			parts += FAULTS[id].cost
-		rows.append(["%s: %s, pays $%d, parts about $%d. %d NM, %.1f days, waits %d\n%s" % [job.city, job.type, job.reward, parts,
-			roundi(miles(location, job.city) * 0.869), trip, maxi(0, ceili(job.deadline - day)), _symptoms(job)],
+		rows.append(["%s: %s%s\nPays $%d, clears about $%d after parts $%d, fuel $%d and %.1f days' rent. %d NM, waits %d days.\n%s" % [
+			job.city, job.type, "   (closest you can afford)" if job == closest else "", job.reward, est.net, est.parts, est.fare + est.plane_fuel,
+			est.days, roundi(miles(location, job.city) * 0.869), maxi(0, ceili(job.deadline - day)), _symptoms(job)],
 			"Fly ($%d)" % cost, func(): _travel(job, cost), money >= cost])
 	if not can_fly and not _can_finish_here():
 		var fares := jobs.filter(func(j): return j != current_job).map(func(j): return int(miles(location, j.city) * FUEL_PER_MILE))
@@ -4762,6 +4732,21 @@ func _open_travel() -> void:
 		pin.tooltip_text = "Fly to %s ($%d fuel)" % [job.city, cost]
 		pin.pressed.connect(func(): _travel(job, cost))
 		map.add_child(pin)
+
+
+## What a call would leave in your pocket, roughly: its pay (which already covers the parts at
+## cost) minus the parts, the fare there, fuel for the plane's flight out and rent for the days.
+## Days: the trip, two hours a spot for the walk-around, and a half day per fault on the plane
+## (a game estimate for comparing calls, not a promise: mail orders and wrong guesses cost more).
+func call_estimate(job: Dictionary) -> Dictionary:
+	var fare := int(miles(location, job.city) * FUEL_PER_MILE)
+	var parts := 0
+	for id in job.faults:
+		parts += FAULTS[id].cost
+	var days: float = miles(location, job.city) / 700.0 + ZONES.size() * 0.08 + job.faults.size() * 0.5
+	var plane_fuel := _fuel_bill(job)
+	return {"fare": fare, "parts": parts, "plane_fuel": plane_fuel, "days": days,
+		"net": job.reward - parts - fare - plane_fuel - roundi(days * DAILY_COST)}
 
 
 # ---------- 3D world ----------

@@ -8,8 +8,6 @@ extends Control
 ##   cover     anything that comes off and goes back: panels, cowling, safety wire, a jack, a lead
 ##   part      the thing being replaced: old -> out -> new (uses one part from the parts shed)
 ##   task      work with no part: cleaning, pulling a nest, adjusting turnbuckles
-##   check     a part to search by flashlight on the walk-around (the look_<zone> scenes): todo -> seen. It's
-##             bad while the fault it names is on this plane; looking at it is what finds the fault
 ## "needs" lists covers that must be off first. A cover goes back only once everything that
 ## needed it off is complete. State lives in job.work[fault], so you can step away mid-job.
 ## A piece with a "range" (in-lb) is torqued against the needle: every click pulls it up, it sags
@@ -40,8 +38,6 @@ const RANGE := {"prop_bolts": Vector2i(175, 225), "plugs": Vector2i(300, 360)}  
 const BUMP := 0.1  # one pull on the torque wrench lifts the needle this much of the top of the spec
 const SAG := 0.4  # and it sags back by this much of itself every second
 const GREEN := 1.0  # seconds the needle has to stay in the band before the wrench clicks
-const LIGHT := 15.0  # seconds one look with the flashlight lasts
-const BEAM := 100.0  # how far the flashlight reaches around the cursor
 ## Short names for the tool roll buttons: all nine have to fit under the 1000 px scene.
 const TOOL_SHORT := {"hand": "Hands", "screwdriver": "Screwdriver", "ratchet": "Ratchet", "torque": "Torque",
 	"pliers": "Pliers", "rag": "Rag", "tester": "Tester", "timing": "Timing light", "punch": "Fabric tester"}
@@ -77,7 +73,6 @@ var def: Dictionary
 var els: Array = []
 var by_id := {}
 var st: Dictionary  # piece id -> state, plus "_paid"
-var looking := false  # a walk-around look, not a repair: nothing comes apart
 var head: String
 var sub: String  # the line under it: where you're looking, and the manual reference if the fault has one
 var diagram: Texture2D  # textures/diagrams/<the fault's "diagram", or its id>.png: D lays it over the work
@@ -87,7 +82,6 @@ var hover := ""
 var hold := 0.0
 var needle := 0.0  # what the torque wrench reads, in-lb
 var green := 0.0  # seconds the needle has been kept in the band
-var light := LIGHT  # seconds of flashlight left on this look
 var pressing := false  # left button held down over the scene
 var holding := false  # the new part is in your hand (picked up from the bench)
 const PART_TILE := Rect2(836, 442, 144, 96)  # where the new part sits on the bench
@@ -103,8 +97,6 @@ var _shake := 0.0
 var _vignette: GradientTexture2D
 var _idle := 0.0  # seconds since the last finished step
 var _show_next := false  # H held: outline every step you can do right now
-var _beam: GradientTexture2D
-const NIGHT := Color(0.02, 0.02, 0.04, 0.97)
 ## Nothing wrong here (or nothing you can see yet): good parts, finished tasks, nothing to buy.
 ## You can still take it apart and look; it never "finishes".
 var healthy := false
@@ -117,19 +109,14 @@ func setup(m, fault_id: String, j: Dictionary) -> void:
 	font = m.UI_FONT
 	job = j
 	fault = fault_id
-	looking = fault_id.begins_with("look_")
-	var info: Dictionary = {"name": "Walk-around", "part": ""} if looking else m.scene_info(fault_id)
+	var info: Dictionary = m.scene_info(fault_id)
 	part_name = info.part
 	title_name = info.name
-	def = scene_for(fault_id, {} if looking else m.FAULTS.get(fault_id, {}))
+	def = scene_for(fault_id, m.FAULTS.get(fault_id, {}))
 	art = def.get("art", fault_id)
 	sub = def.title
 	els = def.els.duplicate()
-	if looking:  # a fault with no point of its own at this spot (new from the manual) hides anywhere on it
-		for id in job.faults:
-			if "look_" + m.FAULTS[id].zone == fault_id and m._how(job, id) == "walk" and not els.any(func(e): return e.get("fault", "") == id):
-				els = els + [_check("f_" + id, m.FAULTS[id].name, Rect2(40, 40, 740, 480), id, {"bare": true})]
-	elif m.FAULTS.has(fault_id):
+	if m.FAULTS.has(fault_id):
 		diagram = _tex("diagrams/" + m.FAULTS[fault_id].get("diagram", fault_id))
 		if m.FAULTS[fault_id].has("ref"):
 			sub += "   -   " + m.FAULTS[fault_id].ref
@@ -145,7 +132,7 @@ func setup(m, fault_id: String, j: Dictionary) -> void:
 	if not job.work.has(fault_id):
 		job.work[fault_id] = {"_paid": false, "_healthy": healthy}
 	st = job.work[fault_id]
-	if healthy or looking:
+	if healthy:
 		st._fod = false
 	if not st.has("_fod") and fault_id != "fod" and els.any(func(e): return e.id == "cowl"):
 		st._fod = m.rng.randf() < FOD_CHANCE
@@ -156,8 +143,6 @@ func setup(m, fault_id: String, j: Dictionary) -> void:
 		by_id[e.id] = e
 		if e.type != "view" and not st.has(e.id):  # also fills in pieces added since a save
 			st[e.id] = _initial(e)
-			if e.type == "check":  # the defect could be anywhere on the part: see _spot
-				st["_at_" + e.id] = Vector2(randf(), randf())
 	if not st.has("_seized"):  # years of weather: now and then one won't come without penetrant
 		var stuck := els.filter(func(e): return e.type == "fastener" and e.kind in ["bolt", "nut"])
 		st["_seized"] = stuck[randi() % stuck.size()].id if stuck.size() > 0 and not healthy and randf() < 0.4 else ""
@@ -192,14 +177,6 @@ func setup(m, fault_id: String, j: Dictionary) -> void:
 	_vignette.gradient.set_color(0, Color(0, 0, 0, 0))
 	_vignette.gradient.set_color(1, Color(0, 0, 0, 0.6))
 	_vignette.gradient.set_offset(0, 0.55)
-	_beam = GradientTexture2D.new()  # the flashlight: clear in the middle, night at the edge
-	_beam.fill = GradientTexture2D.FILL_RADIAL
-	_beam.fill_from = Vector2(0.5, 0.5)
-	_beam.fill_to = Vector2(1.0, 0.5)
-	_beam.gradient = Gradient.new()
-	_beam.gradient.set_color(0, Color(NIGHT, 0.0))
-	_beam.gradient.set_color(1, NIGHT)
-	_beam.gradient.set_offset(0, 0.45)
 	toolbar = HBoxContainer.new()
 	toolbar.theme = m._ui_theme()
 	toolbar.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -209,7 +186,6 @@ func setup(m, fault_id: String, j: Dictionary) -> void:
 	toolbar.anchor_bottom = 1.0
 	toolbar.offset_top = -BAR + 10
 	toolbar.offset_bottom = -8
-	toolbar.visible = not looking  # nothing comes apart on a walk-around: all you carry is the light
 	add_child(toolbar)
 	_build_toolbar()
 	_preload_art()
@@ -217,7 +193,7 @@ func setup(m, fault_id: String, j: Dictionary) -> void:
 
 func _build_toolbar() -> void:
 	# The mouse becomes the tool in your hand, drawn big (96 px) so you always know what you hold.
-	var cur := "res://textures/work/cursor_%s.png" % ("flashlight" if looking else tool)
+	var cur := "res://textures/work/cursor_%s.png" % tool
 	if ResourceLoader.exists(cur):
 		var img: Image = load(cur).get_image()
 		img.decompress()
@@ -268,8 +244,6 @@ func _where(t: String) -> String:
 
 
 func _pick_tool(t: String) -> void:
-	if looking:
-		return
 	tool = t
 	main.sound.sfx("tool")
 	_build_toolbar()
@@ -298,8 +272,8 @@ func done(all := false) -> bool:
 
 func _initial(e: Dictionary) -> String:
 	if healthy and e.type != "cover":
-		return {"fastener": "tight", "part": "new", "task": "done", "check": "todo"}[e.type]
-	return e.get("start", {"fastener": "tight", "cover": "on", "part": "old", "task": "todo", "check": "todo"}[e.type])
+		return {"fastener": "tight", "part": "new", "task": "done"}[e.type]
+	return e.get("start", {"fastener": "tight", "cover": "on", "part": "old", "task": "todo"}[e.type])
 
 
 ## Something here is apart and not finished: the shared cowling can't close over it.
@@ -322,7 +296,6 @@ func _complete(e: Dictionary) -> bool:
 		"view": return true
 		"fastener": return st[e.id] == "tight"
 		"task": return st[e.id] == "done" or e.get("optional", false) or e.has("trap")
-		"check": return false  # a look is never finished: it ends when the light does
 		"cover":
 			if e.get("rest", "on") == "off":
 				return st[e.id] == "off"
@@ -339,16 +312,6 @@ func _blocker(e: Dictionary) -> String:  # first cover in the way, or ""
 		if st[n] == "on":
 			return n
 	return ""
-
-
-func _bad(e: Dictionary) -> bool:  # is the fault this check point shows on the plane right now?
-	return e.fault != "" and job.faults.has(e.fault) and not job.fixed.has(e.fault)
-
-
-## Where on its part the defect sits on this plane: you have to go and find it with the light.
-func _spot(e: Dictionary) -> Vector2:
-	var at: Vector2 = st.get("_at_" + e.id, Vector2(0.5, 0.5))
-	return e.rect.position + e.rect.size * (Vector2(0.2, 0.2) + at * 0.6)
 
 
 func _present(host: Dictionary) -> bool:  # is the host piece there to screw into?
@@ -466,9 +429,6 @@ func action(e: Dictionary) -> Dictionary:
 					a.why = _out_of(e)
 					return a
 				a.merge({"verb": "do", "tool": e.tool, "hold": e.get("hold", 1.5)}, true)
-		"check":
-			if s == "todo" and _bad(e):
-				a.merge({"verb": "look", "tool": "hand"}, true)
 	if a.tool == "torque" and e.has("range"):
 		a.range = e.range  # brought up against the needle, click by click: see _pull
 		a.hold = 0.0
@@ -545,12 +505,6 @@ func perform(e: Dictionary, v: String) -> bool:
 			st["_last"] = e.id
 			if e.get("hook", false):
 				main.task_done(fault, e.id)
-		"look":
-			st[e.id] = "seen"
-			if _bad(e):
-				job.found[e.fault] = true
-				main.sound.chime()
-				main.playlog("found " + e.fault)
 		"soak":
 			st["_seized"] = ""
 			main.inventory["Penetrant"] -= 1
@@ -642,13 +596,6 @@ func _sag(delta: float) -> void:
 ## Takes things apart until every part and task is done, then puts it all back. When a step
 ## needs a cover back on mid-job (oil refill with the drain plug in), it puts that one back.
 func solve() -> bool:
-	if looking:  # the test finds everything the light could
-		for e in els:
-			if action(e).verb == "look" and not perform(e, "look"):
-				return false
-		set_process(false)
-		finished.emit()
-		return true
 	holding = true  # the test fits parts straight from the bench
 	for e in els:  # and carries the instrument this job needs, as you'd fetch it from the toolbox
 		if e.get("tool", "") in main.INSTRUMENTS:
@@ -707,7 +654,7 @@ func _part_no() -> String:
 
 ## [text, short?]: the part and consumables this job still needs, e.g. "Needs: Gasket x8 (have 2)".
 func _need_line() -> Array:
-	if looking or healthy:
+	if healthy:
 		return ["", false]
 	var mats := {}
 	for e in els:
@@ -832,10 +779,9 @@ func _process(delta: float) -> void:
 	if _settle > 0:
 		_settle -= 1
 		queue_redraw()
-	if not looking:
-		_idle += delta
-		if _idle > IDLE_HINT:
-			queue_redraw()  # keep the pulse moving
+	_idle += delta
+	if _idle > IDLE_HINT:
+		queue_redraw()  # keep the pulse moving
 	if _flying.size() > 0 or _puffs.size() > 0 or _shake > 0.0:
 		for f in _flying:
 			f[3] += delta / 0.3
@@ -846,13 +792,6 @@ func _process(delta: float) -> void:
 		_puffs = _puffs.filter(func(p): return p[2] < 1.0)
 		_shake = maxf(0.0, _shake - delta * 20.0)
 		queue_redraw()
-	if looking:  # the light runs down whether you find anything or not
-		light -= delta
-		queue_redraw()
-		if light <= 0.0:
-			set_process(false)
-			finished.emit()
-			return
 	if needle > 0.0:
 		_sag(delta)
 	if hover == "" or held_done or not pressing:
@@ -892,10 +831,7 @@ func _hit(p: Vector2) -> String:
 		var e: Dictionary = els[i]
 		if e.type == "view" or not _visible(e):
 			continue
-		if e.type == "check":  # only a defect can be picked out, and only by going right to it
-			if action(e).verb == "look" and p.distance_to(_spot(e)) < 26:
-				return e.id
-		elif e.type == "fastener":
+		if e.type == "fastener":
 			if p.distance_to(e.pos) < 15:
 				return e.id
 		elif e.rect.has_point(p):
@@ -959,8 +895,6 @@ func _draw() -> void:
 	for e in els:
 		if _visible(e):
 			_draw_piece(e)
-	if looking:
-		_draw_dark()
 	_draw_bench()
 	for f in _flying:  # lifted off, sliding across to the bench and shrinking
 		var t: float = ease(f[3], 0.5)
@@ -985,16 +919,14 @@ func _draw() -> void:
 		draw_string(font, Vector2(size.x - 264 - 520, 41), need[0], HORIZONTAL_ALIGNMENT_RIGHT, 520, 13,
 			Style.COLOR_TEXT_HUD_BLOCKED if need[1] else main.C_BRASS)
 	var ok := els.filter(func(e): return _complete(e)).size()
-	draw_string(Style.figures(), Vector2(size.x - 244, 22), ("Day %d   %d s of light left" % [floori(main.day), ceili(light)]) if looking
-		else "Day %d   %d of %d steps in place" % [floori(main.day), ok, els.size()], HORIZONTAL_ALIGNMENT_RIGHT, 220, Style.SIZE_XS, main.C_BRASS)  # a counter: one-width digits
+	draw_string(Style.figures(), Vector2(size.x - 244, 22), "Day %d   %d of %d steps in place" % [floori(main.day), ok, els.size()], HORIZONTAL_ALIGNMENT_RIGHT, 220, Style.SIZE_XS, main.C_BRASS)  # a counter: one-width digits
 	draw_rect(Rect2(size.x - 244, 31, 220, 4), Color(main.C_BRASS, 0.2))
-	draw_rect(Rect2(size.x - 244, 31, 220.0 * (light / LIGHT if looking else float(ok) / els.size()), 4), main.C_BRASS)
+	draw_rect(Rect2(size.x - 244, 31, 220.0 * float(ok) / els.size(), 4), main.C_BRASS)
 	# The tool roll.
 	draw_rect(Rect2(0, size.y - BAR, size.x, BAR), main.C_EARTH)
 	draw_rect(Rect2(0, size.y - BAR, size.x, 1), Color(main.C_BRASS, 0.5))
 	var hint := Vector2(24, size.y - BAR + 40)
-	for line in (["Sweep the flashlight over the plane", "Click anything that looks wrong", "Esc: done looking"] if looking
-			else ["Hold the mouse to turn", "Wheel or 1-%d: tool    H: what's next" % mini(TOOLS.size(), 9), ("Esc: back to the %s" % main.ZONES[main.station_zone].name) if main.station_zone != "" else "Esc: step away, work is kept"] + (["D: wiring diagram"] if diagram else [])):
+	for line in (["Hold the mouse to turn", "Wheel or 1-%d: tool    H: what's next" % mini(TOOLS.size(), 9), ("Esc: back to the %s" % main.ZONES[main.station_zone].name) if main.station_zone != "" else "Esc: step away, work is kept"] + (["D: wiring diagram"] if diagram else [])):
 		draw_string(font, hint, line, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.HUD_HINT_SIZE, Color(main.C_BRASS, 0.85))
 		hint.y += 17
 	if holding and _tex("icon_" + fault):  # the part rides along with the cursor until it's fitted
@@ -1005,8 +937,7 @@ func _draw() -> void:
 		draw_rect(area, Color(main.C_EARTH, 0.94))
 		draw_texture_rect(diagram, Rect2(area.get_center() - diagram.get_size() * fit / 2.0, diagram.get_size() * fit), false)
 		return
-	if not looking:
-		_draw_next_marks()
+	_draw_next_marks()
 	if hover != "":
 		_draw_hover(by_id[hover])
 	_draw_crosshair()
@@ -1130,21 +1061,6 @@ func _draw_piece(e: Dictionary) -> void:
 			_fill(e.rect, e.get("tex", ""), e.get("col", Color(0.15, 0.12, 0.08, 0.8)))
 			if main.guide("medium"):
 				_label(e.rect, e.label)
-		"check":
-			if _tex("work/%s_bg" % fault) == null and not e.has("bare"):  # placeholder: the part as a named box
-				_fill(e.rect, "", e.get("col", SKIN), e.get("shape", "rect"))
-				_label(e.rect, e.name)
-			if not _bad(e):
-				return
-			var p := _spot(e)
-			var art := _tex("work/%s_%s_bad" % [fault, e.id])
-			if art:  # the defect, small, painted over a background that shows the part sound
-				draw_texture_rect(art, Rect2(p - Vector2(32, 32), Vector2(64, 64)), false)
-			else:  # placeholder: a rusty patch scored with cracks
-				draw_circle(p, 18, Color(0.62, 0.3, 0.1))
-				for i in 3:
-					var c: Vector2 = p + Vector2(i * 10 - 14, -13)
-					draw_polyline([c, c + Vector2(7, 9), c + Vector2(2, 16), c + Vector2(10, 26)], Color(0.1, 0.07, 0.05), 2.0)
 		"fastener":
 			_draw_fastener(e, s)
 
@@ -1198,16 +1114,6 @@ func _draw_bench() -> void:
 	draw_rect(BENCH, Color(0.12, 0.08, 0.05, 0.45) if painted else Color(0.36, 0.27, 0.18))
 	draw_rect(BENCH, Color(0.2, 0.14, 0.08), false, 2.0)
 	var y := BENCH.position.y + 22
-	if looking:  # no bench on a walk-around: this is your write-up of what you've found so far
-		draw_string(font, Vector2(BENCH.position.x + 10, y), "WRITE-UP", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.95, 0.88, 0.7))
-		var w := BENCH.size.x - 16
-		for e in els:
-			if st[e.id] == "seen" and _bad(e):
-				var t: String = "%s: %s" % [e.name, main.CLUES[e.fault]]
-				y += 24
-				draw_multiline_string(font, Vector2(BENCH.position.x + 8, y), t, HORIZONTAL_ALIGNMENT_LEFT, w, 12, -1, Color(0.95, 0.65, 0.4))
-				y += font.get_multiline_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, w, 12).y - 12
-		return
 	draw_string(font, Vector2(BENCH.position.x + 10, y), "BENCH", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.95, 0.88, 0.7))
 	var tray := els.filter(func(f): return f.type == "fastener" and st[f.id] == "out").size()
 	y += 22
@@ -1239,8 +1145,6 @@ func _draw_hover(e: Dictionary) -> void:
 	draw_set_transform(_origin(), 0.0, Vector2(k, k))
 	if e.type == "fastener":
 		draw_arc(e.pos, 16, 0, TAU, 24, main.C_BRASS, 2.0)
-	elif e.type == "check":
-		draw_arc(_spot(e), 26, 0, TAU, 24, main.C_BRASS, 2.0)
 	else:
 		draw_rect(e.rect, main.C_BRASS, false, 2.0)
 	var a := action(e)
@@ -1294,24 +1198,6 @@ func _draw_torque(c: Vector2, spec: Vector2i) -> void:
 	draw_string(font, c + Vector2(-40, -70), "%d in-lb" % int(needle), HORIZONTAL_ALIGNMENT_CENTER, 80, 14, main.C_PAPER)
 
 
-## Night over everything but the pool of the flashlight. What's already written up stays marked.
-func _draw_dark() -> void:
-	var m := get_local_mouse_position()
-	var r := BEAM * k
-	draw_set_transform(Vector2.ZERO)
-	draw_texture_rect(_beam, Rect2(m - Vector2(r, r), Vector2(r, r) * 2.0), false)
-	# The four sides round the lit square. One that runs off the window comes out negative and lands outside it.
-	for side in [Rect2(0, 0, size.x, m.y - r), Rect2(0, m.y + r, size.x, size.y - m.y - r),
-			Rect2(0, m.y - r, m.x - r, r * 2.0), Rect2(m.x + r, m.y - r, size.x - m.x - r, r * 2.0)]:
-		draw_rect(side, NIGHT)
-	draw_set_transform(_origin(), 0.0, Vector2(k, k))
-	for e in els:
-		if st[e.id] == "seen" and _bad(e):
-			var p := _spot(e)
-			draw_arc(p, 26, 0, TAU, 32, main.C_RED, 3.0)
-			draw_string(font, p + Vector2(-4, 6), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, main.C_RED)
-
-
 # ---------- the scenes ----------
 
 ## A rect from the art kit's suggested center and size.
@@ -1334,13 +1220,6 @@ static func _cover(id: String, name: String, r: Rect2, needs := [], o := {}) -> 
 
 static func _part(id: String, name: String, r: Rect2, needs := [], o := {}) -> Dictionary:
 	var e := {"id": id, "type": "part", "name": name, "rect": r, "needs": needs}
-	e.merge(o, true)
-	return e
-
-
-## A walk-around point: sound unless `fault` is on this plane and not yet fixed.
-static func _check(id: String, name: String, r: Rect2, fault := "", o := {}) -> Dictionary:
-	var e := {"id": id, "type": "check", "name": name, "rect": r, "fault": fault}
 	e.merge(o, true)
 	return e
 
@@ -1677,56 +1556,6 @@ static func scenes() -> Dictionary:
 	s.pre_oil = {"title": "Engine, left side", "deco": engine_deco, "els": [
 		_task("turn", "Pump the pot and turn the prop by hand until oil pressure shows", Rect2(150, 350, 520, 40), "hand", ["cowl", "plug0", "plug1", "plug2", "plug3"],
 			{"col": Color(0.65, 0.5, 0.15, 0.85), "hold": 4.0, "note": true, "turns_prop": true})] + po + _cowl()}
-
-	# Walk-around looks, one per inspection spot (main.ZONES), everything closed up as you find it,
-	# in the dark, by flashlight. A point naming a fault hides that defect somewhere on it while
-	# this plane has it; the rest are just the parts you see (the placeholder scenery).
-	var body := [[Rect2(20, 40, 790, 480), "plane_body_worn", SKIN.darkened(0.2)]]
-	var dark := {"col": Color(0.2, 0.2, 0.22)}
-	var tyre := {"shape": "circle", "col": RUBBER}
-	s.look_prop = {"title": "Nose, head-on", "deco": s.propeller.deco, "els": [
-		_check("blade_l", "Left blade", Rect2(40, 245, 265, 70), "", {"col": Color(0.62, 0.4, 0.2)}),
-		_check("blade_r", "Right blade", Rect2(515, 245, 265, 70), "propeller", {"col": Color(0.62, 0.4, 0.2)}),
-		_check("inlets", "Cowl inlets", Rect2(290, 130, 240, 40), "", dark),
-		_check("spinner", "Spinner", Rect2(hub - Vector2(105, 105), Vector2(210, 210)), "", {"shape": "circle", "col": Color(0.85, 0.86, 0.88)})]}
-	s.look_engine = {"title": "Engine, left side, cowled", "deco": engine_deco + [[Rect2(40, 40, 760, 300), "cowling_metal", SKIN]], "els": [
-		_check("inlet", "Cowl inlet", Rect2(60, 70, 200, 90), "bird_nest", dark),
-		_check("screws", "Cowl fasteners", Rect2(300, 180, 180, 100)),
-		_check("dipstick", "Oil dipstick", Rect2(520, 90, 90, 150), "pre_oil", {"col": METAL}),
-		_check("belly", "Cowl underside", Rect2(200, 350, 440, 60), "oil_leak", {"col": SKIN.darkened(0.25)}),
-		_check("exhaust", "Exhaust stack", Rect2(660, 360, 110, 130), "", {"col": METAL})]}
-	s.look_cabin = {"title": "Cabin, left side", "deco": body, "els": [
-		_check("screen", "Windshield", Rect2(140, 90, 400, 220), "windshield", {"col": Color(0.7, 0.8, 0.85)}),
-		_check("strut", "Wing strut fitting", Rect2(140, 360, 160, 80), "", {"col": METAL}),
-		_check("hinge", "Door hinge", Rect2(600, 150, 60, 260), "door_pin", {"col": METAL}),
-		_check("latch", "Door latch", Rect2(700, 260, 80, 70), "", {"col": METAL})]}
-	s.look_gear_l = {"title": "Left main wheel, outside", "deco": wheel_deco, "els": [
-		_check("leg", "Gear leg", Rect2(370, 30, 60, 95)),
-		_check("line", "Brake line", Rect2(600, 150, 40, 250), "", dark),
-		_check("tire", "Tire", Rect2(wc - Vector2(170, 170), Vector2(340, 340)), "", tyre),
-		_check("hubcap", "Hubcap", Rect2(wc - Vector2(70, 70), Vector2(140, 140)), "", {"shape": "circle", "col": METAL}),
-		_check("tread", "Tread", Rect2(wc + Vector2(-150, 70), Vector2(300, 90)), "tire", {"col": RUBBER.lightened(0.08)})]}
-	s.look_gear_r = {"title": "Right main wheel, inside", "deco": wheel_deco, "els": [
-		_check("leg", "Gear leg", Rect2(300, 20, 60, 100)),
-		_check("caliper", "Brake caliper", Rect2(520, 160, 120, 150), "", {"col": Color(0.6, 0.15, 0.12)}),
-		_check("tire", "Tire", Rect2(bc - Vector2(160, 160), Vector2(320, 320)), "", tyre),
-		_check("disc", "Brake disc", Rect2(bc - Vector2(100, 100), Vector2(200, 200)), "brakes", {"shape": "circle", "col": METAL})]}
-	s.look_wing_l = {"title": "Left wing, underside", "deco": body, "els": [
-		_check("cap", "Fuel cap", Rect2(380, 60, 80, 60), "", {"col": METAL}),
-		_check("root", "Wing root", Rect2(120, 150, 300, 120), "fuel_line"),
-		_check("pitot", "Pitot tube", Rect2(560, 150, 160, 50), "", {"col": METAL}),
-		_check("sump", "Fuel sump sample", Rect2(160, 330, 220, 60), "stale_fuel", {"col": Color(0.45, 0.6, 0.9)}),
-		_check("aileron", "Aileron hinge", Rect2(520, 330, 240, 60), "", {"col": METAL})]}
-	s.look_battery = {"title": "Battery bay, right side", "deco": body, "els": [  # a battery only shows itself on the run-up
-		_check("static", "Static port", Rect2(60, 200, 80, 80), "", {"col": METAL}),
-		_check("hatch", "Access hatch", Rect2(180, 100, 460, 280)),
-		_check("vent", "Battery vent", Rect2(660, 200, 80, 80), "", dark),
-		_check("skin", "Belly skin", Rect2(180, 410, 460, 70), "", {"col": SKIN.darkened(0.25)})]}
-	s.look_tail = {"title": "Tail, left side", "deco": body, "els": [
-		_check("plate", "Inspection plate", Rect2(80, 150, 260, 120)),
-		_check("elevator", "Elevator hinge", Rect2(260, 300, 280, 60), "", {"col": METAL}),
-		_check("wheel", "Tailwheel", Rect2(380, 420, 110, 110), "", tyre),
-		_check("rudder", "Rudder", Rect2(560, 60, 200, 360), "control_cables")]}
 
 	_troubleshooting(s, engine_deco)
 	_more_jobs(s, engine_deco, wheel_deco, wing_deco)

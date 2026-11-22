@@ -303,6 +303,18 @@ func _part(id: String) -> Dictionary:
 	return {}
 
 
+## Work this part is waiting on: a fault you've written up and not fixed, or (Easy and Medium) the
+## test the work order names next for something you heard. Your own notes, so on every difficulty
+## for the write-ups; the named test is a hint, so not on Hard.
+func _due(scene: String) -> bool:
+	var job: Dictionary = main.current_job
+	if job.faults.has(scene) and job.found.has(scene) and not job.fixed.has(scene):
+		return true
+	if main.guide("medium") and main.TESTS.has(scene):
+		return job.faults.any(func(id): return job.get("sym", {}).has(id) and main._test_for(job, id) == scene)
+	return false
+
+
 ## What you can do at this part with what you have: look closer always; a tool's job only if the
 ## tool is in your roll (or, for an instrument, in your hand). Easy also lists the rest, greyed,
 ## with where the tool is.
@@ -314,7 +326,7 @@ func actions(part: Dictionary) -> Array:
 			continue  # a procedure for an engine you've seen needs it (the storage tag, a dry dipstick), not a repair to try
 		var ok: bool = a[0] == "hand" or (main.tools.has(a[0]) and (not a[0] in main.INSTRUMENTS or main.held == a[0]))
 		if ok:
-			out.append({"text": a[1], "do": a[2], "ok": true, "tool": a[0]})
+			out.append({"text": a[1], "do": a[2], "ok": true, "tool": a[0], "due": _due(a[2])})
 		elif main.guide("easy"):
 			var where: String = "take the %s from your toolbox" % main.SUPPLIES[a[0]].name.to_lower() if main.tools.has(a[0]) \
 				else "you don't own a %s yet" % Work.TOOLS[a[0]].to_lower()
@@ -352,21 +364,51 @@ func _open_card(part: Dictionary, at: Vector2) -> void:
 	col.add_theme_constant_override("separation", Style.SPACE_2)
 	card.add_child(col)
 	col.add_child(Style.label(part.name.to_upper(), "accent", Style.SIZE_MD, 900))
-	for a in actions(part):
-		var b := Button.new()
-		b.text = a.text
-		Style.button(b, "quiet")
-		b.add_theme_font_size_override("font_size", Style.SIZE_MD)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size.y = 40
-		b.disabled = not a.ok
-		b.focus_mode = Control.FOCUS_NONE
-		var what: String = a.do
-		b.pressed.connect(func(): _do(part, what))
-		col.add_child(b)
+	# One obvious next action: what's written up here comes first, as the one red button; the rest
+	# of what you could do here folds under "Other work here" so a busy part doesn't stall you.
+	var all := actions(part)
+	var due: Array = all.filter(func(a): return a.get("due", false))
+	var rest: Array = all.filter(func(a): return not a.get("due", false))
+	var fold := due.size() > 0 and rest.filter(func(a): return a.do != "#look").size() >= 2  # folding one away only adds a click
+	for a in due:
+		_card_button(col, part, a, "primary", "!  ")
+	var more := VBoxContainer.new()
+	more.add_theme_constant_override("separation", Style.SPACE_2)
+	for a in rest:
+		_card_button(more if fold and a.do != "#look" else col, part, a, "quiet", "")
+	if fold:
+		var n := more.get_child_count()
+		var toggle := Button.new()
+		toggle.text = "Other work here (%d)" % n
+		Style.button(toggle, "quiet")
+		toggle.add_theme_font_size_override("font_size", Style.SIZE_SM)
+		toggle.custom_minimum_size.y = 34
+		toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		toggle.focus_mode = Control.FOCUS_NONE
+		toggle.pressed.connect(func():
+			more.visible = not more.visible
+			toggle.text = ("Fewer" if more.visible else "Other work here (%d)" % n)
+			card.reset_size())
+		col.add_child(toggle)
+		more.visible = false
+	col.add_child(more)
 	add_child(card)
 	card.reset_size()
 	card.position = Vector2(clampf(at.x + 12, 8, size.x - card.size.x - 8), clampf(at.y + 12, 8, size.y - card.size.y - 8))
+
+
+func _card_button(col: Control, part: Dictionary, a: Dictionary, kind: String, mark: String) -> void:
+	var b := Button.new()
+	b.text = mark + a.text
+	Style.button(b, kind)
+	b.add_theme_font_size_override("font_size", Style.SIZE_MD)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.custom_minimum_size.y = 40
+	b.disabled = not a.ok
+	b.focus_mode = Control.FOCUS_NONE
+	var what: String = a.do
+	b.pressed.connect(func(): _do(part, what))
+	col.add_child(b)
 
 
 func _close_card() -> void:

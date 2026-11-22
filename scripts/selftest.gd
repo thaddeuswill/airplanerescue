@@ -305,9 +305,13 @@ func run(main, args: PackedStringArray) -> void:
 			for v in bay.views():
 				bay.view = v
 				for p in bay.parts():
-					if p.acts.any(func(a): return a[2] == id):
-						g.tools.merge({"screwdriver": true, "ratchet": true, "pliers": true, "rag": true, "torque": true})
+					for act in p.acts.filter(func(a): return a[2] == id):
+						g.tools.merge({"screwdriver": true, "ratchet": true, "pliers": true, "rag": true, "torque": true, act[0]: true})
+						var held_was: String = g.held
+						if act[0] in g.INSTRUMENTS:
+							g.held = act[0]  # an instrument's job shows with it in hand
 						hit = hit or bay.actions(p).any(func(a): return a.do == id and a.get("due", false))
+						g.held = held_was
 			bay.free()
 			if not hit:
 				print("CARD ", id, ": written up, but no part card puts its job first")
@@ -603,6 +607,7 @@ func run(main, args: PackedStringArray) -> void:
 	ok = ok and not get_tree().paused and g.panel == null
 	g._start_ferry()
 	await _snap(shot, "checklist", 0.3)
+	_shot = shot
 	ok = await _start_failures() and ok
 	await _snap(shot, "engine_log", 0.1)
 	var before_fly: int = g.money  # rent has come out day by day since the start; the pay lands on top
@@ -754,6 +759,9 @@ func _trouble_tests(shot: String) -> bool:
 
 
 ## Every way the start can go wrong, for real, then none of them.
+var _shot := ""  # the --shot prefix, for helpers that snap mid-way
+
+
 func _start_failures() -> bool:
 	var f = g.ferry
 	await _crank(2.2)
@@ -772,6 +780,12 @@ func _start_failures() -> bool:
 	f.throttle = 0.1
 	await _crank(2.2)
 	ok = ok and f.state == "off" and f.flood > 0.0  # flooded
+	ok = ok and String(f.card().alert).begins_with("Flooded")  # and the checklist says how to clear it
+	if _shot != "":  # the red band with the fix (set directly: under a display the starter timing differs)
+		var was: float = f.flood
+		f.flood = 3.0
+		await _snap(_shot, "checklist_flooded", 0.2)
+		f.flood = was
 	f.throttle = 1.0
 	await _crank(3.3)
 	ok = ok and f.flood <= 0.0  # cleared with the throttle open
@@ -779,6 +793,7 @@ func _start_failures() -> bool:
 	f.throttle = 0.1
 	await _crank(2.2)
 	ok = ok and f.state == "hung"  # no prime: hung start
+	ok = ok and String(f.card().alert).begins_with("Hung")
 	var t0 = Time.get_ticks_msec()
 	while f.state == "hung" and Time.get_ticks_msec() - t0 < 7000:
 		await get_tree().process_frame
@@ -790,6 +805,7 @@ func _start_failures() -> bool:
 	while f.state == "hung" and Time.get_ticks_msec() - t0 < 3000:
 		await get_tree().process_frame
 	ok = ok and f.state == "run"  # a touch of throttle saves it
+	ok = ok and f.card().title == "TAKE-OFF" and f.card().alert == ""
 	print("start failures ", ok)
 	return ok
 
@@ -826,8 +842,14 @@ func _fly(well: bool, shot := "") -> void:
 	var frames := 0
 	var last = Time.get_ticks_usec()
 	Input.action_press("throttle_up")
+	var flown := {}
+	var climbed := false
 	while g.ferry and Time.get_ticks_msec() - t0 < 40000:
 		var f = g.ferry
+		if f.state == "run" and f.mode == "fly" and not f.struck:
+			f.card()  # the take-off checklist ticks its stages as they're passed
+			flown = f._flown.duplicate()
+			climbed = climbed or f.alt >= Ferry.DONE_ALT * 0.5
 		worst = maxf(worst, (Time.get_ticks_usec() - last) / 1000.0)
 		last = Time.get_ticks_usec()
 		frames += 1
@@ -857,6 +879,11 @@ func _fly(well: bool, shot := "") -> void:
 		await get_tree().process_frame
 	for a in ["throttle_up", "stick_forward", "stick_back", "rudder_left", "rudder_right"]:
 		Input.action_release(a)
+	if well:
+		print("take-off checklist: ", flown.keys(), " climbed=", climbed)
+	if well and climbed and flown.size() != 5:
+		print("TAKE-OFF CHECKLIST: only ", flown.keys(), " ticked on a good take-off")
+		_chk(false, 2)
 	print("flight at %s: %.0f fps, worst frame %.0f ms" % [g.location, frames * 1000.0 / maxf(1.0, Time.get_ticks_msec() - t0), worst])
 
 

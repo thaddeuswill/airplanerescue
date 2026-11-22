@@ -214,7 +214,7 @@ Tell me which recommendations to build. In rough order of value for the least wo
 1. **Done (2026-11-22).** Cut the dead station grid and flashlight scenes; "Start a new career" moved from the wallet to the pause menu (and the title screen); Controls and Credits out of the pause menu.
 2. **Done.** Net estimate per call (`main.call_estimate`), calls sorted best first, and "closest you can afford" marked.
 3. **Done.** Part cards: written-up work first as the red button (and on Easy/Medium the test the work order names next); two or more other actions fold under *Other work here* (`bay.gd _due`). Self-test check 70.
-4. Ferry start checklist that ticks, for the first two flights.
+4. **Done.** Cockpit checklist card (`scripts/preflight.gd`, `ferry.card()`): before start, run-up and take-off, keys from the bindings, readings live, ticks as you go. A flooded, hung or overheated start puts its fix on a red band at the top. Your first two deliveries explain each step and carry on through the take-off roll; after that it's the bare checklist until the engine runs.
 5. A wall of saved planes in the hangar, and the tally on the map.
 6. Merge the two stores; merge wallet and parts table.
 7. "Do it the way you know" for repeated jobs; "Same as always" for the logbook entry.

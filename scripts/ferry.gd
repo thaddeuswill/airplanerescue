@@ -147,17 +147,80 @@ func toggle_carb() -> void:
 	main.sound.sfx("click")
 
 
-## The card on screen until the engine is running (and through a run-up).
-func checklist() -> String:
-	var box := func(on: bool) -> String: return "[x]" if on else "[  ]"
-	if mode == "runup" and state == "run":
-		var shown := func(i: int) -> String: return "-" if _seen[i] < 0 else "%d rpm" % _seen[i]
-		return "RUN-UP\n%s  W/S  Hold %d rpm: now %d\n%s  I  Left mag drop: %s\n%s  I  Right mag drop: %s\n%s  H  Carb heat drop: %s\n%s  I H  Back to BOTH, heat off\nMags: 75 drop max (C-85)\nCarb heat: about 50 drop" % [
-			box.call(_at_rpm()), RUNUP_RPM, rpm, box.call(_seen[0] >= 0), shown.call(0), box.call(_seen[1] >= 0), shown.call(1),
-			box.call(_seen[2] >= 0), shown.call(2), box.call(mags == 3 and not carb_heat and not _seen.has(-1))]
-	return "BEFORE START\n%s  F  Fuel: %s\n%s  M  Master: %s\n%s  P  Prime 2-5 strokes: %d\n%s  W/S  Throttle cracked: %d%%\n%s  I  Mags: %s\nHold SPACE: starter" % [
-		box.call(fuel_on), "ON" if fuel_on else "OFF", box.call(master), "ON" if master else "OFF", box.call(primes >= 2 and primes <= 5), primes,
-		box.call(throttle >= 0.05 and throttle <= 0.4), roundi(throttle * 100), box.call(mags == 3), MAGS[mags]]
+## Take-off steps already done this flight: they stay ticked once done (throttle back off full
+## doesn't untick "full throttle").
+var _flown := {}
+
+
+## The cockpit checklist as data, drawn by preflight.gd: the phase, a problem to fix right now
+## (flooded, hung, starter hot) and the steps. Before start, a step is ticked while its switch is
+## right; the run-up ticks each reading as you take it; the take-off ticks each stage as you pass it.
+## Keys come from the player's bindings.
+func card() -> Dictionary:
+	var k: Callable = main.key_name
+	var throttle_keys: String = "%s/%s" % [k.call("throttle_up"), k.call("throttle_down")]
+	var alert := ""
+	if flood > 0.0:
+		alert = "Flooded. Throttle wide open (%s) and hold %s to clear it." % [k.call("throttle_up"), k.call("starter")]
+	elif state == "hung":
+		alert = "Hung start. Ease the throttle to 12-35%% (now %d%%)." % roundi(throttle * 100)
+	elif _cool > 0.0:
+		alert = "Starter hot. Let it rest %d s." % ceili(_cool)
+	var before := [
+		{"text": "Fuel on", "key": k.call("fuel_valve"), "ok": fuel_on, "read": "ON" if fuel_on else "OFF",
+			"how": "Fuel to the carburetor. Off, it turns over and never fires."},
+		{"text": "Master on", "key": k.call("master"), "ok": master, "read": "ON" if master else "OFF",
+			"how": "Power for the starter. Off, nothing happens at all."},
+		{"text": "Prime 2-5 strokes", "key": k.call("primer"), "ok": primes >= 2 and primes <= 5, "read": str(primes),
+			"how": "Too many already: it'll flood. Start it anyway, then clear it." if primes >= 6
+				else "A little fuel in a cold engine's cylinders. Six or more floods it."},
+		{"text": "Throttle cracked", "key": throttle_keys, "ok": throttle >= 0.05 and throttle <= 0.4, "read": "%d%%" % roundi(throttle * 100),
+			"how": "Just open, 5-40%. Closed, it hangs; wide open, it roars."},
+		{"text": "Mags on BOTH", "key": k.call("mags"), "ok": mags == 3, "read": MAGS[mags],
+			"how": "The spark. Press until it reads BOTH."},
+		{"text": "Start it", "key": "hold " + k.call("starter"), "ok": state == "run", "read": "",
+			"how": "Hold the starter until it fires, then let go. Eight seconds at most, then let it cool."},
+	]
+	if mode == "runup":
+		if state != "run":
+			return {"title": "BEFORE START", "alert": alert, "steps": before, "foot": ""}
+		var shown := func(i: int) -> String: return "" if _seen[i] < 0 else "-%d rpm" % _seen[i]
+		return {"title": "RUN-UP", "alert": alert, "foot": "Mag drop 75 rpm max (C-85). Carb heat: about 50.", "steps": [
+			{"text": "Hold %d rpm" % RUNUP_RPM, "key": throttle_keys, "ok": _at_rpm() or not _seen.has(-1), "read": "%d" % rpm,
+				"how": "Throttle up until the tach reads %d. A check at idle tells you nothing." % RUNUP_RPM},
+			{"text": "Left mag alone", "key": k.call("mags"), "ok": _seen[0] >= 0, "read": shown.call(0),
+				"how": "Switch to LEFT and hold it while you read the drop off the tach."},
+			{"text": "Right mag alone", "key": k.call("mags"), "ok": _seen[1] >= 0, "read": shown.call(1),
+				"how": "Switch to RIGHT. A big drop, or none at all, is a finding."},
+			{"text": "Carb heat", "key": k.call("carb_heat"), "ok": _seen[2] >= 0, "read": shown.call(2),
+				"how": "Back on BOTH, pull the carb heat: a small drop says it works."},
+			{"text": "Back to BOTH, heat off", "key": "%s %s" % [k.call("mags"), k.call("carb_heat")],
+				"ok": mags == 3 and not carb_heat and not _seen.has(-1), "read": "", "how": "Then it shuts down on its own."}]}
+	if state != "run":
+		return {"title": "BEFORE START", "alert": alert, "steps": before, "foot": ""}
+	# The take-off, stage by stage.
+	var on_ground := alt < 0.05
+	if throttle >= 0.95:
+		_flown["full"] = true
+	if speed >= ROTATE * 0.6 and on_ground and absf(z_off) <= HALF_WIDTH:
+		_flown["straight"] = true
+	if speed > 3.0 and pitch <= main.SIT_PITCH * 0.5:
+		_flown["tail"] = true
+	if alt > 0.5:
+		_flown["rotate"] = true
+	if alt >= DONE_ALT * 0.5:
+		_flown["climb"] = true
+	return {"title": "TAKE-OFF", "alert": alert, "foot": "", "steps": [
+		{"text": "Full throttle", "key": k.call("throttle_up"), "ok": _flown.has("full"), "read": "%d%%" % roundi(throttle * 100),
+			"how": "All the way in. The Cub needs every horse it has."},
+		{"text": "Hold the centerline", "key": "%s/%s" % [k.call("rudder_left"), k.call("rudder_right")], "ok": _flown.has("straight"), "read": "",
+			"how": "Power swings a taildragger left: right rudder holds it straight, more as it speeds up."},
+		{"text": "Tail up", "key": k.call("stick_forward"), "ok": _flown.has("tail"), "read": "",
+			"how": "A touch of forward stick lifts the tail so it can pick up speed."},
+		{"text": "Ease back at 40 mph", "key": k.call("stick_back"), "ok": _flown.has("rotate"), "read": "%d mph" % roundi(speed * 2.237),
+			"how": "It lifts off at about 39 mph. Ease the stick back."},
+		{"text": "Climb out", "key": "", "ok": _flown.has("climb"), "read": "%d ft" % roundi(alt * 3.28),
+			"how": "Keep the power in and climb straight ahead. The owner pays once you're up."}]}
 
 
 func _process(delta: float) -> void:
@@ -368,15 +431,17 @@ func _fly(delta: float) -> void:
 		_end("crash")
 		return
 	var mph := speed * 2.237  # the Cub's airspeed dial reads miles per hour
-	var hint := "W: throttle up. A/D: rudder, hold the centerline."
+	var k: Callable = main.key_name
+	var rudder_keys: String = "%s/%s" % [k.call("rudder_left"), k.call("rudder_right")]
+	var hint := "%s: throttle up. %s: rudder, hold the centerline." % [k.call("throttle_up"), rudder_keys]
 	if on_grass:
 		hint = "Off the runway! Rudder back to the asphalt."
 	elif mph >= 40 and on_ground:
-		hint = "40 mph: Down arrow to rotate."
+		hint = "40 mph: %s to rotate." % k.call("stick_back")
 	elif not on_ground:
 		hint = "Climbing out..."
 	elif mph > 17:
-		hint = "Up arrow lifts the tail. A/D: rudder, she'll swing left."
+		hint = "%s lifts the tail. %s: rudder, she'll swing left." % [k.call("stick_forward"), rudder_keys]
 	main.prompt.text = "%d mph     %d ft     %d rpm\n%s" % [mph, alt * 3.28, rpm, hint]
 	if trouble != "":
 		var t: Dictionary = main.TROUBLE[trouble]

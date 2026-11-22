@@ -40,6 +40,19 @@ something right.
 Hand tools come in on job 1; the instruments and the engine's insides wait for job 3, so the
 first two jobs never ask for more than one new idea.
 
+## The cockpit checklist (2026-11-23)
+
+The ferry start was the biggest friction left (`docs/DESIGN_AUDIT_2026-11-22.md`). The text block
+of `[x]` lines became a card (`scripts/preflight.gd`, data from `ferry.card()`):
+- Before start: fuel, master, prime 2-5, throttle cracked, mags BOTH, start. Each shows its key
+  (from the bindings) and what it reads now, ticked while it's right.
+- Run-up: hold 2,100, left mag, right mag, carb heat, back to BOTH, with each drop written in.
+- Something gone wrong goes on a red band at the top with the fix: flooded (throttle wide open
+  and crank), hung (throttle to 12-35%), starter hot (wait).
+- First two deliveries: the current step says why, and the card stays up through the take-off
+  (full throttle, hold the centerline, tail up, ease back at 40 mph, climb out). After that it's
+  the bare checklist until the engine runs. The apprentice-checklist setting turns the coaching off.
+
 ## Acceptance
 
 - `--self-test --tutorial=N` (N = 1, 2, 3) plays that lesson's job through the real code: a wrong
@@ -47,3 +60,4 @@ first two jobs never ask for more than one new idea.
   the next lesson begins and the map's calls are its job.
 - `--self-test --tutorial-shot=prefix` shoots the tour, checklist, quiz and reward card.
 - A save from before (version 1) skips the apprenticeship.
+- The start-failure test checks the flooded and hung fixes reach the card; a good take-off ticks all five take-off stages.

@@ -148,7 +148,7 @@ func steps() -> Array:
 		"how": "The fuel truck by the hangar: half tanks at least, out on the apron.",
 		"ok": func(): return j != null and j.get("fuel", 1.0) >= 0.5}
 	var fly := {"id": "fly", "text": "Fly it out to the owner",
-		"how": "Climb in at the cabin. %s fuel, %s master, %s primer, hold %s to start, then %s throttle and rotate at 55." \
+		"how": "Climb in at the cabin. %s fuel, %s master, %s primer, hold %s to start, then %s full throttle and ease back at 40 mph." \
 			% [k.call("fuel_valve"), k.call("master"), k.call("primer"), k.call("starter"), k.call("throttle_up")],
 		"ok": func(): return main.rescued > int(main.tut.get("base", 0))}
 	match lesson():
@@ -312,7 +312,7 @@ func _draw_card() -> void:
 		var ink: Color = Style.COLOR_TEXT_PAPER_MUTED if is_done else (Style.COLOR_TEXT_PAPER if i == cur else Color(Style.COLOR_TEXT_PAPER, 0.55))
 		_card.draw_rect(box, Color(Style.COLOR_TEXT_PAPER, 0.7 if i == cur else 0.35), false, 1.5)
 		if is_done:
-			_check(_card, box, clampf(_flash.get(s.id, 9.0) / 0.35, 0.0, 1.0))
+			draw_check(_card, box, clampf(_flash.get(s.id, 9.0) / 0.35, 0.0, 1.0))
 		if i == cur:  # the step you're on: a red bar in the margin, pulsing gently
 			_card.draw_rect(Rect2(x, cy - 16, 4, 20), Color(Style.COLOR_TEXT_PAPER_ACCENT, 0.7 + 0.3 * sin(_t * 3.0)))
 		_card.draw_string(body if i == cur else muted, Vector2(x + pad + 28, cy), s.text, HORIZONTAL_ALIGNMENT_LEFT, w - pad * 2 - 28,
@@ -328,8 +328,8 @@ func _draw_card() -> void:
 			cy += how_h + 6
 
 
-## A red check, drawn in as it ticks (t 0 -> 1).
-func _check(c: CanvasItem, box: Rect2, t: float) -> void:
+## A red check, drawn in as it ticks (t 0 -> 1). Shared with the cockpit checklist (preflight.gd).
+static func draw_check(c: CanvasItem, box: Rect2, t: float) -> void:
 	var a := box.position + Vector2(3, box.size.y * 0.55)
 	var b := box.position + Vector2(box.size.x * 0.42, box.size.y - 3)
 	var e := box.position + Vector2(box.size.x + 3, -3)

@@ -353,7 +353,8 @@ var ui: CanvasLayer
 var hud: Control  # the pocket strip (wallet, clipboard, logbook keys)
 var prompt: Label
 var msg: Label
-var goal: Label
+var preflight  # scripts/preflight.gd: the cockpit checklist card
+const Preflight := preload("res://scripts/preflight.gd")
 var _banner_node: Control
 var _saved: TextureRect
 var _saved_fade: Tween
@@ -1928,7 +1929,7 @@ func _start_ferry() -> void:
 	ferry.trouble = missed[0] if missed.size() > 0 else ""
 	ferry.start(self, plane, visuals["propeller"].get_child(-1))
 	log_clear()
-	log_line("Run the checklist, then hold Space to start her up.")
+	log_line("Run the checklist, then hold %s to start her up." % key_name("starter"))
 
 
 ## The Cub panel's four dial holes (probed: front face z=-0.202, y=1.382, r 0.044 m).
@@ -2686,12 +2687,9 @@ func _setup_ui() -> void:
 	msg = _chip(16, 0.03, 0.2)
 	_setup_squawk()
 	_apply_hud.call_deferred()  # text size, backing, counters: now there's a message to style
-	goal = _chip(14, 0.0, 0.0)
-	goal.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	var strip: CenterContainer = goal.get_parent()
-	strip.anchor_right = 0.0  # top-left corner, the same spot all game
-	strip.offset_left = 20
-	strip.offset_top = 18
+	preflight = Preflight.new()  # the cockpit checklist, top left (preflight.gd)
+	preflight.setup(self)
+	ui.add_child(preflight)
 
 
 const ACT_ICONS := {"shop": "shop", "radio": "radio", "map": "map", "toolbox": "toolbox", "truck": "fuel", "parts_table": "parts", "kit": "toolbox"}
@@ -2951,12 +2949,9 @@ func _update_hud() -> void:
 	prompt.custom_minimum_size.x = 620.0 if ferry else 0.0  # flight numbers change every frame; a fixed box doesn't shake
 	prompt.add_theme_font_override("font", Style.figures() if ferry else UI_FONT)  # and one-width digits don't jitter inside it
 	msg.visible = msg.text != ""
-	var preflight: bool = ferry != null and (ferry.state != "run" or ferry.mode == "runup") and panel == null
-	goal.visible = preflight
-	if preflight:
-		goal.text = ferry.checklist()
+	var checking: bool = preflight.wanted()  # the checklist card draws itself (preflight.gd)
 	var has_lines: bool = _log_list.get_child_count() > 0 or _log_now.visible
-	_log.visible = has_lines and (preflight or Time.get_ticks_msec() < _log_until)
+	_log.visible = has_lines and (checking or Time.get_ticks_msec() < _log_until)
 	quest.visible = hud.visible
 	_update_squawk()
 	held_label.text = ("IN HAND: " + SUPPLIES[held].name.to_upper()) if held != "" else ""

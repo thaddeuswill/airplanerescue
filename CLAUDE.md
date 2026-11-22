@@ -65,6 +65,15 @@ Each scene is a list of elements: `fastener`, `cover`, `part`, `task` or `view`.
   can't solve is a soft-lock for the player.
 - Readings and dynamic art come from `main.reading()` and `main.view_art()`. Task hooks call `main.task_done()`.
 
+## How we work (settled 2026-11-23, fixed)
+
+**Agile iterations with a Spiral risk gate: `docs/PROCESS.md`.** Read it before starting work.
+Every request goes into `docs/BACKLOG.md` first; work happens in iterations (plan, risk gate,
+build, verify against the definition of done, review, retro). A mid-iteration request that refines
+the item being built joins it; anything else waits in the backlog. Only crashes, lost saves,
+soft-locks or a broken build jump the queue. The process itself only changes between iterations,
+by Thad, written into `docs/PROCESS.md`.
+
 ## Settled decisions (don't change without asking)
 
 - The Cub is a J-3 with a **C85-12 with a starter** (not the C-65), drum brakes with expander tubes.

@@ -17,6 +17,8 @@ extends Control
 ## ticked this lesson), base (rescues when the lesson began), reward (a lesson's reward to show).
 
 var main
+const Work := preload("res://scripts/work.gd")
+const Bay := preload("res://scripts/bay.gd")
 
 const W_CARD := 340.0
 const LESSONS := {
@@ -32,29 +34,30 @@ const REWARDS := {
 }
 
 ## Reading the squawk: the pilot says what they felt, heard, saw or smelled, never the cause.
-## On arrival each lesson asks where you'd look first, and every answer says why it's right or
-## wrong. A wrong one costs nothing here: try again. [answer, right?, why].
-const DECODE := {
-	"bird_nest": [
-		["The engine, under the cowl", true, "Birds don't fly out of a cowl unless they've built in it. A nest packed against a hot cylinder catches fire: open the cowl first."],
-		["The cabin", false, "The birds came out of the cowling, not the cabin. Where they came out is where they live."],
-		["The tail", false, "Nothing at the tail makes birds fly out of the cowling. Start where the pilot saw them."]],
-	"water_fuel": [
-		["The fuel: water got into it", true, "Rain, then a quit once it warmed up and a rough restart: that's water in the gas. Water sinks to the low point, the gascolator on the firewall. Drain a sample."],
-		["The spark plugs", false, "Fouled plugs run rough all the time and get worse slowly. They don't make it quit once after a week of rain."],
-		["The propeller", false, "A bad prop shakes the whole plane. It doesn't make the engine quit and restart rough."]],
-	"tire": [
-		["The left main tire", true, "Sitting low on one side and pulling to that side on the landing roll: that wheel's tire is flat or soft."],
-		["The right brake", false, "A dragging brake pulls toward its own side, the right, and it wouldn't make the plane sit low."],
-		["The rudder", false, "A rudder problem shows on the pedals and in the air, not in how the plane sits on the ground."]],
-	"stuck_valve": [
-		["Inside the engine: a cylinder that isn't sealing", true, "Down on power, and air chuffing out in rhythm as the prop turns: one cylinder isn't holding compression. Nothing shows outside, so you run it up and test it."],
-		["The propeller", false, "The prop turns fine. The chuff is air escaping inside the engine, once every turn of that cylinder."],
-		["The tires", false, "A soft tire drags on the take-off roll, but it doesn't chuff when you pull the prop through."]],
+## On arrival each lesson's squawk comes with a mechanic's notes, as you'd pencil them in the
+## margin: each telling phrase and what it means, then where to look first. Nothing to answer:
+## you read it and go look. {"notes": [[the pilot's phrase, what it means]], "look": where first}.
+const NOTES := {
+	"bird_nest": {"notes": [
+		["Birds flew out of the cowling", "Birds don't leave a cowl unless they've built in it: there's a nest under there."],
+		["Haven't flown it since", "Good: a nest packed against a hot cylinder catches fire. Nobody runs it till it's out."]],
+		"look": "The engine. Open the cowl and look on top, behind the baffles."},
+	"water_fuel": {"notes": [
+		["After a week of rain", "Water got in, usually past a fuel cap seal. Water's heavier than gas and sinks to the low point."],
+		["Coughed and quit once it warmed up, restarted rough", "Water reaching the carburetor: it runs on what fuel gets through, then stumbles."]],
+		"look": "The fuel. The gascolator on the firewall is the low point: drain a sample and look for beads of water."},
+	"tire": {"notes": [
+		["Sitting low on the left side", "One side down: that wheel's tire is flat or soft."],
+		["Pulled hard left on the landing roll", "A soft tire drags and pulls toward its own side. It agrees with the low side."]],
+		"look": "The left main gear: the tire and tube."},
+	"stuck_valve": {"notes": [
+		["Sluggish on the takeoff roll", "Down on power: one cylinder isn't pulling its share."],
+		["A rhythmic chuffing pulling the prop through", "Air escaping a cylinder as it comes up on compression: a valve or rings not sealing."]],
+		"look": "Inside the engine. Nothing shows outside: run it up, then test each cylinder with the instrument the work order names."},
 }
 
 var _card: Control  # the checklist
-var _decode: Control
+var _notes: Control  # the squawk notes card
 var _slips: Array = []  # [text, age] tick slips sliding in under the card
 var _tour: Control
 var _tour_i := 0
@@ -111,7 +114,7 @@ func _fixed_all(j: Dictionary) -> bool:
 func _missing_tools(j: Dictionary) -> Array:
 	var out := []
 	for id in j.faults:
-		for e in main.Work.scene_for(id, main.FAULTS[id]).els:
+		for e in Work.scene_for(id, main.FAULTS[id]).els:
 			var t: String = e.get("tool", "hand")
 			if t != "hand" and t != "" and not t in main.INSTRUMENTS and not main.tools.has(t) and not t in out:
 				out.append(t)
@@ -124,11 +127,11 @@ func steps() -> Array:
 	var j = _job()
 	var k: Callable = main.key_name
 	var call := {"id": "call", "text": "Take the call and fly there",
-		"how": "The map on the hangar workbench: walk up to it and press %s. Pick a call, then fly." % k.call("interact"),
+		"how": "The map on the hangar workbench: walk up to it and press %s. Take the open call; the others unlock after your apprenticeship." % k.call("interact"),
 		"ok": func(): return j != null}
-	var squawk := {"id": "squawk", "text": "Work out what the pilot means",
+	var squawk := {"id": "squawk", "text": "Read the pilot's squawk",
 		"how": "Top right: the pilot's squawk. They say what they felt, heard, saw or smelled, never the cause. Your job: turn it into where to look.",
-		"ok": func(): return j != null and _decode_fault(j) == "" and (_at_field > 6.0 or j.checked.size() > 0)}  # no quiz for this fault: reading is enough
+		"ok": func(): return j != null and _notes_fault(j) == "" and (_at_field > 6.0 or j.checked.size() > 0)}  # no notes for this fault: reading is enough
 	var walk := {"id": "walk", "text": "Check all 8 spots",
 		"how": "Walk up to each yellow ? on the plane and press %s. %d of 8 so far." % [k.call("interact"), j.checked.size() if j else 0],
 		"ok": func(): return j != null and j.checked.size() == main.ZONES.size()}
@@ -158,7 +161,7 @@ func steps() -> Array:
 		2:
 			var tools_step := {"id": "tools", "text": "Get the tools for the job",
 				"how": "This one needs %s. The PARTS shed by the apron sells them; the hangar TOOLS box mail-orders (a day, 25%% more)." \
-					% (", ".join(_missing_tools(j).map(func(t): return main.Work.TOOLS[t].to_lower())) if j and _missing_tools(j).size() > 0 else "tools you have"),
+					% (", ".join(_missing_tools(j).map(func(t): return Work.TOOLS[t].to_lower())) if j and _missing_tools(j).size() > 0 else "tools you have"),
 				"ok": func(): return j != null and _found_all(j) and _missing_tools(j).is_empty()}
 			var part_step := {"id": "part", "text": "Get the part",
 				"how": "PARTS shed. Not on the shelf? Mail-order it: a day's wait and 25% more. That's the trade.",
@@ -198,16 +201,20 @@ func _process(delta: float) -> void:
 	if active() and not main.tut.get("tour", true) and main.panel == null and main.panel_kind != "menu" \
 			and not is_instance_valid(main._loader) and main.current_job == null and not is_instance_valid(_tour):
 		start_tour()
+	if is_instance_valid(_walk) and (main.panel != _walk_panel or main.panel == null):
+		_end_walk()  # the menu it was about closed
+	elif is_instance_valid(_walk):
+		_walk.queue_redraw()
 	if active():
 		_poll()
 		var j = _job()
-		if j != null and not main.tut.get("done", {}).has("squawk") and _decode_fault(j) != "" and _at_field > 1.5 \
-				and main.panel == null and not is_instance_valid(_decode) and not is_instance_valid(_tour) and not is_instance_valid(_reward) \
+		if j != null and not main.tut.get("done", {}).has("squawk") and _notes_fault(j) != "" and _at_field > 1.5 \
+				and main.panel == null and not is_instance_valid(_notes) and not is_instance_valid(_tour) and not is_instance_valid(_reward) \
 				and not is_instance_valid(main._loader):
-			_show_decode(j)
+			_show_notes(j)
 	var touring_card: bool = is_instance_valid(_tour) and _tour_pages()[_tour_i][0] == "card"  # the tour page about it shows it
 	_card.visible = active() and main.settings.get("checklist", true) and main.panel == null and main.ferry == null \
-		and (not is_instance_valid(_tour) or touring_card) and not is_instance_valid(_decode) and not is_instance_valid(main._loader)
+		and (not is_instance_valid(_tour) or touring_card) and not is_instance_valid(_notes) and not is_instance_valid(main._loader)
 	_card.queue_redraw()
 	queue_redraw()
 	if main.tut.has("reward") and not is_instance_valid(_reward) and main.ferry == null and not is_instance_valid(main._loader) \
@@ -229,7 +236,7 @@ func _poll() -> void:
 		main.playlog("tutorial: " + s.id)
 
 
-## Marks a step done from outside its check (the squawk quiz), with the same tick and slip.
+## Marks a step done from outside its check (the squawk notes), with the same tick and slip.
 func tick(id: String, text: String) -> void:
 	var done: Dictionary = main.tut.get_or_add("done", {})
 	if done.has(id):
@@ -377,14 +384,27 @@ func _draw() -> void:
 func _tour_pages() -> Array:
 	var k: Callable = main.key_name
 	return [
-		["", "AIRPLANE RESCUE", "You're a traveling A&P mechanic. Owners call when a plane is stuck in a field: you fly out, find what's wrong, fix it right, sign for it and fly it home to them.\n\nPut ten planes back in the air and you've made it. Run out of money and you're grounded."],
-		["center", "WALK AND USE", "%s %s %s %s walks, the mouse looks. Point the dot at something and press %s to use it: the map, a spot on a plane, the fuel truck." \
-			% [k.call("move_forward"), k.call("move_left"), k.call("move_back"), k.call("move_right"), k.call("interact")]],
-		["quest", "YOUR NEXT STEP", "This icon always shows what comes next: the map, a spot to check, a wrench for work, the logbook. The markers floating over the plane say where."],
-		["card", "YOUR CHECKLIST", "Your first three jobs come with a checklist. Every step ticks itself off when you do it right. Only the step you're on is explained. After the third job you're on your own."],
-		["pockets", "YOUR POCKETS", "%s: wallet (money, parts, tools). %s: clipboard, the work order. %s: logbook, every plane you've saved. %s: the service manual, open at whatever you're working on." \
-			% [k.call("wallet"), k.call("clipboard"), k.call("logbook"), k.call("manual")]],
-		["", "ESC PAUSES", "Settings, controls and quitting are there. The game saves after every step.\n\nFirst job: walk to the map on the hangar workbench and press %s." % k.call("interact")],
+		["", "AIRPLANE RESCUE", "You're a traveling A&P mechanic: fly out to stranded planes and fly them home.", [
+			["THE JOB", "Find what's wrong, fix it right, sign for it."],
+			["THE GOAL", "Ten planes back in the air."],
+			["THE RISK", "Run out of money and you're grounded."]]],
+		["center", "WALK AND USE", "Point the dot at something and press %s." % k.call("interact"), [
+			["WALK", "%s %s %s %s" % [k.call("move_forward"), k.call("move_left"), k.call("move_back"), k.call("move_right")]],
+			["LOOK", "The mouse."],
+			["USE", "%s: the map, a spot on a plane, the fuel truck." % k.call("interact")]]],
+		["quest", "YOUR NEXT STEP", "This icon always shows what comes next.", [
+			["WHERE", "The markers floating over the plane."]]],
+		["card", "YOUR CHECKLIST", "Your first three jobs, one step at a time.", [
+			["TICKS", "Each step checks itself off when you do it right."],
+			["HELP", "Only the step you're on is explained."]]],
+		["pockets", "YOUR POCKETS", "Four things you carry, each on a key.", [
+			[k.call("wallet"), "Wallet: money, parts, tools."],
+			[k.call("clipboard"), "Work order for this plane."],
+			[k.call("logbook"), "Logbook: every plane you've saved."],
+			[k.call("manual"), "Service manual, open at your job."]]],
+		["", "READY", "First job: walk to the map on the hangar workbench and press %s." % k.call("interact"), [
+			["ESC", "Pause, settings, quit."],
+			["SAVING", "Automatic, after every step."]]],
 	]
 
 
@@ -453,9 +473,8 @@ func _unhandled_input(ev: InputEvent) -> void:
 ## The callout box: centered for the words that point at nothing, else beside what it points at.
 func _tour_box() -> Rect2:
 	var p: Array = _tour_pages()[_tour_i]
-	var w := 460.0
-	# tall enough for its words: eyebrow and title, the text, then the buttons
-	var h := 96.0 + Style.text_font().get_multiline_string_size(p[2], HORIZONTAL_ALIGNMENT_LEFT, w - 48, Style.SIZE_MD - 2).y + 82.0
+	var w := CARD_W
+	var h := card_height(p, w)
 	match p[0]:
 		"quest": return Rect2(80, 20, w, h)
 		"card": return Rect2(W_CARD + 50, 70, w, h)
@@ -495,32 +514,73 @@ func _draw_tour() -> void:
 		_tour.draw_rect(Rect2(0, t.position.y, t.position.x, t.size.y), dim)
 		_tour.draw_rect(Rect2(t.end.x, t.position.y, size.x - t.end.x, t.size.y), dim)
 		_tour.draw_rect(t, Style.COLOR_FOCUS, false, 3.0)
-	var b := _tour_box()
-	var p: Array = _tour_pages()[_tour_i]
-	_tour.draw_rect(b.grow(2), Color(0, 0, 0, 0.3))
-	_tour.draw_rect(b, Style.COLOR_SURFACE_PAPER)
-	_tour.draw_rect(Rect2(b.position, Vector2(b.size.x, 4)), Style.COLOR_TEXT_PAPER_ACCENT)
-	_tour.draw_string(Style.caps(800, Style.SIZE_XS), b.position + Vector2(24, 30), "%d OF %d" % [_tour_i + 1, _tour_pages().size()],
-		HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_XS, Style.COLOR_TEXT_PAPER_ACCENT)
-	_tour.draw_string(Style.caps(900, Style.SIZE_XL), b.position + Vector2(24, 64), p[1], HORIZONTAL_ALIGNMENT_LEFT, b.size.x - 48,
-		Style.SIZE_XL, Style.COLOR_TEXT_PAPER)
-	_tour.draw_multiline_string(Style.text_font(), b.position + Vector2(24, 96), p[2], HORIZONTAL_ALIGNMENT_LEFT, b.size.x - 48,
-		Style.SIZE_MD - 2, -1, Style.COLOR_TEXT_PAPER)
+	draw_card(_tour, _tour_box(), _tour_pages()[_tour_i], "%d OF %d" % [_tour_i + 1, _tour_pages().size()])
+
+
+## Callout cards (tour and walkthroughs) share one layout, so they read the same everywhere:
+## a small red eyebrow, the title, one bold line saying the point, then labeled rows (a short
+## red term, a one-line detail), then the buttons. A page is [target, title, lead, [[term, detail]]].
+const CARD_W := 460.0
+const TERM_W := 96.0
+
+
+static func card_height(p: Array, w: float) -> float:
+	var lead_h: float = Style.display(700).get_multiline_string_size(p[2], HORIZONTAL_ALIGNMENT_LEFT, w - 48, Style.SIZE_MD).y
+	var h := 70.0 + lead_h + 10.0
+	for it in p[3]:
+		h += maxf(18.0, Style.text_font().get_multiline_string_size(it[1], HORIZONTAL_ALIGNMENT_LEFT, w - 48 - TERM_W, Style.SIZE_SM).y) + 8.0
+	return h + 64.0  # the buttons
+
+
+static func draw_card(c: CanvasItem, b: Rect2, p: Array, eyebrow: String) -> void:
+	c.draw_rect(b.grow(2), Color(0, 0, 0, 0.3))
+	c.draw_rect(b, Style.COLOR_SURFACE_PAPER)
+	c.draw_rect(Rect2(b.position, Vector2(b.size.x, 4)), Style.COLOR_TEXT_PAPER_ACCENT)
+	var x := b.position.x + 24
+	var w := b.size.x - 48
+	c.draw_string(Style.caps(800, Style.SIZE_XS), Vector2(x, b.position.y + 26), eyebrow, HORIZONTAL_ALIGNMENT_LEFT, -1,
+		Style.SIZE_XS, Style.COLOR_TEXT_PAPER_ACCENT)
+	c.draw_string(Style.caps(900, Style.SIZE_LG), Vector2(x, b.position.y + 54), p[1], HORIZONTAL_ALIGNMENT_LEFT, w, Style.SIZE_LG,
+		Style.COLOR_TEXT_PAPER)
+	var y := b.position.y + 80
+	var lead := Style.display(700)
+	c.draw_multiline_string(lead, Vector2(x, y), p[2], HORIZONTAL_ALIGNMENT_LEFT, w, Style.SIZE_MD, -1, Style.COLOR_TEXT_PAPER)
+	y += lead.get_multiline_string_size(p[2], HORIZONTAL_ALIGNMENT_LEFT, w, Style.SIZE_MD).y - 4
+	if p[3].size() > 0:
+		c.draw_line(Vector2(x, y), Vector2(x + w, y), Color(Style.COLOR_TEXT_PAPER, 0.18), 1.0)
+		y += 6
+	for it in p[3]:
+		var dh: float = Style.text_font().get_multiline_string_size(it[1], HORIZONTAL_ALIGNMENT_LEFT, w - TERM_W, Style.SIZE_SM).y
+		c.draw_string(Style.caps(800, Style.SIZE_XS), Vector2(x, y + 15), String(it[0]).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, TERM_W - 8,
+			Style.SIZE_XS, Style.COLOR_TEXT_PAPER_ACCENT)
+		c.draw_multiline_string(Style.text_font(), Vector2(x + TERM_W, y + 15), it[1], HORIZONTAL_ALIGNMENT_LEFT, w - TERM_W,
+			Style.SIZE_SM, -1, Style.COLOR_TEXT_PAPER)
+		y += maxf(18.0, dh) + 8.0
 
 
 # ---------- what the pilot means ----------
 
-## The first of this job's faults the decoder has an answer for, or "".
-func _decode_fault(j: Dictionary) -> String:
+## The first of this job's faults with notes written for its squawk, or "".
+func _notes_fault(j: Dictionary) -> String:
 	for id in j.faults:
-		if DECODE.has(id):
+		if NOTES.has(id):
 			return id
 	return ""
 
 
-func _show_decode(j: Dictionary) -> void:
-	var id := _decode_fault(j)
-	_decode = PanelContainer.new()
+## The one-line "look first" note pinned under the squawk while a lesson is on ("" if none).
+func squawk_note() -> String:
+	var j = _job()
+	if not active() or j == null or not main.settings.get("checklist", true):
+		return ""
+	var id := _notes_fault(j)
+	return "" if id == "" else "Look first: " + NOTES[id].look
+
+
+func _show_notes(j: Dictionary) -> void:
+	var id := _notes_fault(j)
+	var w := 600.0
+	_notes = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Style.COLOR_SURFACE_PAPER
 	sb.border_width_top = 6
@@ -528,71 +588,71 @@ func _show_decode(j: Dictionary) -> void:
 	sb.set_content_margin_all(Style.SPACE_6)
 	sb.shadow_color = Color(0, 0, 0, 0.45)
 	sb.shadow_size = 14
-	_decode.add_theme_stylebox_override("panel", sb)
-	_decode.mouse_filter = Control.MOUSE_FILTER_STOP
+	_notes.add_theme_stylebox_override("panel", sb)
+	_notes.mouse_filter = Control.MOUSE_FILTER_STOP
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", Style.SPACE_3)
-	col.custom_minimum_size.x = 560
-	_decode.add_child(col)
-	var eyebrow := Style.label("WHAT IS THE PILOT TELLING YOU?", "accent", Style.SIZE_XS, 800)
+	col.add_theme_constant_override("separation", Style.SPACE_2)
+	col.custom_minimum_size.x = w
+	_notes.add_child(col)
+	var eyebrow := Style.label("PILOT SQUAWK", "accent", Style.SIZE_XS, 800)
 	eyebrow.add_theme_font_override("font", Style.caps(800, Style.SIZE_XS))
 	col.add_child(eyebrow)
 	var said := Label.new()  # the pilot's own words, typed as on the squawk sheet
 	said.text = "\"%s\"" % main.squawk_line(j, id)
 	said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	said.custom_minimum_size.x = 560  # wrapped text needs a width, or it lays out a letter per line
+	said.custom_minimum_size.x = w  # wrapped text needs a width, or it lays out a letter per line
 	said.add_theme_font_override("font", Style.figures())
 	said.add_theme_font_size_override("font_size", Style.SIZE_MD)
 	said.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER)
 	col.add_child(said)
-	var ask := Style.label("Pilots say what they felt, heard, saw or smelled, never the cause. Where would you look first?", "muted", Style.SIZE_MD, 600)
-	ask.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	ask.custom_minimum_size.x = 560
-	col.add_child(ask)
-	var why := Style.label("", "body", Style.SIZE_MD, 600)
-	why.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	why.custom_minimum_size.x = 560
+	var gap := Control.new()
+	gap.custom_minimum_size.y = Style.SPACE_2
+	col.add_child(gap)
+	var head := Style.label("MECHANIC'S NOTES", "accent", Style.SIZE_XS, 800)
+	head.add_theme_font_override("font", Style.caps(800, Style.SIZE_XS))
+	col.add_child(head)
+	var rule := ColorRect.new()
+	rule.color = Color(Style.COLOR_TEXT_PAPER_ACCENT, 0.5)
+	rule.custom_minimum_size.y = 1
+	col.add_child(rule)
+	var general := Style.label("Pilots tell you what they felt, heard, saw or smelled, never the cause. Read it for clues to where.", "muted", Style.SIZE_SM, 600)
+	general.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	general.custom_minimum_size.x = w
+	col.add_child(general)
+	for n in NOTES[id].notes:  # each telling phrase, then what it means
+		var phrase := Label.new()
+		phrase.text = "\"%s\"" % n[0]
+		phrase.add_theme_font_override("font", Style.figures(true))
+		phrase.add_theme_font_size_override("font_size", Style.SIZE_SM)
+		phrase.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER_ACCENT)
+		col.add_child(phrase)
+		var means := Style.label(n[1], "body", Style.SIZE_MD, 600)
+		means.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		means.custom_minimum_size.x = w
+		col.add_child(means)
+	var look := Style.label("Look first: " + NOTES[id].look, "body", Style.SIZE_MD, 800)
+	look.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	look.custom_minimum_size.x = w
+	col.add_child(look)
 	var go := Button.new()
 	go.text = "GO LOOK"
 	Style.button(go, "primary")
 	go.custom_minimum_size.y = 44
-	go.visible = false
-	go.pressed.connect(_close_decode)
-	var opts: Array = DECODE[id].duplicate()
-	opts.shuffle()  # the right answer isn't always first
-	for o in opts:
-		var b := Button.new()
-		b.text = o[0]
-		Style.button(b, "quiet")
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size.y = 44
-		b.pressed.connect(func():
-			why.text = ("Right. " if o[1] else "Not quite. ") + o[2]
-			why.add_theme_color_override("font_color", Style.COLOR_STATUS_OK if o[1] else Style.COLOR_STATUS_WARN)
-			if o[1]:
-				for c in col.get_children():
-					if c is Button and c != go:
-						c.disabled = true
-				go.visible = true
-				go.grab_focus.call_deferred()
-				tick("squawk", "Read the squawk: " + o[0].to_lower())
-			else:
-				b.disabled = true
-				main.sound.sfx("deny"))
-		col.add_child(b)
-	col.add_child(why)
+	go.pressed.connect(func():
+		tick("squawk", "Read the squawk")
+		_close_notes())
 	col.add_child(go)
-	add_child(_decode)
-	_center.call_deferred(_decode)
-	why.resized.connect(func(): _center.call_deferred(_decode))  # an answer's reason makes it taller
+	add_child(_notes)
+	_center.call_deferred(_notes)
 	main.player.frozen = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	go.grab_focus.call_deferred()
 
 
-func _close_decode() -> void:
-	if is_instance_valid(_decode):
-		_decode.queue_free()
-	_decode = null
+func _close_notes() -> void:
+	if is_instance_valid(_notes):
+		_notes.queue_free()
+	_notes = null
 	if main.panel == null:
 		main.player.frozen = false
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -670,3 +730,305 @@ func _close_reward() -> void:
 	_reward = null
 	if main.panel == null:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+# ---------- menu walkthroughs ----------
+## The first time you open each menu, a few cards walk you round it, each pointing at the part it
+## talks about (the rest dimmed). Next (Enter) steps through; Esc or Got it ends it. Seen once
+## per career (main.tut.menus), and never again once "Hide walkthroughs" is pressed or the
+## apprentice checklist setting is off.
+
+var _walk: Control
+var _walk_id := ""
+var _walk_i := 0
+var _walk_panel  # the menu it's about: if that closes, the walkthrough goes with it
+var force_walks := false  # the self-test's --walk-shot shows them even in a test run
+
+
+func walks_on() -> bool:
+	if not main.settings.get("checklist", true) or main.tut.get("menus_off", false):
+		return false
+	return force_walks or not "--self-test" in OS.get_cmdline_user_args()
+
+
+## Call when a menu opens. Shows its walkthrough the first time.
+func walk(id: String) -> void:
+	if not walks_on() or main.tut.get("menus", {}).has(id) or is_instance_valid(_walk) or is_instance_valid(_tour):
+		return
+	_start_walk.call_deferred(id)
+
+
+func _start_walk(id: String) -> void:
+	await get_tree().process_frame  # the menu lays itself out first (books scale to the window)
+	if main.panel == null or is_instance_valid(_walk):
+		return
+	_walk_id = id
+	_walk_i = 0
+	_walk_panel = main.panel
+	_walk = Control.new()
+	_walk.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_walk.mouse_filter = Control.MOUSE_FILTER_STOP  # the menu waits underneath
+	_walk.draw.connect(_draw_walk)
+	add_child(_walk)
+	var row := HBoxContainer.new()
+	row.name = "row"
+	row.add_theme_constant_override("separation", Style.SPACE_3)
+	_walk.add_child(row)
+	var hide := Button.new()
+	hide.text = "HIDE WALKTHROUGHS"
+	Style.button(hide, "quiet")
+	hide.custom_minimum_size.y = 40
+	hide.focus_mode = Control.FOCUS_NONE
+	hide.pressed.connect(func():
+		main.tut["menus_off"] = true
+		_end_walk())
+	row.add_child(hide)
+	var next := Button.new()
+	next.name = "next"
+	Style.button(next, "primary")
+	next.custom_minimum_size = Vector2(130, 40)
+	next.focus_mode = Control.FOCUS_NONE
+	next.pressed.connect(_walk_next)
+	row.add_child(next)
+	_walk_layout()
+
+
+func _walk_next() -> void:
+	main.sound.sfx("click")
+	_walk_i += 1
+	if _walk_i >= walk_pages(_walk_id).size():
+		_end_walk()
+		return
+	_walk_layout()
+
+
+func _end_walk() -> void:
+	if _walk_id != "":
+		main.tut.get_or_add("menus", {})[_walk_id] = true
+		main._save_game()
+	if is_instance_valid(_walk):
+		_walk.queue_free()
+	_walk = null
+	_walk_id = ""
+
+
+func _input(ev: InputEvent) -> void:
+	if not is_instance_valid(_walk):
+		return
+	if ev.is_action_pressed("ui_accept"):
+		get_viewport().set_input_as_handled()
+		_walk_next()
+	elif ev.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		_end_walk()
+
+
+func walking() -> bool:
+	return is_instance_valid(_walk)
+
+
+## [what it points at, title, lead, [[term, detail]]] for each menu. Keys come from the bindings.
+func walk_pages(id: String) -> Array:
+	var k: Callable = main.key_name
+	match id:
+		"work_order":
+			return [
+				["sheet_top", "THE WORK ORDER", "This plane, on one sheet (%s)." % k.call("clipboard"), [
+					["SQUAWK", "What the pilot reported."],
+					["DEADLINE", "Days the owner will wait."],
+					["SPOTS", "How many of the 8 you've checked."]]],
+				["sheet_rows", "WRITE-UPS", "Every fault you've found, ready to work.", [
+					["FOUND", "What it is and where."],
+					["FIX", "The manual page and figure (%s)." % k.call("manual")],
+					["PARTS", "Part numbers, and how many you carry."],
+					["BUTTON", "Takes you to the work."]]],
+				["sheet_bottom", "WHAT'S LEFT", "When nothing's left, it says Airworthy.", [
+					["RUN-UP", "From the cabin."],
+					["FUEL", "At the truck, on the apron."],
+					["LOGBOOK", "Sign it before it flies."]]]]
+		"map":
+			return [
+				["sheet_rows", "RESCUE CALLS", "Pick a plane to rescue. The best pay is first.", [
+					["DIFFICULTY", "1 Routine to 5 Expert."],
+					["CLEARS", "About what you keep after parts, fuel and rent."],
+					["WAITS", "Days before the owner gives up."]]],
+				["sheet_rows", "WHICH ONE?", "Not sure? Take the one marked (closest you can afford).", [
+					["LOCKED", "Calls that open after your apprenticeship."]]],
+				["chart", "THE CHART", "Your field and every call.", [
+					["COURSE", "The heading and distance to each."],
+					["FLY", "Click a town, or Fly on the list."]]]]
+		"wallet":
+			return [["sheet", "YOUR WALLET", "Everything you own (%s)." % k.call("wallet"), [
+				["CASH", "What you have to spend."],
+				["TRUCK", "Parts, tools and materials you carry."],
+				["RENT", "$40 a day: time is money."]]]]
+		"logbook":
+			return [["sheet", "YOUR LOGBOOK", "Every plane you've put back in the air (%s)." % k.call("logbook"), [
+				["EACH ENTRY", "Where, what you did, what it paid and cost."],
+				["THE GOAL", "Ten entries."]]]]
+		"manual":
+			return [
+				["book", "THE SERVICE MANUAL", "It opens at whatever you're working on (%s)." % k.call("manual"), [
+					["A / D", "Turn the pages."],
+					["C", "Contents, by ATA chapter."]]],
+				["book_left", "A PAGE PER JOB", "Read the page before you start the job.", [
+					["LEFT", "Specs, tools, parts and numbers."],
+					["RIGHT", "The figure and the procedure."]]]]
+		"shop":
+			return [
+				["book_mast", "THE PARTS COUNTER", "This town's shed: it stocks only some parts.", [
+					["IN STOCK", "Buy it now."],
+					["MAIL ORDER", "A day's wait and 25% more."]]],
+				["book_tabs", "THREE SECTIONS", "Tab turns the section.", [
+					["PARTS", "For the job."],
+					["TOOLS", "Hand tools for your roll."],
+					["MATERIALS", "Safety wire, cotter pins, gaskets, oil."]]],
+				["book_card", "BUY WHAT'S STAMPED", "NEEDED marks what your written-up job needs. It's listed first.", [
+					["EVERYTHING ELSE", "Can wait."]]],
+				["", "WHICH TOOL DOES WHAT", "Buy a tool when a job needs it.", _tool_guide()],
+				["book_foot", "TURN AND CLOSE", "What you buy rides in your truck.", [
+					["PREV / NEXT", "Turn the pages."],
+					["CLOSE (ESC)", "Back to the plane."]]]]
+		"mailorder":
+			return [
+				["book_mast", "MAIL ORDER", "Anything in the book, from the hangar.", [
+					["ARRIVES", "In a day."],
+					["COSTS", "25% over shelf price."],
+					["USE IT", "When the town's shed doesn't have it."]]],
+				["book_card", "BUY WHAT'S STAMPED", "NEEDED marks what your job needs.", [
+					["OWNED", "Tools you already have."]]],
+				["", "WHICH TOOL DOES WHAT", "Buy a tool when a job needs it.", _tool_guide()]]
+		"kit":
+			return [["sheet", "THE RED TOOLBOX", "Test instruments, by the nose of every plane.", [
+				["TAKE ONE", "Its tests appear on the parts it fits."],
+				["ONE AT A TIME", "Take the one the work order asks for."]]]]
+		"work":
+			return [
+				["work_head", "THE JOB", "What you're working on.", [
+					["LEFT", "The job and its manual reference."],
+					["RIGHT", "Parts and materials it still needs."]]],
+				["work_roll", "YOUR TOOL ROLL", "Pick the tool for the piece.", [
+					["CHOOSE", "Mouse wheel, or 1-9."],
+					["GREYED", "Not owned yet, or still in the red toolbox."]]],
+				["work_scene", "DO THE WORK", "Hold the mouse on a piece.", [
+					["TAKE APART", "Loosen, remove, lift off."],
+					["STUCK?", "H shows every step you can do now."]]],
+				["work_bench", "THE BENCH", "Where things go while it's apart.", [
+					["TRAY", "Screws and bolts."],
+					["NEW PART", "Waits at the bottom: pick it up and fit it."]]],
+				["", "PUT IT ALL BACK", "Done when the new part is in and everything is tight.", [
+					["ESC", "Step away. Your work stays as you left it."]]]]
+		"bay":
+			return [
+				["bay_view", "THE SPOT, OPENED UP", "The real parts. Damage shows on them.", [
+					["CLICK", "A part, to see what you can do."]]],
+				["bay_view", "LOOK, THEN FIX", "Look closer writes up what you see.", [
+					["RED !", "Stays on it until it's fixed."],
+					["RED BUTTON", "The written-up job, on that part's card."]]],
+				["bay_tabs", "WALK ROUND IT", "The tabs move you round the spot.", [
+					["ENGINE", "Close the cowl before you leave."]]]]
+		"truck":
+			return [["sheet", "THE FUEL TRUCK", "Half tanks at least to fly it out.", [
+				["WHERE", "On the apron, never in the hangar."],
+				["STALE GAS", "Drain it first."],
+				["COST", "You pay for the fuel."]]]]
+		"parts_table":
+			return [["sheet", "PARTS ON HAND", "Everything you carry, laid out.", [
+				["MORE", "PARTS shed, or mail order from the hangar."]]]]
+		"signoff":
+			return [["sheet", "THE LOGBOOK ENTRY", "Nothing flies until you sign for it.", [
+				["WRITE", "What you did and the data you worked to."],
+				["WRONG PICK", "Costs time, not money."]]]]
+	return []
+
+
+## Which tool does what (the shops' walkthroughs), as labeled rows.
+func _tool_guide() -> Array:
+	return [
+		["RATCHET", "Most bolts: plugs, wheels, starter, mags."],
+		["PLIERS", "Safety wire and cotter pins."],
+		["TORQUE", "The final turn on plugs and prop bolts."],
+		["INSTRUMENTS", "Tester, timing light, fabric tester: red toolbox."]]
+
+
+## Screen rectangle of what a walkthrough page points at (empty: nothing, the card sits centered).
+func _walk_rect(target: String) -> Rect2:
+	var p = main.panel
+	var sheet_w: float = main.SHEET_W
+	match target:
+		"sheet": return Rect2(0, 0, sheet_w, size.y)
+		"sheet_top": return Rect2(0, 0, sheet_w, size.y * 0.32)
+		"sheet_rows": return Rect2(0, size.y * 0.1, sheet_w, size.y * 0.62)
+		"sheet_bottom": return Rect2(0, size.y * 0.62, sheet_w, size.y * 0.38)
+		"chart":
+			return main._side.get_global_rect() if is_instance_valid(main._side) else Rect2()
+	if p != null and "_book" in p and is_instance_valid(p._book):
+		var book: Control = p._book
+		var bs: Vector2 = p.BOOK
+		var at := func(r: Rect2) -> Rect2: return Rect2(book.global_position + r.position * book.scale, r.size * book.scale)
+		match target:
+			"book": return at.call(Rect2(Vector2.ZERO, bs))
+			"book_left": return at.call(Rect2(0, 0, bs.x / 2, bs.y))
+			"book_mast": return at.call(Rect2(0, 0, bs.x / 2, 192))
+			"book_tabs": return at.call(Rect2(bs.x / 2 + 20, 8, bs.x / 2 - 40, 60))
+			"book_card": return at.call(Rect2(20, 186, bs.x / 2 - 40, 210))
+			"book_foot": return at.call(Rect2(0, bs.y - 80, bs.x, 80))
+	if p is Work:
+		var o: Vector2 = p._origin()
+		var kk: float = p.k
+		match target:
+			"work_head": return Rect2(0, 0, size.x, Work.HEAD)
+			"work_roll": return Rect2(0, size.y - Work.BAR, size.x, Work.BAR)
+			"work_scene": return Rect2(o, Vector2(Work.BENCH.position.x - 8, Work.H) * kk)
+			"work_bench": return Rect2(o + Work.BENCH.position * kk, Work.BENCH.size * kk)
+	if p is Bay:
+		match target:
+			"bay_view": return Rect2(p._origin(), p.VIEW * p._k())
+			"bay_tabs":
+				var tr: Rect2 = p._tabs.get_global_rect() if is_instance_valid(p._tabs) else Rect2()
+				return tr if tr.size.x > 4 else Rect2()
+	return Rect2()
+
+
+## Beside what it points at: right, left, below or above, whichever fits; centered if nothing does.
+func _walk_box() -> Rect2:
+	var pg: Array = walk_pages(_walk_id)[_walk_i]
+	var w := CARD_W
+	var h := card_height(pg, w)
+	var t := _walk_rect(pg[0])
+	var screen := Rect2(Vector2.ZERO, size).grow(-12)
+	if t.size != Vector2.ZERO:
+		for r in [Rect2(t.end.x + 18, t.position.y + 12, w, h), Rect2(t.position.x - w - 18, t.position.y + 12, w, h),
+				Rect2(t.get_center().x - w / 2, t.end.y + 14, w, h), Rect2(t.get_center().x - w / 2, t.position.y - h - 14, w, h)]:
+			var c := Rect2(Vector2(clampf(r.position.x, 12, size.x - w - 12), clampf(r.position.y, 12, size.y - h - 12)), r.size)
+			if screen.encloses(c) and not c.grow(-4).intersects(t):
+				return c
+	return Rect2(size / 2 - Vector2(w, h) / 2, Vector2(w, h))
+
+
+func _walk_layout() -> void:
+	var row: HBoxContainer = _walk.get_node("row")
+	var next: Button = row.get_node("next")
+	next.text = "GOT IT" if _walk_i == walk_pages(_walk_id).size() - 1 else "NEXT"
+	var b := _walk_box()
+	row.reset_size()
+	row.position = Vector2(b.end.x - row.size.x - 20, b.end.y - row.size.y - 16)
+	_walk.queue_redraw()
+
+
+func _draw_walk() -> void:
+	if _walk_id == "":
+		return
+	var pages: Array = walk_pages(_walk_id)
+	var pg: Array = pages[_walk_i]
+	var t := _walk_rect(pg[0])
+	var dim := Color(0, 0, 0, 0.5)
+	if t.size == Vector2.ZERO:
+		_walk.draw_rect(Rect2(Vector2.ZERO, size), dim)
+	else:  # everything dimmed but what it points at
+		_walk.draw_rect(Rect2(0, 0, size.x, t.position.y), dim)
+		_walk.draw_rect(Rect2(0, t.end.y, size.x, size.y - t.end.y), dim)
+		_walk.draw_rect(Rect2(0, t.position.y, t.position.x, t.size.y), dim)
+		_walk.draw_rect(Rect2(t.end.x, t.position.y, size.x - t.end.x, t.size.y), dim)
+		_walk.draw_rect(t, Style.COLOR_FOCUS, false, 3.0)
+	draw_card(_walk, _walk_box(), pg, "WALKTHROUGH   %d OF %d" % [_walk_i + 1, pages.size()])

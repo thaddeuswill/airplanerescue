@@ -39,6 +39,35 @@ func run(main, args: PackedStringArray) -> void:
 			get_tree().quit(0)
 			return
 	for a in args:
+		if a.begins_with("--walk-shot="):  # every menu's first-time walkthrough, page by page
+			var pre := a.trim_prefix("--walk-shot=")
+			var wj: Dictionary = g.jobs[0]
+			wj.deadline = g.day + 30
+			await g._travel(wj, 0)
+			for id in wj.faults:
+				wj.found[id] = true
+			g.tutorial.force_walks = true
+			g.tut["menus"] = {}
+			g.tools.merge({"ratchet": true, "pliers": true})
+			var openers := {"work_order": func(): g._open_inspection("engine"), "map": g._open_travel, "wallet": g._open_wallet,
+				"logbook": g._open_logbook, "manual": func(): g._open_manual(""), "shop": g._open_shop, "mailorder": g._open_toolbox,
+				"kit": g._open_kit, "work": func(): g._open_work(wj.faults[0], func(): pass), "bay": func(): g._open_bay(g.FAULTS[wj.faults[0]].zone),
+				"truck": g._open_truck, "parts_table": g._open_parts_table, "signoff": func(): g._open_signoff(0)}
+			for id in openers:
+				g._close_panel()
+				await get_tree().process_frame
+				openers[id].call()
+				for _f in 4:
+					await get_tree().process_frame
+				var n: int = g.tutorial.walk_pages(id).size()
+				if not g.tutorial.walking():
+					print("WALK ", id, ": no walkthrough came up")
+				for i in n:
+					await _snap(pre, "%s_%d" % [id, i], 0.3)
+					if g.tutorial.walking():
+						g.tutorial._walk_next()
+			get_tree().quit(0)
+			return
 		if a.begins_with("--tutorial-shot="):  # the apprenticeship: tour pages, checklist, squawk quiz, reward
 			var pre := a.trim_prefix("--tutorial-shot=")
 			g.tut = {"lesson": 1, "tour": false, "done": {}, "base": 0}
@@ -53,13 +82,9 @@ func run(main, args: PackedStringArray) -> void:
 			var tj: Dictionary = g.jobs[0]
 			tj.deadline = g.day + 30
 			await g._travel(tj, 0)
-			g.tutorial._show_decode(tj)
-			await _snap(pre, "decode", 0.4)
-			var wrong: Array = g.tutorial._decode.find_children("*", "Button", true, false).filter(func(b): return b.text != "GO LOOK" \
-				and not g.tutorial.DECODE[g.tutorial._decode_fault(tj)].any(func(o): return o[1] and o[0] == b.text))
-			wrong[0].pressed.emit()
-			await _snap(pre, "decode_wrong", 0.3)
-			g.tutorial._close_decode()
+			g.tutorial._show_notes(tj)
+			await _snap(pre, "notes", 0.4)
+			g.tutorial._close_notes()
 			g._inspect_zone("prop")
 			g._close_panel()
 			await _snap(pre, "field_card", 0.6)
@@ -130,21 +155,16 @@ func run(main, args: PackedStringArray) -> void:
 	_trip_probe()
 	await g._travel(job, 0)
 	var trip_ms := Time.get_ticks_msec() - trip_start
-	if lesson > 0:  # what the pilot means: a wrong answer is explained and stays open, the right one ticks
-		g.tutorial._show_decode(job)
-		var opts: Array = g.tutorial._decode.find_children("*", "Button", true, false).filter(func(b): return b.text != "GO LOOK")
-		var right: Array = g.tutorial.DECODE[g.tutorial._decode_fault(job)].filter(func(o): return o[1]).map(func(o): return o[0])
-		for b in opts:
-			if not b.text in right:
-				b.pressed.emit()
-		var ticked_early: bool = g.tut.done.has("squawk")
-		for b in opts:
-			if b.text in right:
-				b.pressed.emit()
-		if ticked_early or not g.tut.done.has("squawk"):
-			print("TUTORIAL: the squawk quiz ticked on a wrong answer, or not on the right one")
+	if lesson > 0:  # the squawk notes: no quiz, one button, and it ticks the step
+		g.tutorial._show_notes(job)
+		var go: Array = g.tutorial._notes.find_children("*", "Button", true, false)
+		if go.size() != 1 or g.tut.done.has("squawk") or g.tutorial.squawk_note() == "":
+			print("TUTORIAL: the squawk notes card should have one button, tick nothing yet, and pin a look-first note")
 			_chk(false, 1)
-		g.tutorial._close_decode()
+		go[0].pressed.emit()
+		if not g.tut.done.has("squawk") or is_instance_valid(g.tutorial._notes):
+			print("TUTORIAL: Go look didn't tick the squawk step and close the notes")
+			_chk(false, 1)
 	var clip: AudioStreamWAV = g.sound._cruise.stream
 	var art_ok: bool = ["res://textures/logo_title.png", "res://textures/logo_ghost.png", "res://textures/logo_decal.png", "res://textures/rescue_photo.png", "res://fonts/Yellowtail-Regular.ttf", "res://fonts/BigShouldersDisplay.ttf"].all(func(p): return ResourceLoader.exists(p))
 	var trip_ok: bool = art_ok and trip_ms >= 3000 and clip.get_length() > 7.9 and clip.data.count(0) < clip.data.size() / 2 and not is_instance_valid(g._loader) and not g.player.frozen and _trip_volume > -8.0 and _trip_saved_at == job.city and not g.get_viewport().disable_3d
@@ -645,8 +665,14 @@ func run(main, args: PackedStringArray) -> void:
 		if not missing.is_empty() or int(g.tut.get("lesson", -1)) != (lesson + 1 if lesson < 3 else 0) or int(g.tut.get("reward", 0)) != lesson:
 			print("TUTORIAL lesson %d: unticked %s, now lesson %s, reward %s" % [lesson, missing, g.tut.get("lesson"), g.tut.get("reward")])
 			ok = false
-		if lesson < 3 and not g.jobs.all(func(jj): return jj.faults == ["tire"] if lesson == 1 else jj.faults == ["stuck_valve"]):
-			print("TUTORIAL: the map's calls aren't the next lesson's job")
+		var want_next: Array = ["tire"] if lesson == 1 else ["stuck_valve"]
+		var lesson_calls: Array = g.jobs.filter(func(jj): return jj.get("lesson", false))
+		if lesson < 3 and (lesson_calls.size() != 1 or lesson_calls[0].faults != want_next or g.call_locked(lesson_calls[0]) \
+				or not g.jobs.filter(func(jj): return not jj.get("lesson", false)).all(func(jj): return g.call_locked(jj))):
+			print("TUTORIAL: the map should have one open call for the next lesson, the rest locked")
+			ok = false
+		if lesson == 3 and g.jobs.any(func(jj): return g.call_locked(jj)):
+			print("TUTORIAL: after the apprenticeship no call should be locked")
 			ok = false
 	print("SELF-TEST ", "PASS" if ok and edges_ok and scenes_ok else "FAIL", " edges=", edges_ok, " scenes=", scenes_ok, " city=", job.city, " seed=", g.test_seed, " faults=", job.faults, " day=%.1f" % g.day)
 	get_tree().quit(0 if ok and edges_ok and scenes_ok else 1)

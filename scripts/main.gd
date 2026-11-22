@@ -619,10 +619,13 @@ func _spawn_job() -> void:
 		var easy := FIRST_JOBS.filter(func(id): return FAULTS.has(id))
 		if easy.size() > 0:
 			picks = [easy[0]]
-	var lesson := int(tut.get("lesson", 0))
-	if lesson > 0:  # every call on the map during a lesson is that lesson's job (tutorial.gd)
+	# During the apprenticeship one call on the map is the lesson's job (tutorial.gd), on a clean
+	# plane; the others are real calls, locked until the lessons are done.
+	var lesson := 0
+	if int(tut.get("lesson", 0)) > 0 and not jobs.any(func(j): return j.get("lesson", false)):
+		lesson = int(tut.lesson)
 		picks = tutorial.lesson_faults(rng)
-		first = true  # a clean plane: no years in the weather, no extras
+		first = true  # no years in the weather, no extras
 	var years := 0 if first or rng.randf() < 0.45 else rng.randi_range(2, mini(15, 4 + r * 3 / 2))
 	if years >= 2:
 		picks += ["stale_fuel", "oil_change"]
@@ -637,7 +640,7 @@ func _spawn_job() -> void:
 			picks.append("bungee")
 	if r >= 2 and lesson == 0 and rng.randf() < 0.06:  # now and then a plane that can't be fixed where it sits
 		picks.push_front(GROUND_FAULTS[rng.randi() % GROUND_FAULTS.size()])
-	var job := {"city": options[rng.randi() % options.size()], "type": t[0], "years": years, "washed": years == 0,
+	var job := {"city": options[rng.randi() % options.size()], "type": t[0], "years": years, "washed": years == 0, "lesson": lesson > 0,
 		"fixed": {}, "found": {}, "checked": {}, "work": {}, "annual": r >= 3 and lesson == 0 and rng.randf() < 0.15,
 		"spent": {"fuel": 0, "parts": 0, "mail": 0}, "fuel": rng.randf_range(0.03, 0.3), "parked": "apron",
 		"owner": OWNERS[rng.randi() % OWNERS.size()], "tried": {}, "hidden": "",
@@ -1324,6 +1327,7 @@ var spot_view := {}  # the same at every other spot: zone -> view
 
 
 func _open_bay(zone := "engine") -> void:
+	tutorial.walk("bay")  # first time here: a walkthrough of this menu (tutorial.gd)
 	standing_at = zone
 	station_zone = zone
 	_close_panel()
@@ -1450,6 +1454,7 @@ func _manual_job() -> String:
 
 
 func _open_manual(job := "") -> void:
+	tutorial.walk("manual")
 	_manual_back = panel is Work
 	var fresh := not (panel is ManualUI)
 	if panel:  # keep the work scene's state; just put it away
@@ -1477,6 +1482,7 @@ func _close_manual() -> void:
 
 ## Any work scene: a repair, a troubleshooting test, or the hand-prop drill.
 func _open_work(scene: String, on_done: Callable) -> void:
+	tutorial.walk("work")
 	_last_work = [scene, on_done]
 	_close_panel()
 	var w = Work.new()
@@ -1987,6 +1993,8 @@ const ENTRY_STEPS := [
 
 
 func _open_signoff(step := 0) -> void:
+	if step == 0:
+		tutorial.walk("signoff")
 	if step == 0:
 		playlog("logbook entry")
 	var job: Dictionary = current_job
@@ -2967,6 +2975,7 @@ func _update_hud() -> void:
 ## owner's words in type. It's the trail you start from, so it never leaves the screen.
 var squawk: PanelContainer
 var _squawk_text: Label
+var _squawk_note: Label
 var _squawk_for := ""
 
 
@@ -2996,6 +3005,11 @@ func _setup_squawk() -> void:
 	_squawk_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_squawk_text.custom_minimum_size.x = 340
 	col.add_child(_squawk_text)
+	_squawk_note = Style.label("", "accent", Style.SIZE_SM, 800)  # during the lessons: where to look first
+	_squawk_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_squawk_note.custom_minimum_size.x = 340
+	_squawk_note.visible = false
+	col.add_child(_squawk_note)
 	squawk.visible = false
 	ui.add_child(squawk)
 
@@ -3005,6 +3019,11 @@ func _update_squawk() -> void:
 	var here: bool = job != null and job.city == location and ferry == null
 	squawk.visible = here and (hud.visible or panel is Bay) and not _log.visible
 	if here:
+		var note: String = tutorial.squawk_note()
+		if note != _squawk_note.text:
+			_squawk_note.text = note
+			_squawk_note.visible = note != ""
+			squawk.size = Vector2.ZERO
 		var t := _symptoms(job)
 		if t != _squawk_for:
 			_squawk_for = t
@@ -3096,6 +3115,7 @@ func _pocket(kind: String) -> void:
 
 
 func _open_wallet() -> void:
+	tutorial.walk("wallet")  # first time here: a walkthrough of this menu (tutorial.gd)
 	var rows := [["Cash: $%d" % money], ["Day %d, at %s" % [floori(day), location]]]
 	var inv: PackedStringArray = []
 	for k in inventory:
@@ -3140,6 +3160,7 @@ func _confirm_restart() -> void:
 
 
 func _open_logbook() -> void:
+	tutorial.walk("logbook")  # first time here: a walkthrough of this menu (tutorial.gd)
 	var rows := [["Planes back in the air: %d of %d" % [rescued, GOAL]]]
 	for i in range(logbook.size() - 1, -1, -1):
 		var e: Dictionary = logbook[i]
@@ -3440,7 +3461,8 @@ func _add_row(vb: VBoxContainer, r: Array) -> void:
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		b.mouse_entered.connect(sound.sfx.bind("deny"))
 		b.pressed.connect(sound.sfx.bind("thread"))
-		b.pressed.connect(r[2])
+		if r[2] is Callable:  # a "Locked" button has nothing behind it
+			b.pressed.connect(r[2])
 		b.disabled = not r[3]
 		hb.add_child(b)
 		if b.disabled and "$" in r[1]:  # a greyed-out price says what's missing
@@ -4048,6 +4070,7 @@ func _pump_and_reopen() -> void:
 
 ## The fuel truck by the hangar: fuel the plane, or fill a jerry can for a stale-fuel job.
 func _open_truck() -> void:
+	tutorial.walk("truck")  # first time here: a walkthrough of this menu (tutorial.gd)
 	var rows := []
 	var job = current_job
 	if job:
@@ -4128,6 +4151,7 @@ func _refresh_parts_table() -> void:
 
 
 func _open_parts_table() -> void:
+	tutorial.walk("parts_table")  # first time here: a walkthrough of this menu (tutorial.gd)
 	var rows := []
 	for k in inventory:
 		if inventory[k] > 0:
@@ -4257,6 +4281,7 @@ func _light_marker(zone: String) -> void:
 ## `at` is the spot you're standing at: you can only start work there (repairs at their own
 ## spot, the run-up and take-off from the cabin). From the clipboard ("") it's read-only.
 func _open_inspection(at := standing_at) -> void:
+	tutorial.walk("work_order")  # first time here: a walkthrough of this menu (tutorial.gd)
 	station_zone = ""
 	var job: Dictionary = current_job
 	var rows := [["Owner reports: " + _symptoms(job)],
@@ -4432,6 +4457,7 @@ var held := ""  # the instrument in your hand ("" = none)
 
 
 func _open_kit() -> void:
+	tutorial.walk("kit")  # first time here: a walkthrough of this menu (tutorial.gd)
 	var rows := [["Your test instruments. Take one in hand; its tests show up on the parts it fits."]]
 	for t in INSTRUMENTS:
 		var name: String = SUPPLIES[t].name
@@ -4567,13 +4593,43 @@ func _catalog_icon(key: String, fallback: String) -> String:
 
 
 ## A supply as a catalog listing. mail: ordered from the hangar (1 day, +25%).
+## What the job you're on still needs, so the shops can stamp it NEEDED: the tools its open
+## write-ups (and the test the work order names next) use that you don't own, and materials it'll
+## use up beyond what you carry. {"tools": {key: true}, "materials": {key: short by}}.
+func job_needs() -> Dictionary:
+	var out := {"tools": {}, "materials": {}}
+	var job = current_job
+	if job == null:
+		return out
+	var scenes: Array = job.faults.filter(func(id): return job.found.has(id) and not job.fixed.has(id) and not FAULTS[id].get("ground", false))
+	for id in job.faults:
+		var t := _test_for(job, id)
+		if t != "" and job.get("sym", {}).has(id):
+			scenes.append(t)
+	var uses := {}
+	for id in scenes:
+		for e in Work.scene_for(id, FAULTS.get(id, {})).els:
+			var tool: String = e.get("tool", "hand")
+			if SUPPLIES.has(tool) and not tools.has(tool):
+				out.tools[tool] = true
+			var item: String = e.get("uses", "")
+			if item != "":
+				uses[item] = uses.get(item, 0) + 1
+	for item in uses:
+		if SUPPLIES.has(item) and uses[item] > inventory.get(item, 0):
+			out.materials[item] = uses[item] - inventory.get(item, 0)
+	return out
+
+
 func _supply_entry(key: String, mail: bool) -> Dictionary:
 	var s: Dictionary = SUPPLIES[key]
+	var needs := job_needs()
 	var price := int(s.cost * 1.25) if mail else int(s.cost)
 	var tool: bool = s.get("tool", false)
 	return {"name": s.name, "no": "AR-T%02d" % (20 + SUPPLIES.keys().find(key)), "blurb": CATALOG_BLURB.get(key, ""),
 		"icon": _catalog_icon(key, "work/tool_" + key), "price": price, "mail": mail,
 		"have": "" if tool else str(inventory.get(key, 0)), "owned": tool and tools.has(key),
+		"needed": needs.tools.has(key) or needs.materials.has(key),
 		"can": money >= price, "short": maxi(0, price - money), "buy": func(): _buy_supply(key, price, mail)}
 
 
@@ -4582,6 +4638,8 @@ func _supply_sections(keys: Array, mail: bool) -> Array:
 	var m := []
 	for key in keys:
 		(t if SUPPLIES[key].get("tool", false) else m).append(_supply_entry(key, mail))
+	for list in [t, m]:  # what this job needs comes first, as with parts
+		list.sort_custom(func(a, b): return a.needed and not b.needed)
 	return [{"id": "tools", "tab": "Tools", "head": "Section B: Hand tools", "items": t},
 		{"id": "materials", "tab": "Materials", "head": "Section C: Shop supplies", "items": m}]
 
@@ -4645,11 +4703,13 @@ func _roll_note() -> String:
 
 
 func _open_toolbox() -> void:
+	tutorial.walk("mailorder")  # first time here: a walkthrough of this menu (tutorial.gd)
 	_open_catalog("Mail-order catalog", "Mail order from the hangar: arrives in 1 day, 25% over shelf price",
 		_supply_sections(SUPPLIES.keys(), true), _roll_note())
 
 
 func _open_shop() -> void:
+	tutorial.walk("shop")  # first time here: a walkthrough of this menu (tutorial.gd)
 	var needed := {}
 	if current_job:
 		for id in current_job.found:
@@ -4681,26 +4741,37 @@ func _open_travel() -> void:
 	var rows := []
 	var can_fly := false
 	var calls_here: Array = jobs.filter(func(j): return j != current_job)
-	# One anchor for the comparison: the nearest call you can pay the fare and the parts for.
+	# One anchor for the comparison: the nearest open call you can pay the fare and the parts for.
 	var closest = null
 	for job in calls_here:
 		var est := call_estimate(job)
-		if money >= est.fare + est.parts and (closest == null or est.fare < call_estimate(closest).fare):
+		if not call_locked(job) and money >= est.fare + est.parts and (closest == null or est.fare < call_estimate(closest).fare):
 			closest = job
-	calls_here.sort_custom(func(a, b): return call_estimate(a).net > call_estimate(b).net)  # best estimate first
+	# Open calls first, best estimate first; locked ones after, easiest first.
+	calls_here.sort_custom(func(a, b):
+		if call_locked(a) != call_locked(b):
+			return not call_locked(a)
+		return call_estimate(a).net > call_estimate(b).net)
 	for job in calls_here:
 		var est := call_estimate(job)
 		var cost: int = est.fare
+		var d := call_difficulty(job)
+		var rating := "Difficulty %d of 5: %s" % [d, DIFFICULTY_NAMES[d - 1]]
+		if call_locked(job):
+			rows.append(["%s: %s\n%s. Locked until your apprenticeship is done (%d of 3 jobs).\n%s" % [job.city, job.type, rating,
+				int(tut.lesson) - 1, _symptoms(job)], "Locked", Callable(), false])
+			continue
 		can_fly = can_fly or money >= cost
-		rows.append(["%s: %s%s\nPays $%d, clears about $%d after parts $%d, fuel $%d and %.1f days' rent. %d NM, waits %d days.\n%s" % [
-			job.city, job.type, "   (closest you can afford)" if job == closest else "", job.reward, est.net, est.parts, est.fare + est.plane_fuel,
+		rows.append(["%s: %s%s\n%s. Pays $%d, clears about $%d after parts $%d, fuel $%d and %.1f days' rent. %d NM, waits %d days.\n%s" % [
+			job.city, job.type, "   (closest you can afford)" if job == closest else "", rating, job.reward, est.net, est.parts, est.fare + est.plane_fuel,
 			est.days, roundi(miles(location, job.city) * 0.869), maxi(0, ceili(job.deadline - day)), _symptoms(job)],
 			"Fly ($%d)" % cost, func(): _travel(job, cost), money >= cost])
 	if not can_fly and not _can_finish_here():
-		var fares := jobs.filter(func(j): return j != current_job).map(func(j): return int(miles(location, j.city) * FUEL_PER_MILE))
+		var fares := jobs.filter(func(j): return j != current_job and not call_locked(j)).map(func(j): return int(miles(location, j.city) * FUEL_PER_MILE))
 		_open_game_over(fares.min() if fares.size() > 0 else 0)
 		return
 	_open_panel("Rescue calls", rows)
+	tutorial.walk("map")
 	# Sectional-style nav chart: graticule, airport symbols, compass rose on your field and a
 	# magenta course line (true course + nautical miles) to each call. Click a field to fly.
 	var map := TextureRect.new()
@@ -4723,10 +4794,41 @@ func _open_travel() -> void:
 		pin.add_theme_color_override("font_color", Chart.MAGENTA)
 		pin.add_theme_color_override("font_hover_color", Color(0.9, 0.1, 0.5))
 		pin.position = chart.px(job.city) + Vector2(6, -24)
-		pin.disabled = money < cost
-		pin.tooltip_text = "Fly to %s ($%d fuel)" % [job.city, cost]
+		pin.disabled = money < cost or call_locked(job)
+		pin.tooltip_text = ("%s: locked for now" % job.city) if call_locked(job) else "Fly to %s ($%d fuel)" % [job.city, cost]
 		pin.pressed.connect(func(): _travel(job, cost))
 		map.add_child(pin)
+
+
+const DIFFICULTY_NAMES := ["Routine", "Light", "Moderate", "Heavy", "Expert"]
+
+
+## How hard a call is, 1 to 5, before you take it: one more for each extra fault (up to two), a
+## plane that sat for years, troubleshooting, look-alike faults, an annual with no squawk, and a
+## plane that may have to be grounded. The long-sat chores (stale gas, old oil, ropes) count once.
+func call_difficulty(job: Dictionary) -> int:
+	var core: Array = job.faults.filter(func(id): return not id in NEGLECT_FAULTS)
+	var d := 1 + clampi(core.size() - 1, 0, 2)
+	if job.get("years", 0) >= 2:
+		d += 1
+	if not job.get("diag", {}).is_empty():
+		d += 1
+	if job.faults.any(func(id): return SUSPECTS.has(id)):
+		d += 1
+	if job.get("annual", false):
+		d += 1
+	if job.faults.any(func(id): return FAULTS[id].get("ground", false)):
+		d += 1
+	return clampi(d, 1, 5)
+
+
+## During the apprenticeship only the lesson's call is open: the rest of the map shows what's
+## coming, locked until the three lessons are done. After that nothing is locked; every call shows
+## its difficulty and the choice is yours.
+func call_locked(job: Dictionary) -> bool:
+	if int(tut.get("lesson", 0)) <= 0 or job.get("lesson", false):
+		return false
+	return jobs.any(func(j): return j.get("lesson", false) and j != current_job)  # (an older save with no lesson call locks nothing)
 
 
 ## What a call would leave in your pocket, roughly: its pay (which already covers the parts at

@@ -5,16 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 2: the learning design.** Goal: every part of the game answers Mager's three questions.
-
-1. **Learning-design document** (`docs/LEARNING_DESIGN.md`)
-   - For every aspect of the game (each lesson, each menu, each system: walk-around, write-up, repair,
-     run-up, troubleshooting, logistics, paperwork, ferry flight, career), it answers:
-     what must the player know or do (the goal); how they learn it (method and media in the game);
-     how we know they've learned it (the measure: what the game checks).
-   - Every measure names the code or self-test check that measures it, or is marked **gap** with the
-     backlog item that would close it.
-   - Acceptance: no aspect without all three answers; every gap is a backlog item below.
+(None. Iteration 1 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 
@@ -32,13 +23,32 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 6. **Graphics settings: detail rows under Advanced** (audit item 9). Acceptance: the preset and
    window rows show; 12 detail rows fold; settings screenshot checked.
 
+## Learning-design gaps (from `docs/LEARNING_DESIGN.md`)
+
+- **G1. Squawk comprehension measure.** Log the first spot opened after the squawk notes and
+  whether it matches the note's look-first spot. Acceptance: a play-log line per lesson; a
+  self-test check that it's written.
+- **G2. What players do after a walkthrough.** Log the first action taken in each menu after its
+  walkthrough, and the time to it. Acceptance: a play-log line per menu; self-test check.
+- **G3. Judge the mag drop.** On the run-up the player calls each mag good or bad before the game
+  says (75 rpm max, C-85); a wrong call is explained and costs time, not money. Acceptance: the
+  call is on the cockpit checklist; self-test covers right and wrong calls.
+- **G4. Learning events in the play log.** Count wrong verdicts per fault, purchases the job didn't
+  need, spots skipped at sign-off, and run-ups with "don't run it yet" work open. Acceptance: each
+  writes a play-log line; a self-test check reads them.
+- **G5. Help fading in repairs.** Count H-hint uses and wrong-tool attempts per job. Acceptance:
+  play-log lines; the numbers fall across a career in a scripted self-test.
+- **G7. One overlay at a time.** Tick slips wait while a walkthrough, the tour or a notes card is
+  open, then show. Acceptance: screenshot; self-test check that slips are held.
+
 ## Bugs and debts
 
 - **Screenshot-mode starter:** under xvfb with a display, the self-test's engine start never
   catches, so `start failures` is false in `--shot` runs (headless is fine; it predates iteration 1).
   Acceptance: `--shot` runs reach the flight.
 - **Rare self-test hang:** one plain run in about twenty stopped in `_scene_tests` with no result
-  (seen once, 2026-11-16; not reproduced). Acceptance: found and fixed, or 50 runs clean.
+  (seen 2026-11-16 and again 2026-11-23, one run in nine; not reproduced on a rerun). Acceptance:
+  found and fixed, or 50 runs clean.
 - **README controls are out of date** (says M for the manual; it's N). Acceptance: README matches
   the bindings.
 

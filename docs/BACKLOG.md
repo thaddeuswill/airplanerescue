@@ -41,6 +41,24 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 - **G7. One overlay at a time.** Tick slips wait while a walkthrough, the tour or a notes card is
   open, then show. Acceptance: screenshot; self-test check that slips are held.
 
+## Fun (Lazzaro's four types, 2026-11-23)
+
+Hard fun is the core (mastering real procedures) and serious fun comes from the repair ritual.
+Easy fun is weak and social fun barely there; top games have at least three of the four.
+
+- **F1. Odd things found in planes** (easy fun: surprise, curiosity). Now and then a spot holds
+  something with a story: an old logbook page, a tool left in 1946, a mouse nest with a lost ring.
+  No effect on the job; it goes on the hangar wall. Acceptance: shows once per find; self-test
+  checks a find is recorded and shown.
+- **F2. Owners with stories who call you back** (social fun: bonding). Owners you've saved call
+  again years later with the same plane; their squawk mentions your last job. Acceptance: a
+  returning owner's call names your earlier work; self-test covers one return.
+- **F3. The same-plane challenge** (social fun: fiero, rivalry, offline). A short job code; enter
+  it and you get the same plane and faults; the logbook shows days and cost to compare.
+  Acceptance: the same code gives the same job; self-test checks it.
+- **F4. Keep the repair ritual a choice** (serious fun). Note on item 4: "Do it the way you know"
+  is offered, never forced; the hands-on way stays the default.
+
 ## Bugs and debts
 
 - **Screenshot-mode starter:** under xvfb with a display, the self-test's engine start never

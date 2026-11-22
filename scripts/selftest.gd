@@ -39,6 +39,34 @@ func run(main, args: PackedStringArray) -> void:
 			get_tree().quit(0)
 			return
 	for a in args:
+		if a.begins_with("--tutorial-shot="):  # the apprenticeship: tour pages, checklist, squawk quiz, reward
+			var pre := a.trim_prefix("--tutorial-shot=")
+			g.tut = {"lesson": 1, "tour": false, "done": {}, "base": 0}
+			g.jobs.clear()
+			for _i in g.MAX_JOBS:
+				g._spawn_job()
+			g.tutorial.start_tour()
+			for i in g.tutorial._tour_pages().size():
+				await _snap(pre, "tour_%d" % i, 0.4)
+				g.tutorial._tour_next()
+			await _snap(pre, "home_card", 0.4)
+			var tj: Dictionary = g.jobs[0]
+			tj.deadline = g.day + 30
+			await g._travel(tj, 0)
+			g.tutorial._show_decode(tj)
+			await _snap(pre, "decode", 0.4)
+			var wrong: Array = g.tutorial._decode.find_children("*", "Button", true, false).filter(func(b): return b.text != "GO LOOK" \
+				and not g.tutorial.DECODE[g.tutorial._decode_fault(tj)].any(func(o): return o[1] and o[0] == b.text))
+			wrong[0].pressed.emit()
+			await _snap(pre, "decode_wrong", 0.3)
+			g.tutorial._close_decode()
+			g._inspect_zone("prop")
+			g._close_panel()
+			await _snap(pre, "field_card", 0.6)
+			g.tut["reward"] = 2
+			await _snap(pre, "reward", 0.8)
+			get_tree().quit(0)
+			return
 		if a.begins_with("--settings-shot="):  # every settings tab, for checking the sheet
 			var pre := a.trim_prefix("--settings-shot=")
 			g._open_pause()  # the pause menu that leads to it
@@ -63,6 +91,17 @@ func run(main, args: PackedStringArray) -> void:
 			return
 	var edges_ok: bool = _edge_tests() and _torque_test() and _faults_test() and Work.spin_dir("tight") < 0.0 and Work.spin_dir("loose") > 0.0 and Work.spin_dir("snug") > 0.0
 	var scenes_ok = _scene_tests()
+	var lesson := 0
+	for a in args:
+		if a.begins_with("--tutorial"):  # --tutorial=N: play lesson N's job (tutorial.gd), checking every step ticks
+			lesson = int(a.trim_prefix("--tutorial=")) if a.contains("=") else 1
+	if lesson > 0:
+		g.tut = {"lesson": lesson, "tour": true, "done": {}, "base": g.rescued}
+		if lesson == 3:
+			g.tools["tester"] = true  # lesson 2's gift
+		g.jobs.clear()
+		g._spawn_job()
+	var lesson_steps: Array = g.tutorial.steps().map(func(st): return st.id)
 	var job: Dictionary = g.jobs[0]
 	if "--all-faults" in args:  # every broken part one plane can have at once, for screenshots
 		var excl: Array = g.PLANE_TYPES.filter(func(t): return t[0] == job.type)[0][2]
@@ -91,6 +130,21 @@ func run(main, args: PackedStringArray) -> void:
 	_trip_probe()
 	await g._travel(job, 0)
 	var trip_ms := Time.get_ticks_msec() - trip_start
+	if lesson > 0:  # what the pilot means: a wrong answer is explained and stays open, the right one ticks
+		g.tutorial._show_decode(job)
+		var opts: Array = g.tutorial._decode.find_children("*", "Button", true, false).filter(func(b): return b.text != "GO LOOK")
+		var right: Array = g.tutorial.DECODE[g.tutorial._decode_fault(job)].filter(func(o): return o[1]).map(func(o): return o[0])
+		for b in opts:
+			if not b.text in right:
+				b.pressed.emit()
+		var ticked_early: bool = g.tut.done.has("squawk")
+		for b in opts:
+			if b.text in right:
+				b.pressed.emit()
+		if ticked_early or not g.tut.done.has("squawk"):
+			print("TUTORIAL: the squawk quiz ticked on a wrong answer, or not on the right one")
+			_chk(false, 1)
+		g.tutorial._close_decode()
 	var clip: AudioStreamWAV = g.sound._cruise.stream
 	var art_ok: bool = ["res://textures/logo_title.png", "res://textures/logo_ghost.png", "res://textures/logo_decal.png", "res://textures/rescue_photo.png", "res://fonts/Yellowtail-Regular.ttf", "res://fonts/BigShouldersDisplay.ttf"].all(func(p): return ResourceLoader.exists(p))
 	var trip_ok: bool = art_ok and trip_ms >= 3000 and clip.get_length() > 7.9 and clip.data.count(0) < clip.data.size() / 2 and not is_instance_valid(g._loader) and not g.player.frozen and _trip_volume > -8.0 and _trip_saved_at == job.city and not g.get_viewport().disable_3d
@@ -308,7 +362,7 @@ func run(main, args: PackedStringArray) -> void:
 	# Work scenes: with no tools nothing comes apart; with tools but no part it stalls at the
 	# empty slot; with both, the whole job gets done bolt by bolt.
 	# A job whose first fixable scene has bolts to turn (a few, like weight and balance, need no tools).
-	var bolted: Array = job.faults.filter(func(id): return Work.scene_for(id, g.FAULTS[id]).els.any(func(e): return e.type == "fastener" \
+	var bolted: Array = job.faults.filter(func(id): return job.found.has(id) and Work.scene_for(id, g.FAULTS[id]).els.any(func(e): return e.type == "fastener" \
 		and Work.scene_for(id, g.FAULTS[id]).els.any(func(h): return h.id == e.host and h.get("needs", []).is_empty() and h.get("start", "on") == "on")))
 	if bolted.is_empty():
 		job.faults.append("tire")
@@ -530,8 +584,9 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "engine_log", 0.1)
 	var before_fly: int = g.money  # rent has come out day by day since the start; the pay lands on top
 	await _fly(true, shot)
-	ok = ok and g.ferry == null and g.rescued == 1 and g.money == before_fly + job.reward + roundi(job.get("supplies", {}).get("billed", 0.0)) \
-		and g.money < start + job.reward + roundi(job.get("supplies", {}).get("billed", 0.0)) and g.jobs.size() == g.MAX_JOBS
+	var bonus: int = g.tutorial.REWARDS[lesson].cash if lesson > 0 else 0  # a lesson pays a bonus on delivery
+	ok = ok and g.ferry == null and g.rescued == 1 and g.money == before_fly + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) \
+		and g.money < start + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) and g.jobs.size() == g.MAX_JOBS
 	# The ending and game-over screens both leave a way out and can't be closed by accident.
 	var rescued_now = g.rescued
 	g.rescued = g.GOAL
@@ -556,6 +611,15 @@ func run(main, args: PackedStringArray) -> void:
 	if shot != "":
 		g._pocket("logbook")
 		await _snap(shot, "logbook_after")
+	if lesson > 0:  # the lesson's job is delivered: every step ticked, it paid out and the next began
+		var want: Array = lesson_steps.filter(func(id): return id != "tour")
+		var missing: Array = want.filter(func(id): return not id in g.tut.get("last", []))
+		if not missing.is_empty() or int(g.tut.get("lesson", -1)) != (lesson + 1 if lesson < 3 else 0) or int(g.tut.get("reward", 0)) != lesson:
+			print("TUTORIAL lesson %d: unticked %s, now lesson %s, reward %s" % [lesson, missing, g.tut.get("lesson"), g.tut.get("reward")])
+			ok = false
+		if lesson < 3 and not g.jobs.all(func(jj): return jj.faults == ["tire"] if lesson == 1 else jj.faults == ["stuck_valve"]):
+			print("TUTORIAL: the map's calls aren't the next lesson's job")
+			ok = false
 	print("SELF-TEST ", "PASS" if ok and edges_ok and scenes_ok else "FAIL", " edges=", edges_ok, " scenes=", scenes_ok, " city=", job.city, " seed=", g.test_seed, " faults=", job.faults, " day=%.1f" % g.day)
 	get_tree().quit(0 if ok and edges_ok and scenes_ok else 1)
 

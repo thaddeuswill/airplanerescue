@@ -207,6 +207,7 @@ func _tab_game() -> void:
 	_toggle("Crosshair", "crosshair")
 	_toggle("Frame rate counter", "fps_counter")
 	_toggle("Screen shake (off also calms other motion)", "shake")
+	_toggle("Apprentice checklist (first three jobs)", "checklist")
 
 
 func _tab_access() -> void:

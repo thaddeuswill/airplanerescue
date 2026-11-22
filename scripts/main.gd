@@ -415,6 +415,8 @@ func _ready() -> void:
 	else:
 		tools = STARTER_TOOLS.duplicate()  # a new career starts with a screwdriver and a rag
 		inventory = STARTER_SUPPLIES.duplicate()  # and a few consumables in the truck
+		if not "--self-test" in args:  # three taught jobs first (tutorial.gd); the self-test turns it on with --tutorial
+			tut = {"lesson": 1, "tour": false, "done": {}, "base": 0}
 		while jobs.size() < MAX_JOBS:
 			_spawn_job()
 		_load_field(START_CITY, null)
@@ -487,8 +489,8 @@ func _install_update() -> void:
 
 var save_path := "user://airplane_rescue.save"
 var test_seed := 0  # printed with every self-test result
-const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held"]
-const SAVE_VERSION := 1  # bump when the layout changes, and teach _migrate the step
+const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held", "tut"]
+const SAVE_VERSION := 2  # bump when the layout changes, and teach _migrate the step
 var _greeting := ""  # the first message of this session
 var had_save := false  # a career was loaded at launch (so the title screen offers Continue)
 var save_locked := false  # a save we couldn't read is never overwritten (it might be newer, or fixable)
@@ -568,6 +570,8 @@ func _migrate(data: Dictionary) -> void:
 		for key in ["years", "washed", "spent", "work", "fuel", "parked"]:
 			if not j.has(key):
 				j[key] = {"years": 0, "washed": true, "spent": {"fuel": 0, "parts": 0, "mail": 0}, "work": {}, "fuel": 0.2, "parked": "apron"}[key]
+	if int(data.get("version", 0)) < 2:  # 2: the apprenticeship. A career already under way skips it.
+		data["tut"] = {"lesson": 0, "tour": true, "done": {}, "base": int(data.get("rescued", 0))}
 	data.version = SAVE_VERSION
 
 
@@ -614,6 +618,10 @@ func _spawn_job() -> void:
 		var easy := FIRST_JOBS.filter(func(id): return FAULTS.has(id))
 		if easy.size() > 0:
 			picks = [easy[0]]
+	var lesson := int(tut.get("lesson", 0))
+	if lesson > 0:  # every call on the map during a lesson is that lesson's job (tutorial.gd)
+		picks = tutorial.lesson_faults(rng)
+		first = true  # a clean plane: no years in the weather, no extras
 	var years := 0 if first or rng.randf() < 0.45 else rng.randi_range(2, mini(15, 4 + r * 3 / 2))
 	if years >= 2:
 		picks += ["stale_fuel", "oil_change"]
@@ -626,10 +634,10 @@ func _spawn_job() -> void:
 			picks.append("door_pin")
 		if rng.randf() < 0.5:
 			picks.append("bungee")
-	if r >= 2 and rng.randf() < 0.06:  # now and then a plane that can't be fixed where it sits
+	if r >= 2 and lesson == 0 and rng.randf() < 0.06:  # now and then a plane that can't be fixed where it sits
 		picks.push_front(GROUND_FAULTS[rng.randi() % GROUND_FAULTS.size()])
 	var job := {"city": options[rng.randi() % options.size()], "type": t[0], "years": years, "washed": years == 0,
-		"fixed": {}, "found": {}, "checked": {}, "work": {}, "annual": r >= 3 and rng.randf() < 0.15,
+		"fixed": {}, "found": {}, "checked": {}, "work": {}, "annual": r >= 3 and lesson == 0 and rng.randf() < 0.15,
 		"spent": {"fuel": 0, "parts": 0, "mail": 0}, "fuel": rng.randf_range(0.03, 0.3), "parked": "apron",
 		"owner": OWNERS[rng.randi() % OWNERS.size()], "tried": {}, "hidden": "",
 		"deadline": day + 5 - mini(1, r / 4) + rng.randi() % 5}  # each spot takes two hours: skipping one is a real gamble
@@ -639,7 +647,7 @@ func _spawn_job() -> void:
 		cost += FAULTS[id].cost + (60 if job.diag.has(id) else 0)  # troubleshooting pays too
 	job.reward = int(round((t[1] + cost + years * 150 + (250 if job.annual else 0)) / 50.0)) * 50  # parts at cost: rent eats the rest
 	# Sometimes the cowl comes off for one job and shows you another behind it.
-	if r >= 2 and job.faults.any(func(id): return FAULTS[id].zone == "engine") and rng.randf() < 0.35:
+	if r >= 2 and lesson == 0 and job.faults.any(func(id): return FAULTS[id].zone == "engine") and rng.randf() < 0.35:
 		var pick := HIDDEN_CLUES.keys().filter(func(id): return not job.faults.has(id))
 		if pick.size() > 0:
 			job.hidden = pick[rng.randi() % pick.size()]
@@ -1325,6 +1333,11 @@ func _open_station(zone: String) -> void:
 # ---------- the engine bay (scripts/bay.gd) ----------
 
 const Bay := preload("res://scripts/bay.gd")
+const Tutorial := preload("res://scripts/tutorial.gd")
+var tutorial  # scripts/tutorial.gd: the first three jobs, taught by doing them
+## The apprenticeship's saved state (tutorial.gd): lesson 1-3 or 0, tour seen, steps done this
+## lesson, rescues when it began, a reward still to show.
+var tut := {"lesson": 0, "tour": true, "done": {}, "base": 0}
 var bay_view := "cowled"  # where you were standing at the engine, so a job's Back returns there
 var spot_view := {}  # the same at every other spot: zone -> view
 
@@ -2121,6 +2134,8 @@ func _sign_off() -> void:
 		var e: Dictionary = earlier[rng.randi() % earlier.size()]
 		var news := "Radio: %s in %s says the %s flew %d hours this season, not a squawk." % [e.owner, e.city, e.type, rng.randi_range(12, 60)]
 		get_tree().create_timer(9.0).timeout.connect(func(): if is_node_ready(): log_line(news))
+	if tutorial.rescued_one():  # a lesson done: the calls on the map become the next lesson's
+		jobs.clear()
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
 	sound.chime()  # a new call on the radio
@@ -2678,6 +2693,12 @@ class Reticle extends Control:
 func _setup_ui() -> void:
 	ui = CanvasLayer.new()
 	add_child(ui)
+	var tl := CanvasLayer.new()  # the apprenticeship sits over every sheet and job, so a tick is always seen
+	tl.layer = ui.layer + 1
+	add_child(tl)
+	tutorial = Tutorial.new()
+	tutorial.setup(self)
+	tl.add_child(tutorial)
 	_setup_pockets()
 	cross = Reticle.new()
 	ui.add_child(cross)
@@ -3503,7 +3524,7 @@ const SETTING_DEFAULTS := {
 	# Controls
 	"sens": 1.0, "invert": false, "quick_hold": false, "keys": {},
 	# Gameplay and interface
-	"fov": 75.0, "crosshair": true, "fps_counter": false, "shake": true,
+	"fov": 75.0, "crosshair": true, "fps_counter": false, "shake": true, "checklist": true,
 	# Accessibility
 	"text_size": "medium", "text_bg": 0.82, "colorblind": "off",
 }
@@ -3511,7 +3532,7 @@ const SETTING_TABS := {
 	"video": ["display_mode", "resolution", "vsync", "max_fps", "quality", "render_scale", "upscaler", "aa", "shadows", "draw", "detail", "aniso", "bloom", "haze", "bounce", "ao", "dust"],
 	"audio": ["master", "music", "sfx", "ambience", "night", "mono"],
 	"controls": ["sens", "invert", "quick_hold", "keys"],
-	"game": ["fov", "crosshair", "fps_counter", "shake"],
+	"game": ["fov", "crosshair", "fps_counter", "shake", "checklist"],
 	"access": ["text_size", "text_bg", "colorblind"],
 }
 ## What each quality preset sets. Changing any of these by hand makes the preset "custom".
@@ -4412,7 +4433,7 @@ func writeup(id: String) -> PackedStringArray:
 			if c.ata == p.ata:
 				ch = "%s, %s" % [c.ata, String(c.title).to_lower()]
 		var fig: String = _fig_cache.get("page:" + p.id, "")
-		out.append("Fix: service manual chapter %s, \"%s\"%s. Press M." % [ch, String(p.title), (", figure " + fig) if fig != "" else ""])
+		out.append("Fix: service manual chapter %s, \"%s\"%s. Press %s." % [ch, String(p.title), (", figure " + fig) if fig != "" else "", key_name("manual")])
 		var steps: Array = p.get("steps", [])
 		if steps.size() > 0:
 			out.append("First: " + String(steps[0]))

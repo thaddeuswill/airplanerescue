@@ -13,6 +13,48 @@ const Updater := preload("res://scripts/updater.gd")
 var g  # main.gd
 
 
+## The watchdog: a self-test that stops must fail and say where, never pass or wait forever.
+## A thread watches from outside the game loop: if frames stop for FROZEN_S (a loop that never
+## yields), or the whole run passes LIMIT_S (an await that never resumes), it prints the last
+## place the test reported (`_at`) and ends the run as a FAIL.
+var FROZEN_S := 60
+var LIMIT_S := 420
+var phase := "start"
+var _phase_t := 0
+var _watch: Thread
+var _watching := true
+
+
+func _at(where: String) -> void:
+	phase = where
+	_phase_t = Time.get_ticks_msec()
+
+
+func _watchdog() -> void:
+	var start := Time.get_ticks_msec()
+	var last_frame := Engine.get_process_frames()
+	var last_seen := start
+	while _watching:
+		OS.delay_msec(500)
+		var f := Engine.get_process_frames()
+		var now := Time.get_ticks_msec()
+		if f != last_frame:
+			last_frame = f
+			last_seen = now
+		var frozen: bool = now - last_seen > FROZEN_S * 1000
+		if frozen or now - start > LIMIT_S * 1000:
+			print("SELF-TEST FAIL hang (%s) at: %s, for %d s; seed=%d" % ["frames stopped" if frozen else "never finished",
+				phase, (now - _phase_t) / 1000, g.test_seed if g else 0])
+			OS.kill(OS.get_process_id())  # the main thread may be stuck: end the process from here
+			return
+
+
+func _exit_tree() -> void:
+	_watching = false
+	if _watch and _watch.is_started():
+		_watch.wait_to_finish()
+
+
 var _trip_volume := -80.0
 var _trip_saved_at := ""
 var _quit_open := false  # the pause menu offered a way out during an emergency
@@ -20,6 +62,13 @@ var _quit_open := false  # the pause menu offered a way out during an emergency
 
 func run(main, args: PackedStringArray) -> void:
 	g = main
+	_at("run")
+	for a in args:  # --hang-test=wait|frozen: hang on purpose, to prove the watchdog fails it
+		if a.begins_with("--hang-test="):
+			LIMIT_S = 8
+			FROZEN_S = 4
+	_watch = Thread.new()
+	_watch.start(_watchdog)
 	var shot = ""
 	for a in args:
 		if a.begins_with("--shot="):
@@ -114,6 +163,15 @@ func run(main, args: PackedStringArray) -> void:
 			await _scene_shots(spec[0], Array(spec[1].split(",")) if spec.size() > 1 else [])
 			get_tree().quit(0)
 			return
+	for a in args:
+		if a == "--hang-test=wait":
+			_at("hang test: waiting on a signal that never comes")
+			await get_tree().create_timer(9999.0).timeout
+		elif a == "--hang-test=frozen":
+			_at("hang test: a loop that never yields")
+			while true:
+				OS.delay_msec(100)
+	_at("edge tests")
 	var edges_ok: bool = _edge_tests() and _torque_test() and _faults_test() and Work.spin_dir("tight") < 0.0 and Work.spin_dir("loose") > 0.0 and Work.spin_dir("snug") > 0.0
 	var scenes_ok = _scene_tests()
 	var lesson := 0
@@ -1088,6 +1146,7 @@ func _torque_test() -> bool:
 
 
 func _snap(prefix: String, name: String, wait := 0.4) -> void:
+	_at("snap " + name)
 	if prefix == "":
 		return
 	await get_tree().create_timer(wait).timeout
@@ -1168,6 +1227,7 @@ func _scene_tests() -> bool:
 		g.current_job = j
 		return j
 	for scene in Work.scenes():
+		_at("scene test " + scene)
 		if scene in g.TESTS:  # driven elsewhere
 			continue  # driven below, through each fault it can find
 		var j: Dictionary = fake.call([scene] if g.FAULTS.has(scene) else [])
@@ -1337,6 +1397,7 @@ var _said := false
 
 
 func _chk(ok: bool, where: int) -> void:
+	_at("after check %d" % where)
 	if not ok and not _said:
 		_said = true
 		print("FIRST FAILED CHECK at run() line ", where)

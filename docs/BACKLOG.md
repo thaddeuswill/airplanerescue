@@ -5,7 +5,14 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 1 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 2: a self-test you can trust.** Goal: the self-test never hangs. Started 2026-11-23.
+
+1. **Fix the rare self-test hang.**
+   - Find the cause: reproduce it, with a log that shows where the run stopped.
+   - Fix the cause, not the symptom. A watchdog that ends a stuck run with a FAIL and the place it
+     stopped is added as well, so a future hang can't pass silently or wait forever.
+   - Acceptance: the cause is named in the commit; 50 plain self-test runs in a row finish
+     (PASS or FAIL, none hang); the definition-of-done set passes.
 
 ## Next
 
@@ -46,9 +53,6 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 - **Screenshot-mode starter:** under xvfb with a display, the self-test's engine start never
   catches, so `start failures` is false in `--shot` runs (headless is fine; it predates iteration 1).
   Acceptance: `--shot` runs reach the flight.
-- **Rare self-test hang:** one plain run in about twenty stopped in `_scene_tests` with no result
-  (seen 2026-11-16 and again 2026-11-23, one run in nine; not reproduced on a rerun). Acceptance:
-  found and fixed, or 50 runs clean.
 - **README controls are out of date** (says M for the manual; it's N). Acceptance: README matches
   the bindings.
 

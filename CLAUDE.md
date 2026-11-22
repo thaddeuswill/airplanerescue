@@ -24,6 +24,11 @@ godot --headless --path . -- --self-test --tutorial=2         # play apprentices
 ```
 
 - Run the plain self-test several times: faults are random, so one pass proves little.
+- A run that stops never passes or waits forever: a watchdog thread fails it with `SELF-TEST FAIL hang`
+  and the last place it reached (frames stopped for 60 s, or the run past 420 s).
+  `--hang-test=wait|frozen` hangs on purpose to prove the watchdog works.
+- Many runs at once: give each its own `user://` folder, or they fight over one save file:
+  `XDG_DATA_HOME=/tmp/run1 godot --headless --path . -- --self-test` (Linux).
 - The `ERROR: Condition "(uint32_t)buff.size() != len"` line is expected. The test deliberately
   corrupts the save file to check the fallback to `.bak`.
 - Screenshots need a display: `xvfb-run -a -s "-screen 0 1280x800x24" godot --path . --rendering-driver opengl3 --resolution 1280x720 -- --self-test --shot=prefix`.

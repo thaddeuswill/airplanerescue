@@ -4123,10 +4123,25 @@ func _build_parts_table() -> void:
 	_refresh_parts_table()
 
 
+var _parts_table_dirty := false
+
+
+## Asks for the parts table to be rebuilt, once, at the end of the frame. Finishing a run of jobs
+## (or buying several things) used to rebuild every label each time, all in one frame; that many
+## Label3D nodes made and freed back to back crashed the engine now and then (iteration 2).
 func _refresh_parts_table() -> void:
+	if _parts_table_dirty:
+		return
+	_parts_table_dirty = true
+	_rebuild_parts_table.call_deferred()
+
+
+func _rebuild_parts_table() -> void:
+	_parts_table_dirty = false
 	if not is_instance_valid(_parts_table):
 		return
 	for ch in _parts_table.get_children():
+		_parts_table.remove_child(ch)  # gone now, not at the end of the frame
 		ch.queue_free()
 	var items := []
 	for k in inventory:

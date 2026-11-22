@@ -396,6 +396,14 @@ func run(main, args: PackedStringArray) -> void:
 				ok = false
 	g.tools = tools_before
 	_chk(ok, 70)
+	# The parts table rebuilds once per frame however many times it's asked (many rebuilds in one
+	# frame used to crash the engine now and then): asking twice leaves one rebuild pending.
+	g._refresh_parts_table()
+	g._refresh_parts_table()
+	var pending: bool = g._parts_table_dirty
+	await get_tree().process_frame
+	ok = ok and pending and not g._parts_table_dirty
+	_chk(ok, 71)
 	_run_up()
 	# A clean start hears every run-up fault; a dead battery or starter cuts the test short.
 	# On Easy the run-up is refused while known don't-run-it work is open.

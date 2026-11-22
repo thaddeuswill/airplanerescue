@@ -5,14 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 2: a self-test you can trust.** Goal: the self-test never hangs. Started 2026-11-23.
-
-1. **Fix the rare self-test hang.**
-   - Find the cause: reproduce it, with a log that shows where the run stopped.
-   - Fix the cause, not the symptom. A watchdog that ends a stuck run with a FAIL and the place it
-     stopped is added as well, so a future hang can't pass silently or wait forever.
-   - Acceptance: the cause is named in the commit; 50 plain self-test runs in a row finish
-     (PASS or FAIL, none hang); the definition-of-done set passes.
+(None. Iteration 2 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 

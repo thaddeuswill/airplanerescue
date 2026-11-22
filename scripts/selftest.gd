@@ -571,13 +571,32 @@ func run(main, args: PackedStringArray) -> void:
 	if rf:
 		rf.state = "run"
 		rf.throttle = (rf.RUNUP_RPM - 650.0) / 1700.0
+		var calls_ok := true
 		for step in [[1, false], [2, false], [3, true], [3, false]]:
 			rf.mags = step[0]
 			rf.carb_heat = step[1]
 			rf._mag_t = 0.0
 			for i in 120:
 				rf._process(1.0 / 60.0)
-		runup_ok = runup_ok and rf._seen == [rf.drops.x, rf.drops.y, rf.carb_drop] and rf.drops.x <= 75 and rf.drops.y <= 75 and rf.drops.y > 0 and rf.carb_drop > 0
+			if step[0] == 1 and not step[1]:  # judge the left mag: a wrong call first, then the right one
+				await _snap(shot, "runup_call", 0.2)
+				calls_ok = calls_ok and Ferry.mag_reason(0).ends_with("Bad.") and Ferry.mag_reason(Ferry.MAG_LIMIT + 1).ends_with("Bad.") \
+					and Ferry.mag_reason(Ferry.MAG_LIMIT).ends_with("Good.") and Ferry.mag_reason(1).ends_with("Good.")
+				var day0: float = g.day
+				rf.call_mag(false)  # a fixed plane's mag is good: "bad" is wrong
+				var wrong_ok: bool = rf._calls[0] == -1 and g.day > day0 and g._log_list.get_children().any(func(l): return l.text.begins_with("Not quite. Left mag"))
+				calls_ok = calls_ok and wrong_ok
+				rf.call_mag(true)
+				calls_ok = calls_ok and rf._calls[0] == 1
+		# Every reading taken, back on BOTH, but the right mag not called yet: it mustn't finish.
+		for i in 200:
+			rf._process(1.0 / 60.0)
+		calls_ok = calls_ok and g.ferry != null and rf._done_t < 0.0
+		rf.call_mag(true)
+		calls_ok = calls_ok and rf._calls[1] == 1
+		if not calls_ok:
+			print("MAG CALLS: a wrong call should be explained and cost time, right calls should finish the run-up")
+		runup_ok = runup_ok and calls_ok and rf._seen == [rf.drops.x, rf.drops.y, rf.carb_drop] and rf.drops.x <= 75 and rf.drops.y <= 75 and rf.drops.y > 0 and rf.carb_drop > 0
 		for i in 200:
 			if g.ferry == null:
 				break

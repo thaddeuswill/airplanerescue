@@ -97,7 +97,7 @@ marked **gap** with the backlog item that closes it (`docs/BACKLOG.md`, items G1
 |---|---|
 | Goal | Start it, hold 2,100 rpm, read each mag's drop (75 max), check carb heat |
 | Method | The cockpit checklist card with live readings (`preflight.gd`, `ferry.card`); readings written in as taken |
-| Measure | The drops are read and logged (`ferry.gd _runup`); running with "don't run it yet" work open breaks a part you pay for (`RUNUP_DAMAGE`); self-test 72. **Gap G3:** the game reads the drop for you; the player never judges good or bad |
+| Measure | The drops are read and logged (`ferry.gd _runup`); running with "don't run it yet" work open breaks a part you pay for (`RUNUP_DAMAGE`); self-test 72. The player calls each mag good or bad (`ferry.gd call_mag`): a wrong call is explained and costs time, and every call writes a play-log line (closed G3, iteration 3) |
 | Flow | **Goals** the checklist. **Feedback** the tach, the log lines. **Balance** Easy stops an unready run-up. **Distractions** the cockpit only |
 
 ### B6. Troubleshooting
@@ -175,7 +175,7 @@ first time it's needed; **distractions** the walkthrough dims everything but wha
 |---|---|---|
 | G1 | Squawk: no check that the first spot opened matches the note | G1 |
 | G2 | Menus: no record of what the player did after a walkthrough | G2 |
-| G3 | Run-up: the player never judges a mag drop good or bad | G3 |
+| G3 | ~~Run-up: the player never judges a mag drop~~ closed in iteration 3 | done |
 | G4 | Wrong verdicts, unneeded purchases and skipped spots aren't counted | G4 |
 | G5 | Repair: hint uses and wrong-tool tries aren't counted | G5 |
 | G6 | Balance after the apprenticeship: several new systems at once | item 5 (first-time cards) |

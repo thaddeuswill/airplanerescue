@@ -3713,7 +3713,7 @@ const DEFAULT_KEYS := {
 	"throttle_up": [KEY_W], "throttle_down": [KEY_S], "rudder_left": [KEY_A], "rudder_right": [KEY_D],
 	"stick_forward": [KEY_UP], "stick_back": [KEY_DOWN], "starter": [KEY_SPACE],
 	"fuel_valve": [KEY_F], "master": [KEY_M], "primer": [KEY_P], "mags": [KEY_I], "carb_heat": [KEY_H],
-	"playtest_note": [KEY_F8], "manual": [KEY_N],
+	"playtest_note": [KEY_F8], "manual": [KEY_N], "call_good": [KEY_G], "call_bad": [KEY_B],
 }
 
 

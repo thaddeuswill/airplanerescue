@@ -49,6 +49,9 @@ var radio_dead := false
 var carb_drop := 50  # run-up: rpm lost with carb heat pulled
 var carb_heat := false
 var _seen := [-1, -1, -1]  # the drops the pilot has held long enough to read: left, right, carb heat
+var _calls := [-1, -1]  # the pilot's call on each mag once read: 1 good, 0 bad, -1 not called yet
+const MAG_LIMIT := 75  # rpm: the most a C-85 mag may drop at the run-up (JOBS_ATA.md)
+const WRONG_CALL_DAYS := 0.05  # a wrong call costs time, as a wrong verdict does (main._verdict)
 var _mag_t := 0.0
 var _done_t := -1.0
 var _warned := false
@@ -138,6 +141,44 @@ func _unhandled_input(e: InputEvent) -> void:
 		next_mags()
 	elif e.is_action_pressed("carb_heat") and mode == "runup" and state == "run":
 		toggle_carb()
+	elif e.is_action_pressed("call_good") and mode == "runup" and state == "run":
+		call_mag(true)
+	elif e.is_action_pressed("call_bad") and mode == "runup" and state == "run":
+		call_mag(false)
+
+
+## The pilot judges each mag once its drop is read: good is a drop above zero and no more than
+## MAG_LIMIT, running smooth. A right call says why; a wrong one says why, costs time and has to be
+## called again. Every call goes in the play log: it's how we see the run-up being learned.
+func call_mag(good: bool) -> void:
+	var which := -1
+	for i in 2:
+		if _seen[i] >= 0 and _calls[i] < 0:
+			which = i
+			break
+	if which < 0:
+		return
+	var drop: int = _seen[which]
+	var right: bool = drop > 0 and drop <= MAG_LIMIT
+	var side: String = ["Left", "Right"][which]
+	main.playlog("mag call %s: said %s, drop %d, %s" % [side.to_lower(), "good" if good else "bad", drop, "right" if good == right else "wrong"])
+	if good == right:
+		_calls[which] = 1 if good else 0
+		main.sound.sfx("click")
+		main.log_line("Right. %s mag: %s" % [side, mag_reason(drop)])
+	else:
+		main.sound.sfx("deny")
+		main.log_line("Not quite. %s mag: %s Call it again." % [side, mag_reason(drop)])
+		main._advance(WRONG_CALL_DAYS)
+
+
+## Why a drop is good or bad, in a mechanic's words.
+static func mag_reason(drop: int) -> String:
+	if drop == 0:
+		return "no drop at all means it isn't grounding when switched off: a broken P-lead, a hot mag. Bad."
+	if drop > MAG_LIMIT:
+		return "%d is past the %d rpm limit and it runs rough: that side's plugs, lead or mag. Bad." % [drop, MAG_LIMIT]
+	return "%d is inside the %d rpm limit and it runs smooth. Good." % [drop, MAG_LIMIT]
 
 
 func toggle_carb() -> void:
@@ -185,17 +226,25 @@ func card() -> Dictionary:
 		if state != "run":
 			return {"title": "BEFORE START", "alert": alert, "steps": before, "foot": ""}
 		var shown := func(i: int) -> String: return "" if _seen[i] < 0 else "-%d rpm" % _seen[i]
-		return {"title": "RUN-UP", "alert": alert, "foot": "Mag drop 75 rpm max (C-85). Carb heat: about 50.", "steps": [
+		var called := func(i: int) -> String: return "" if _calls[i] < 0 else ("GOOD" if _calls[i] == 1 else "BAD")
+		var call_keys: String = "%s / %s" % [k.call("call_good"), k.call("call_bad")]
+		# The limit on the card on Easy and Medium; on Hard you know it, or it's in the manual (N).
+		var foot := "Mag drop %d rpm max (C-85). Carb heat: about 50." % MAG_LIMIT if main.guide("medium") else ""
+		return {"title": "RUN-UP", "alert": alert, "foot": foot, "steps": [
 			{"text": "Hold %d rpm" % RUNUP_RPM, "key": throttle_keys, "ok": _at_rpm() or not _seen.has(-1), "read": "%d" % rpm,
 				"how": "Throttle up until the tach reads %d. A check at idle tells you nothing." % RUNUP_RPM},
 			{"text": "Left mag alone", "key": k.call("mags"), "ok": _seen[0] >= 0, "read": shown.call(0),
 				"how": "Switch to LEFT and hold it while you read the drop off the tach."},
+			{"text": "Call the left mag", "key": call_keys, "ok": _calls[0] >= 0, "read": called.call(0),
+				"how": "Good (%s) or bad (%s)? Good drops a little, no more than the limit, and runs smooth." % [k.call("call_good"), k.call("call_bad")]},
 			{"text": "Right mag alone", "key": k.call("mags"), "ok": _seen[1] >= 0, "read": shown.call(1),
-				"how": "Switch to RIGHT. A big drop, or none at all, is a finding."},
+				"how": "Switch to RIGHT and read the drop."},
+			{"text": "Call the right mag", "key": call_keys, "ok": _calls[1] >= 0, "read": called.call(1),
+				"how": "Good (%s) or bad (%s)? No drop at all is bad too." % [k.call("call_good"), k.call("call_bad")]},
 			{"text": "Carb heat", "key": k.call("carb_heat"), "ok": _seen[2] >= 0, "read": shown.call(2),
 				"how": "Back on BOTH, pull the carb heat: a small drop says it works."},
 			{"text": "Back to BOTH, heat off", "key": "%s %s" % [k.call("mags"), k.call("carb_heat")],
-				"ok": mags == 3 and not carb_heat and not _seen.has(-1), "read": "", "how": "Then it shuts down on its own."}]}
+				"ok": mags == 3 and not carb_heat and not _seen.has(-1) and not _calls.has(-1), "read": "", "how": "Then it shuts down on its own."}]}
 	if state != "run":
 		return {"title": "BEFORE START", "alert": alert, "steps": before, "foot": ""}
 	# The take-off, stage by stage.
@@ -387,7 +436,7 @@ func _runup(delta: float) -> void:
 				main.log_line("Carb heat: drops %d rpm." % drop)
 			else:
 				main.log_line("%s mag: %s." % [MAGS[mags].capitalize(), "no drop at all" if drop == 0 else "drops %d rpm%s" % [drop, " and runs rough" if rough > 0.0 else ""]])
-	if not _seen.has(-1) and mags == 3 and not carb_heat and _done_t < 0.0:
+	if not _seen.has(-1) and not _calls.has(-1) and mags == 3 and not carb_heat and _done_t < 0.0:
 		main.log_line("Run-up done. Throttle back and shut it down.")
 		_done_t = 2.0
 

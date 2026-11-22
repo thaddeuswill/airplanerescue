@@ -20,7 +20,8 @@ const BINDS := [
 	["Cockpit", [["throttle_up", "Throttle up"], ["throttle_down", "Throttle down"], ["rudder_left", "Left rudder"],
 		["rudder_right", "Right rudder"], ["stick_forward", "Stick forward"], ["stick_back", "Stick back"],
 		["starter", "Starter (hold)"], ["fuel_valve", "Fuel valve"], ["master", "Master switch"], ["primer", "Primer"],
-		["mags", "Magneto switch"], ["carb_heat", "Carb heat"]]],
+		["mags", "Magneto switch"], ["carb_heat", "Carb heat"], ["call_good", "Run-up: call a mag good"],
+		["call_bad", "Run-up: call a mag bad"]]],
 ]
 
 var main

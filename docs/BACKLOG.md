@@ -5,7 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 2 is in review; see the log in `docs/PROCESS.md`.)
+(None. Iteration 3 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 
@@ -30,7 +30,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   self-test check that it's written.
 - **G2. What players do after a walkthrough.** Log the first action taken in each menu after its
   walkthrough, and the time to it. Acceptance: a play-log line per menu; self-test check.
-- **G3. Judge the mag drop.** On the run-up the player calls each mag good or bad before the game
+- ~~**G3. Judge the mag drop.**~~ Done in iteration 3. On the run-up the player calls each mag good or bad before the game
   says (75 rpm max, C-85); a wrong call is explained and costs time, not money. Acceptance: the
   call is on the cockpit checklist; self-test covers right and wrong calls.
 - **G4. Learning events in the play log.** Count wrong verdicts per fault, purchases the job didn't
@@ -40,6 +40,17 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   play-log lines; the numbers fall across a career in a scripted self-test.
 - **G7. One overlay at a time.** Tick slips wait while a walkthrough, the tour or a notes card is
   open, then show. Acceptance: screenshot; self-test check that slips are held.
+
+## Learning-game elements (2026-11-23)
+
+- **E1. Map the game against the five categories of learning-game elements** (Goals, Control,
+  Actions, Guidance, Feedback, and their subcategories: introduce goals, encourage buy-in,
+  reinforce goals, indicate progress; control progression, manage information, support replay,
+  provide challenge; deliver activities, elicit behaviors, enable actions, create drivers;
+  determine need, give suggestions, provide aids, access guidance; convey performance, give
+  rewards, impose consequences, facilitate reflection). Acceptance: every subcategory has where the
+  game does it (code named and checked) or is a gap with a backlog item; added to
+  `docs/LEARNING_DESIGN.md`.
 
 ## Fun (Lazzaro's four types, 2026-11-23)
 

@@ -5,7 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 3 is in review; see the log in `docs/PROCESS.md`.)
+(None. Iteration 4 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 
@@ -43,14 +43,19 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Learning-game elements (2026-11-23)
 
-- **E1. Map the game against the five categories of learning-game elements** (Goals, Control,
-  Actions, Guidance, Feedback, and their subcategories: introduce goals, encourage buy-in,
-  reinforce goals, indicate progress; control progression, manage information, support replay,
-  provide challenge; deliver activities, elicit behaviors, enable actions, create drivers;
-  determine need, give suggestions, provide aids, access guidance; convey performance, give
-  rewards, impose consequences, facilitate reflection). Acceptance: every subcategory has where the
-  game does it (code named and checked) or is a gap with a backlog item; added to
-  `docs/LEARNING_DESIGN.md`.
+- ~~**E1. Map the game against the five categories**~~ In iteration 4.
+
+- **E2. Replay a lesson or a job.** From the title screen or the logbook: play any of the three
+  lessons again, or a job you've done, without touching your career. Acceptance: a replay leaves
+  the career save unchanged; self-test checks it.
+- **E3. Open a walkthrough again.** A "?" on each menu (or F1) shows its walkthrough any time.
+  Acceptance: every menu with a walkthrough has the way back in; self-test opens one a second time.
+- **E4. More help after repeated misses.** Two wrong mag calls, verdicts or logbook picks in a row
+  bring a hint (Easy and Medium), and point at the manual page (all difficulties). Acceptance:
+  the hint shows on the second miss; self-test covers it.
+- **E5. A job debrief.** On delivery: the time and money a job took, and what cost extra (wrong
+  calls, mail order, comebacks, a part broken by running it unready), with one line on what to do
+  next time. Acceptance: shows on delivery and in the logbook entry; self-test checks the items.
 
 ## Fun (Lazzaro's four types, 2026-11-23)
 

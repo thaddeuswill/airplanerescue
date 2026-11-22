@@ -169,6 +169,53 @@ first time it's needed; **distractions** the walkthrough dims everything but wha
 
 ---
 
+## D. The five categories of learning-game elements (iteration 4)
+
+Goals, Control, Actions, Guidance and Feedback, each with its four subcategories. "Where" names the
+code; every name was checked against the source. Gaps are backlog items E2-E5 or earlier items.
+
+### Goals
+| Subcategory | Where the game does it | |
+|---|---|---|
+| Introduce goals | Tour card 1: ten planes, don't go broke (`tutorial.gd _tour_pages`); each lesson's checklist title; the pilot's squawk, pinned top right (`_update_squawk`); the work order (`_open_inspection`) | done |
+| Encourage buy-in | Real procedures and real values (the C-85, AC 43.13-1B); the owner's thanks on delivery (`THANKS`, `_sign_off`); radio news from planes you saved; reward cards (`_show_reward`) | done; owners with stories would deepen it (F2) |
+| Reinforce goals | The next-step icon (`_objective`); markers ? and ! (`_refresh_markers`); the checklist's current line; the look-first note under the squawk (`squawk_note`) | done |
+| Indicate progress | Ticks and slips (`tutorial.gd _poll`); "N of 8 spots"; "N of M steps in place" in a job; "Planes back in the air: N of 10" on reward cards; the logbook | partly: the tally isn't where calls are chosen (item 2) |
+
+### Control
+| Subcategory | Where the game does it | |
+|---|---|---|
+| Control progression | The three lessons (`tutorial.gd`); only the lesson's call open during them (`call_locked`); the career ramp (`_spawn_job`): look-alikes and troubleshooting from rescue 3, faults per plane rising every two rescues | done |
+| Manage information | Only the current step explained; each walkthrough once (`tut.menus`); part cards fold "Other work here" (`bay.gd _open_card`); paged work order (`_paginate`); the manual opens at your job (`_manual_job`) | done |
+| Support replay | A new career; the difficulty per career; work left mid-job stays as you left it | **gap E2:** no way to replay a lesson or a job |
+| Provide challenge | Easy, Medium, Hard (`DIFFICULTIES`, `guide`); difficulty per call, 1-5 (`call_difficulty`); deadlines; Hard hides the ? markers and the run-up limit | done |
+
+### Actions
+| Subcategory | Where the game does it | |
+|---|---|---|
+| Deliver activities | Walk-around and spot views (`bay.gd`); a hands-on work scene for every job (`work.gd scenes`); tests; the run-up and ferry flight (`ferry.gd`); shops; the logbook entry | done |
+| Elicit behaviors | Tool-gating, the right instrument in hand (`bay.gd actions`); the mag call (`call_mag`); verdicts (`_verdict`); the logbook entry's choices (`_entry_pick`); the gamble on skipping spots | done |
+| Enable actions | E to use; the tool roll (wheel or 1-9); part cards; every key rebindable; quick-hold for holds | done |
+| Create drivers | Pay and rent ($40 a day, `DAILY_COST`); owner deadlines; the goal of ten; NEEDED stamps (`job_needs`); net estimate per call (`call_estimate`) | done |
+
+### Guidance
+| Subcategory | Where the game does it | |
+|---|---|---|
+| Determine need | Difficulty decides how much help (`guide`); first-time walkthroughs; the first two take-offs coached (`preflight.gd coached`); a job's next step pulses after 20 s idle (`IDLE_HINT`) | partly: **gap E4**, repeated wrong answers don't bring more help |
+| Give suggestions | The current step's how-to; "closest you can afford"; NEEDED; Easy lists greyed actions with where the tool is; Easy stops an unready run-up | done |
+| Provide aids | The service manual (N), with figures; H outlines every possible step (`_draw_next_marks`); D lays the wiring diagram over a job (`show_diagram`); live readings on the cockpit card | done |
+| Access guidance | N, H and J any time; the checklist setting | partly: **gap E3**, a walkthrough can't be opened again |
+
+### Feedback
+| Subcategory | Where the game does it | |
+|---|---|---|
+| Convey performance | Ticks and slips; the mag call's right or wrong with the reason; test readings and verdicts; the "!" clearing; the logbook's pay, costs and net | done |
+| Give rewards | Pay; lesson bonuses and the compression tester; the owner's thanks; reward cards | done |
+| Impose consequences | Running it unready breaks a part you pay for (`RUNUP_DAMAGE`); comebacks cost pay (`_sign_off`); wrong calls and verdicts cost time; owners give up; a crash costs $1,500 (`CRASH_BILL`); game over | done |
+| Facilitate reflection | The why line when a job's fixed (`WHY`, `_work_done`); the reward card's "You learned..."; the logbook | partly: **gap E5**, no debrief of what a job cost you and why |
+
+---
+
 ## Gaps (all in `docs/BACKLOG.md`)
 
 | Gap | What's missing | Backlog |
@@ -180,3 +227,7 @@ first time it's needed; **distractions** the walkthrough dims everything but wha
 | G5 | Repair: hint uses and wrong-tool tries aren't counted | G5 |
 | G6 | Balance after the apprenticeship: several new systems at once | item 5 (first-time cards) |
 | G7 | Distraction: a tick slip can draw over an open walkthrough | G7 |
+| E2 | Support replay: no way to replay a lesson or a job | E2 |
+| E3 | Access guidance: a walkthrough can't be opened again | E3 |
+| E4 | Determine need: repeated wrong answers don't bring more help | E4 |
+| E5 | Facilitate reflection: no debrief of what a job cost you and why | E5 |

@@ -1771,7 +1771,18 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	# The sign-off card waits for the map, and the checklist's tick slips are held, not drawn over it.
 	var lesson_ok: bool = not is_instance_valid(g.tutorial._reward) and g.ticket_open()
 	print("ticket: no lesson card over it %s" % lesson_ok)
-	var ticket_ok: bool = lesson_ok and reg_ok and station_ok and total_ok and fit_ok
+	# Hierarchy (D4): total > registration > line items > labels, by font size; the corner one line.
+	var fsize := func(l: Label) -> int: return l.get_theme_font_size("font_size")
+	var tot_fig: Label = tot_row[0].get_child(1) if tot_row.size() > 0 else null
+	var item: Array = card.find_children("Figure", "HBoxContainer", true, false).filter(func(r): return r.name != "Total")
+	var corner: Array = card.find_children("Corner", "Label", true, false)
+	var hier_ok: bool = tot_fig != null and reg_l.size() > 0 and item.size() > 0 and corner.size() == 1 \
+		and fsize.call(tot_fig) > fsize.call(reg_l[0]) and fsize.call(reg_l[0]) > fsize.call(item[0].get_child(1)) \
+		and fsize.call(corner[0]) < fsize.call(item[0].get_child(0)) and corner[0].text.split("\n").size() == 1 \
+		and int(deb.get("checked", -1)) >= 0
+	print("ticket: hierarchy %s (total %d, registration %d, item %d, label %d)" % [hier_ok, fsize.call(tot_fig) if tot_fig else 0,
+		fsize.call(reg_l[0]) if reg_l.size() else 0, fsize.call(item[0].get_child(1)) if item.size() else 0, fsize.call(corner[0]) if corner.size() else 0])
+	var ticket_ok: bool = hier_ok and lesson_ok and reg_ok and station_ok and total_ok and fit_ok
 	print("ticket: registration %s %s, station %s, total %s %s, fits %s" % [reg_ok, reg_txt, station_ok, total_ok, tot_txt, fit_ok])
 	var awards: Array = card.find_children("Award*", "HBoxContainer", true, false)
 	var got: Array = deb.get("badges", [])

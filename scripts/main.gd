@@ -2367,8 +2367,10 @@ func _open_mission_card(e: Dictionary) -> void:
 	ids.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ids.add_theme_constant_override("separation", 0)
 	head.add_child(ids)
+	# Hierarchy (D4): the total is the biggest thing on the ticket, the registration next, then the
+	# line items; the small tracked labels are quieter than anything they label.
 	ids.add_child(_card_heading("Station"))
-	var station := Style.label("%s  %s" % [station_code(e.city), e.city.to_upper()], "hud", Style.SIZE_LG, 800)
+	var station := Style.label("%s  %s" % [station_code(e.city), e.city.to_upper()], "hud", Style.SIZE_MD, 700)
 	station.name = "Station"
 	ids.add_child(station)
 	ids.add_child(_card_heading("Registration"))
@@ -2376,15 +2378,11 @@ func _open_mission_card(e: Dictionary) -> void:
 	reg.name = "Registration"
 	reg.add_theme_font_override("font", Style.figures(true))
 	ids.add_child(reg)
-	# The job's stats, top right beside the registration: they're about the plane, not the money.
-	var side := VBoxContainer.new()
-	side.add_theme_constant_override("separation", 0)
-	head.add_child(side)
-	var tally := Style.label("DEBRIEF\n%d of %d RESCUED" % [rescued, GOAL], "hud_muted", Style.SIZE_SM, 800)
-	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	side.add_child(tally)
-	_card_stat(side, "Spots checked", "%d of %d" % [d.get("checked", 0), ZONES.size()])
-	_card_stat(side, "Faults fixed", "%d of %d" % [d.get("fixed", 0), d.get("faults", 0)])
+	# Top right: one quiet word. The tally lives on the career sheet, the job's stats in its logbook entry.
+	var kind := _card_heading("Debrief")
+	kind.name = "Corner"
+	kind.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	head.add_child(kind)
 	if d.get("said", "") != "":
 		var said := Style.label(d.said, "loss" if String(d.said).begins_with("A comeback") else "hud_muted", Style.SIZE_SM)
 		said.name = "Said"
@@ -2437,7 +2435,7 @@ func _open_mission_card(e: Dictionary) -> void:
 	_card_figure(vb, "Total", total, true)
 	vb.get_child(vb.get_child_count() - 1).name = "Total"
 	vb.add_child(_glass_rule())
-	var advice := Style.label("Next time: " + d.next, "hud", Style.SIZE_MD)
+	var advice := Style.label("Next time: " + d.next, "hud", Style.SIZE_SM)
 	advice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	advice.custom_minimum_size.x = 536
 	vb.add_child(advice)
@@ -2498,7 +2496,7 @@ func _card_figure(box: Control, what: String, amount: int, big := false, force_r
 	var row := HBoxContainer.new()
 	row.name = "Figure"
 	box.add_child(row)
-	var l := Style.label(what, "hud", Style.SIZE_LG if big else Style.SIZE_SM if small else Style.SIZE_MD, 800 if big else 600)
+	var l := Style.label(what, "hud", Style.SIZE_LG if big else Style.SIZE_SM if small else Style.SIZE_MD, 900 if big else 600)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.custom_minimum_size.x = 390  # wrapped text with no width yet lays out thousands of px tall
@@ -2507,7 +2505,7 @@ func _card_figure(box: Control, what: String, amount: int, big := false, force_r
 	var fig := Style.label("" if amount == 0 and force_role == "loss" else ("%s$%s" % ["+" if amount > 0 else "-" if amount < 0 else "", _thousands(absi(amount))]), role)
 	fig.name = role
 	fig.add_theme_font_override("font", Style.figures(true))
-	fig.add_theme_font_size_override("font_size", Style.SIZE_XL if big else Style.SIZE_SM if small else Style.SIZE_MD)
+	fig.add_theme_font_size_override("font_size", Style.SIZE_2XL if big else Style.SIZE_SM if small else Style.SIZE_MD)
 	fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	fig.custom_minimum_size.x = 130
 	row.add_child(fig)
@@ -2515,23 +2513,9 @@ func _card_figure(box: Control, what: String, amount: int, big := false, force_r
 		l.add_theme_color_override("font_color", Style.COLOR_TEXT_LOSS)
 
 
-## A stat line on the ticket: words left, the figure right, in brass (no sign: it isn't money).
-func _card_stat(box: Control, what: String, value: String) -> void:
-	var row := HBoxContainer.new()
-	box.add_child(row)
-	row.add_theme_constant_override("separation", Style.SPACE_3)
-	var l := Style.label(what, "hud_muted", Style.SIZE_SM)
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(l)
-	var v := Style.label(value, "hud", Style.SIZE_SM)
-	v.add_theme_font_override("font", Style.figures(true))
-	row.add_child(v)
-
-
 func _card_heading(text: String) -> Label:
-	var l := Style.label(text.to_upper(), "hud_muted", Style.SIZE_SM, 800)
-	l.add_theme_font_override("font", Style.caps(800, Style.SIZE_SM))
+	var l := Style.label(text.to_upper(), "hud_muted", Style.SIZE_XS, 700)
+	l.add_theme_font_override("font", Style.caps(700, Style.SIZE_XS))
 	return l
 
 
@@ -3869,6 +3853,8 @@ func _open_logbook() -> void:
 			(", sat %d yrs" % e.years) if e.get("years", 0) > 0 else "", ", ".join(e.work), e.pay, e.get("fuel", 0), e.get("parts", 0),
 			"" if net >= 0 else "-", absi(net)]])
 		var d: Dictionary = e.get("debrief", {})  # entries from before the debrief (E5) have none
+		if d.has("checked"):  # the job's stats, moved here off the ticket (D4)
+			rows.append(["Spots checked %d of %d. Faults fixed %d of %d." % [d.checked, ZONES.size(), d.get("fixed", 0), d.get("faults", 0)]])
 		if not d.is_empty():
 			rows.append([("Cost extra: " + "; ".join(debrief_lines(d)) if d.extra.size() > 0 else "Nothing cost extra.") + "\nNext time: " + d.next])
 	if logbook.is_empty():

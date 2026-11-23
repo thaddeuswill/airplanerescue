@@ -5,13 +5,30 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 14 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 15 (2026-11-23): the end-of-mission screen, redone (D3).**
+
+- **Goal**: the debrief as a centred glass card: gains in green, losses in red, the job's stats and
+  what it earned.
+- **Items**: a centred card on a translucent, blurred earth-glass panel (the scene shows through);
+  money as a column of signed figures (+ green, − red, the net by its sign), the extra costs in red;
+  stats (planes rescued, spots checked, faults fixed, cash in hand); achievements: badges earned on
+  this job (recorded as they're earned) and a promotion; the advice and form line kept; the
+  RESCUED banner gives way to the card, which carries its words.
+- **Risk gate**: design system: its mood says "not glassy"; Thad asked for glass, so the product
+  owner's call wins for this screen, kept in the system's earth, brass and cream with two new HUD
+  tokens for gain and loss, contrast checked over the brightest scene (white snow): green 6.6:1,
+  red 5.4:1. Colour never alone: every figure carries its + or − sign. Saves: the logbook's
+  debrief gains `badges` and `promoted`, read with defaults, so old entries still open; no
+  `SAVE_VERSION` bump. Layout: centred at 1280x720 and 1920x1080, screenshots. Flow: the button
+  and Esc behave as before (on to the map; Esc closes). Checks: self-test reads the card's colours
+  by sign, the badge list (earned this job only, "none" when none), and that it's centred.
+- **Acceptance**: as D3 below.
 
 ## Next
 
-- **D3. The end-of-mission screen, redone** (Thad, 2026-11-23: "in the middle of the screen glassy
+- ~~**D3. The end-of-mission screen, redone** (Thad, 2026-11-23: "in the middle of the screen glassy
   background with colors of green and red for the positive and negative and the stats and
-  achievements"). The debrief moves from the paper sheet on the left to a card centred on screen,
+  achievements").~~ In iteration 15. The debrief moves from the paper sheet on the left to a card centred on screen,
   on a translucent glass panel with the rescue scene showing through. Money in green (pay, net when
   positive) and red (fuel, parts, rent, each extra cost, net when negative). Shows the job's stats
   and the achievements: badges earned on this job, and any promotion. Big Shoulders and Courier

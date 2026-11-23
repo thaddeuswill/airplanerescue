@@ -2256,6 +2256,8 @@ func job_debrief(job: Dictionary, pay: int, missed: Array, open_cowl: bool) -> D
 	var rent := roundi(days * DAILY_COST)
 	return {"days": days, "pay": pay, "fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "rent": rent,
 		"net": pay - spent.get("fuel", 0) - spent.get("parts", 0) - rent, "extra": extra,
+		"badges": job.get("earned_badges", []).duplicate(), "promoted": job.get("earned_promoted", []).duplicate(),
+		"checked": job.get("checked", {}).size(), "fixed": job.get("fixed", {}).size(), "faults": job.faults.size(),
 		"next": DEBRIEF_ADVICE.get(worst, "") if worst != "" else "Clean job: nothing cost you extra. Do it like that again."}
 
 
@@ -2287,15 +2289,186 @@ func _cost_word(w: String) -> bool:
 func _open_debrief() -> void:
 	var e: Dictionary = _pending_debrief
 	_pending_debrief = {}
+	if is_instance_valid(_banner_node):
+		_banner_node.queue_free()  # the card says RESCUED itself
+	_open_mission_card(e)
+
+
+## The end-of-mission card (D3): centred, on frosted earth glass with the scene showing through.
+## Money as a column of signed figures, gains green and losses red (the sign says it without the
+## colour); what cost extra; the job's stats; the badges and promotion it earned; the advice.
+func _open_mission_card(e: Dictionary) -> void:
+	_close_panel()
+	panel_closable = true
+	_list_title = "Debrief"
+	_paper_sheet = false
 	var d: Dictionary = e.debrief
-	var rows := [
-		["%s at %s" % [e.type, e.city]],
-		["Paid $%d; fuel $%d, parts $%d, rent $%d. Net $%d." % [d.pay, d.fuel, d.parts, d.rent, d.net]],
-		["Cost you extra\n" + ("\n".join(debrief_lines(d)) if d.extra.size() > 0 else "Nothing.")],
-		["Next time\n" + d.next],
-		[form_line()],
-		["", "On to the next call", _open_travel, true]]
-	_open_panel("Debrief", rows)
+	var card := PanelContainer.new()
+	card.name = "MissionCard"
+	panel = card
+	card.set_anchors_preset(Control.PRESET_CENTER)
+	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	card.grow_vertical = Control.GROW_DIRECTION_BOTH
+	card.custom_minimum_size.x = 600
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Style.COLOR_SURFACE_GLASS
+	sb.set_corner_radius_all(Style.RADIUS_MD * 2)
+	sb.set_border_width_all(1)
+	sb.border_width_top = 2
+	sb.border_color = Style.COLOR_GLASS_EDGE
+	sb.anti_aliasing = true
+	sb.set_content_margin_all(Style.SPACE_6)
+	sb.content_margin_left = Style.SPACE_8
+	sb.content_margin_right = Style.SPACE_8
+	card.add_theme_stylebox_override("panel", sb)
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://shaders/glass.gdshader")
+	card.material = mat
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", Style.SPACE_2)
+	card.add_child(vb)
+	var shine := ColorRect.new()  # the lit top edge
+	shine.color = Style.COLOR_GLASS_SHINE
+	shine.custom_minimum_size.y = 1
+	vb.add_child(shine)
+	var kicker := Style.label("DEBRIEF", "hud_muted", Style.SIZE_SM, 800)
+	kicker.add_theme_font_override("font", Style.caps(800, Style.SIZE_SM))
+	var head := HBoxContainer.new()
+	vb.add_child(head)
+	var titles := VBoxContainer.new()
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	titles.add_theme_constant_override("separation", 0)
+	head.add_child(titles)
+	titles.add_child(kicker)
+	titles.add_child(Style.label("%s at %s" % [e.type, e.city], "hud", Style.SIZE_XL, 900))
+	var tally := Style.label("%d of %d\nRESCUED" % [rescued, GOAL], "hud_muted", Style.SIZE_SM, 800)
+	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	tally.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(tally)
+	vb.add_child(_glass_rule())
+	# The money, signed: what came in, what went out, and where it left you.
+	_card_figure(vb, "Paid by the owner", d.pay)
+	_card_figure(vb, "Fuel", -int(d.fuel))
+	_card_figure(vb, "Parts", -int(d.parts))
+	_card_figure(vb, "Hangar rent", -int(d.rent))
+	vb.add_child(_glass_rule())
+	_card_figure(vb, "Net", d.net, true)
+	# What cost extra, each a loss.
+	vb.add_child(_card_heading("Cost you extra"))
+	var lines := debrief_lines(d)
+	if lines.is_empty():
+		vb.add_child(Style.label("Nothing. A clean job.", "gain", Style.SIZE_MD))
+	for i in lines.size():
+		var what: String = lines[i]
+		var amt := 0
+		var m := RegEx.create_from_string("\\s*\\(\\$([0-9]+)\\)$").search(what)
+		if m:  # the dollars ride at the end of the line: "Gasket kit by mail  ($30)"
+			amt = int(m.get_string(1))
+			what = what.substr(0, m.get_start())
+		_card_figure(vb, "- " + what if amt == 0 else what, -amt, false, "loss")
+	# The job's stats and what it earned.
+	vb.add_child(_card_heading("This job"))
+	var stats := GridContainer.new()
+	stats.columns = 4
+	stats.add_theme_constant_override("h_separation", Style.SPACE_6)
+	vb.add_child(stats)
+	for st in [["Spots checked", "%d of %d" % [d.get("checked", 0), ZONES.size()]],
+			["Faults fixed", "%d of %d" % [d.get("fixed", 0), d.get("faults", 0)]],
+			["Planes rescued", "%d of %d" % [rescued, GOAL]], ["Cash in hand", "$" + _thousands(money)]]:
+		var cell := VBoxContainer.new()
+		cell.add_theme_constant_override("separation", 0)
+		cell.add_child(Style.label(st[0].to_upper(), "hud_muted", Style.SIZE_XS, 800))
+		var v := Style.label(st[1], "hud", Style.SIZE_MD)
+		v.add_theme_font_override("font", Style.figures(true))
+		cell.add_child(v)
+		stats.add_child(cell)
+	vb.add_child(_card_heading("Achievements"))
+	var got: Array = d.get("badges", [])
+	var ach := HFlowContainer.new()
+	ach.name = "Achievements"
+	ach.add_theme_constant_override("h_separation", Style.SPACE_4)
+	vb.add_child(ach)
+	for r in d.get("promoted", []):
+		ach.add_child(_card_award("hud/badge.svg", "Promoted: " + rank_title(r)))
+	for id in got:
+		ach.add_child(_card_award("hud/badge.svg", badge_name(id)))
+	if got.is_empty() and d.get("promoted", []).is_empty():
+		ach.add_child(Style.label("No new badges on this job. %d of %d earned." % [badges.size(), BADGES.size()], "hud_muted", Style.SIZE_SM))
+	vb.add_child(_glass_rule())
+	var advice := Style.label("Next time: " + d.next, "hud", Style.SIZE_MD)
+	advice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	advice.custom_minimum_size.x = 536
+	vb.add_child(advice)
+	vb.add_child(Style.label(form_line(), "hud_muted", Style.SIZE_SM))
+	var go := Button.new()
+	go.text = "On to the next call"
+	Style.button(go, "primary")
+	go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	go.custom_minimum_size = Vector2(240, 46)
+	go.pressed.connect(sound.sfx.bind("thread"))
+	go.pressed.connect(_open_travel)
+	vb.add_child(go)
+	ui.add_child(card)
+	go.grab_focus.call_deferred()
+	card.modulate.a = 0.0
+	card.scale = Vector2(0.97, 0.97)
+	card.pivot_offset = Vector2(300, 260)
+	var tw := card.create_tween().set_parallel().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(card, "modulate:a", 1.0, Style.MOTION_BASE)
+	tw.tween_property(card, "scale", Vector2.ONE, Style.MOTION_BASE)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
+
+
+## One money row on the card: words left, the signed figure right in Courier Prime, green for a
+## gain and red for a loss, a zero in brass. The sign is always printed, so colour never stands alone.
+func _card_figure(box: Control, what: String, amount: int, big := false, force_role := "") -> void:
+	var row := HBoxContainer.new()
+	row.name = "Figure"
+	box.add_child(row)
+	var l := Style.label(what, "hud", Style.SIZE_LG if big else Style.SIZE_MD, 800 if big else 600)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row.add_child(l)
+	var role := force_role if force_role != "" else ("gain" if amount > 0 else "loss" if amount < 0 else "hud_muted")
+	var fig := Style.label("" if amount == 0 and force_role == "loss" else ("%s$%s" % ["+" if amount > 0 else "-" if amount < 0 else "", _thousands(absi(amount))]), role)
+	fig.name = role
+	fig.add_theme_font_override("font", Style.figures(true))
+	fig.add_theme_font_size_override("font_size", Style.SIZE_XL if big else Style.SIZE_MD)
+	fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	fig.custom_minimum_size.x = 130
+	row.add_child(fig)
+	if force_role == "loss":
+		l.add_theme_color_override("font_color", Style.COLOR_TEXT_LOSS)
+
+
+func _card_heading(text: String) -> Label:
+	var l := Style.label(text.to_upper(), "hud_muted", Style.SIZE_SM, 800)
+	l.add_theme_font_override("font", Style.caps(800, Style.SIZE_SM))
+	return l
+
+
+func _glass_rule() -> ColorRect:
+	var r := ColorRect.new()
+	r.color = Style.COLOR_GLASS_EDGE
+	r.custom_minimum_size.y = 1
+	return r
+
+
+func _card_award(icon: String, text: String) -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.name = "Award"
+	h.add_theme_constant_override("separation", Style.SPACE_2)
+	var t := TextureRect.new()
+	t.texture = load("res://textures/" + icon)
+	t.custom_minimum_size = Vector2(26, 26)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	h.add_child(t)
+	var l := Style.label(text, "gain", Style.SIZE_MD, 800)
+	l.name = "gain"
+	h.add_child(l)
+	return h
 
 
 func _career_stats() -> Array:
@@ -3412,6 +3585,7 @@ func _check_promotion() -> void:
 	if rank_index(e) <= rank_index(rank):
 		return
 	rank = e
+	_job_record("promoted", rank)
 	playlog("promoted: " + rank)
 	sound.chime()
 	_banner("PROMOTED: " + rank_title(rank).to_upper(), rank_next_line())
@@ -3445,6 +3619,7 @@ func earn_badge(id: String) -> void:
 	if badges.has(id):
 		return
 	badges[id] = floori(day)
+	_job_record("badges", id)
 	playlog("badge: " + id)
 	_tracker_pulse(id)
 	sound.chime()
@@ -3453,6 +3628,16 @@ func earn_badge(id: String) -> void:
 
 
 ## The unearned badge an activity can earn, for the task list and the cockpit card ("" if none).
+## Notes an achievement against the job it came on, for its end-of-mission card (D3): on the job
+## while it's open, on the debrief once it's signed off (Sharp Eyes, Clean Job and a promotion come
+## at sign-off, after the job has closed).
+func _job_record(key: String, value: String) -> void:
+	if current_job != null:
+		current_job.get_or_add("earned_" + key, []).append(value)
+	elif not _pending_debrief.is_empty():
+		_pending_debrief.debrief.get_or_add(key, []).append(value)
+
+
 func badge_on_offer(id: String) -> String:
 	return "" if badges.has(id) else badge_name(id)
 

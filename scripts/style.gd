@@ -23,6 +23,8 @@ const GREEN_800 := Color("285A32")   # main.gd C_OK
 const UMBER_600 := Color("6B5E4B")   # "faded"
 const AMBER_700 := Color("8B6914")
 const ORANGE_300 := Color(0.95, 0.65, 0.4)  # blocked-step text on the dark HUD
+const GREEN_300 := Color("9AD18A")   # gains on the dark glass
+const RED_300 := Color("F29A8C")     # losses on the dark glass
 
 # Type scale, 1.25 ratio from a 16 px base (rounded to whole px).
 const SIZE_XS := 13
@@ -68,6 +70,13 @@ const COLOR_TEXT_HUD := CREAM_100               # 15.6:1
 const COLOR_TEXT_HUD_MUTED := BRASS_300         # 9.2:1
 const COLOR_TEXT_HUD_BLOCKED := ORANGE_300      # 8.8:1, always paired with a reason in words
 const COLOR_FOCUS := MUSTARD_500                # hover ring, hold-progress arc
+# Glass: the end-of-mission card (D3), earth glass over the scene. Thad asked for glass on this one
+# screen; the mood's "not glassy" holds everywhere else. Ratios measured over white snow showing through.
+const COLOR_SURFACE_GLASS := Color(EARTH_950, 0.86)  # the text below keeps its ratio on any scene
+const COLOR_GLASS_EDGE := Color(BRASS_300, 0.55)
+const COLOR_GLASS_SHINE := Color(CREAM_100, 0.10)  # the lit top edge that reads as glass
+const COLOR_TEXT_GAIN := GREEN_300              # 6.6:1, always with a + sign
+const COLOR_TEXT_LOSS := RED_300                # 5.4:1, always with a - sign
 
 # ---------- 3. COMPONENT ----------
 const BUTTON_PRIMARY_SIZE := Vector2(118, 46)   # over the 44 px target minimum
@@ -182,6 +191,8 @@ static func role_color(role: String) -> Color:
 		"hud": return COLOR_TEXT_HUD
 		"hud_muted": return COLOR_TEXT_HUD_MUTED
 		"blocked": return COLOR_TEXT_HUD_BLOCKED
+		"gain": return COLOR_TEXT_GAIN
+		"loss": return COLOR_TEXT_LOSS
 	return COLOR_TEXT_PAPER
 
 

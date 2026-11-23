@@ -798,6 +798,7 @@ func run(main, args: PackedStringArray) -> void:
 	ok = ok and deb_ok
 	ok = _debrief_no_time(deb) and ok
 	await _snap(shot, "debrief", 0.3)
+	ok = await _mission_card_ok(deb) and ok
 	# Badges (P8): earned only when the standard was met. This run checked every spot and missed
 	# nothing (Sharp Eyes) and the scene tests torqued to spec (To Spec); it also called a mag wrong,
 	# had an entry sent back and looped on purpose, so those badges must be withheld.
@@ -1715,4 +1716,42 @@ func _debrief_no_time(deb: Dictionary) -> bool:
 	var ok: bool = sheet == "Debrief" and rx.search(shown) == null \
 		and Array(old) == ["Left mag called bad", "Gasket assortment (10) by mail  ($6)", "A wrong call on the compression"]
 	print("debrief without time: %s %s" % [ok, old])
+	return ok
+
+
+## D3: the end-of-mission card is centred; every figure's colour matches its sign (+ green,
+## - red, zero brass); the achievements are this job's badges (Sharp Eyes comes at this sign-off)
+## and nothing else; a job with none says so; an entry saved before D3 still opens.
+func _mission_card_ok(deb: Dictionary) -> bool:
+	await get_tree().process_frame
+	var card: Control = g.panel
+	var centre_ok := card != null and card.name == "MissionCard" \
+		and card.get_global_rect().get_center().distance_to(card.get_viewport_rect().size / 2.0) < 3.0
+	var colour_ok := true
+	var n_gain := 0
+	var n_loss := 0
+	for l: Label in card.find_children("*", "Label", true, false):
+		var c: Color = l.get_theme_color("font_color")
+		if l.name == "gain":
+			n_gain += 1
+			colour_ok = colour_ok and c == Style.COLOR_TEXT_GAIN and (l.text.begins_with("+") or l.get_parent().name == "Award")
+		elif l.name == "loss":
+			n_loss += 1
+			colour_ok = colour_ok and c == Style.COLOR_TEXT_LOSS and (l.text.begins_with("-") or l.text == "")
+		elif l.text.begins_with("+$") or l.text.begins_with("-$"):
+			colour_ok = false  # a signed figure left uncoloured
+	var awards: Array = card.find_children("Award*", "HBoxContainer", true, false)
+	var got: Array = deb.get("badges", [])
+	var badge_ok: bool = got.has("sharp_eyes") and got.all(func(b): return g.badges.has(b)) \
+		and awards.size() == got.size() + deb.get("promoted", []).size()
+	# None earned: the card says so. And an older entry (no badges or stats saved) still opens.
+	var plain := {"type": "Cub", "city": "Ames", "debrief": {"pay": 900, "fuel": 40, "parts": 0, "rent": 80, "net": 780,
+		"extra": ["Left mag called bad  (1 h)"], "next": "x"}}
+	g._open_mission_card(plain)
+	await get_tree().process_frame
+	var none_ok: bool = g.panel.find_children("Award*", "HBoxContainer", true, false).is_empty() \
+		and g.panel.find_children("*", "Label", true, false).any(func(l): return l.text.begins_with("No new badges"))
+	g._close_panel()
+	var ok := centre_ok and colour_ok and n_gain >= 2 and n_loss >= 1 and badge_ok and none_ok
+	print("mission card: centred %s, colours %s (%d gain, %d loss), badges %s %s, none %s" % [centre_ok, colour_ok, n_gain, n_loss, badge_ok, got, none_ok])
 	return ok

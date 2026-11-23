@@ -19,6 +19,14 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   "+$" pop at the top right, no owner's-thanks line at the top; the owner's words (or the comeback
   news) go on the card under the title; badges and a promotion earned at sign-off show on the card,
   not as banners. Where no card follows (the tenth plane's ending), the banner stays.
+- **Joined mid-iteration (Thad, refines the card's layout): laid out like a ticket.** Top left the
+  station (the city), under it the plane's registration (an N-number) in place of "Rag-wing
+  taildragger"; then every line item (pay, fuel, parts, rent, each extra cost) with its figure
+  right-aligned; under that the achievements; at the bottom the total, added up like a ticket.
+  The registration is made when the call comes in (14 CFR 47.15 format: N, a first digit 1-9, up
+  to five characters, at most two letters at the end, no I or O), saved on the job and its logbook
+  entry; jobs and entries from older saves get one worked out from what they are, so it never
+  changes between looks.
 - **Risk gate**: design system: its mood says "not glassy"; Thad asked for glass, so the product
   owner's call wins for this screen, kept in the system's earth, brass and cream with two new HUD
   tokens for gain and loss, contrast checked over the brightest scene (white snow): green 6.6:1,
@@ -30,6 +38,15 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 - **Acceptance**: as D3 below.
 
 ## Next
+
+- **R1. Registration numbers instead of plane descriptions everywhere** (Thad, 2026-11-23: "the
+  red plane or this other plane kinda looks sloppy, it doesn't really look like something that
+  you would see in the real world"). The map, job sheets, work orders, logbook, radio and owner
+  lines name the plane by its N-number (from D3) instead of "Rag-wing taildragger". Open
+  question: is the make and model wanted anywhere (a mechanic's work order would read
+  "N4127K, Piper J-3")? And should the station be the city or an airport identifier (real
+  identifiers would need a source per city)? Acceptance: no type description left in player text;
+  self-test checks; screenshots.
 
 - ~~**D3. The end-of-mission screen, redone** (Thad, 2026-11-23: "in the middle of the screen glassy
   background with colors of green and red for the positive and negative and the stats and

@@ -441,6 +441,26 @@ func run(main, args: PackedStringArray) -> void:
 	g._pocket("tasks")
 	tasks_ok = tasks_ok and g._list_title == "Task list"
 	g._close_panel()
+	# E4: running it unready marks what else mustn't be run, until the next run-up. A cause whose
+	# damage this plane doesn't have, so its 3D parts aren't touched.
+	var cause: String = ""
+	for c in g.RUNUP_DAMAGE:
+		if not job.faults.has(g.RUNUP_DAMAGE[c][0]):
+			cause = c
+			break
+	if cause != "":
+		var real = g.current_job
+		var dj := {"city": job.city, "type": "Test", "faults": [cause], "found": {cause: true}, "fixed": {}, "work": {}, "checked": {}}
+		g.current_job = dj
+		var unmarked: bool = not g._fault_row(cause, "", false)[0].begins_with("DON'T RUN IT YET")
+		g._run_damage(dj, cause)
+		var marked: bool = g._fault_row(cause, "", false)[0].begins_with("DON'T RUN IT YET")
+		g._aid_off("runup")  # what _start_runup does
+		var cleared: bool = not g._fault_row(cause, "", false)[0].begins_with("DON'T RUN IT YET")
+		g.current_job = real
+		if not (unmarked and marked and cleared):
+			print("AID run-up: unmarked=", unmarked, " marked=", marked, " cleared=", cleared)
+			tasks_ok = false
 	if not tasks_ok:
 		print("TASK LIST: ", tl)
 	ok = ok and tasks_ok
@@ -624,7 +644,9 @@ func run(main, args: PackedStringArray) -> void:
 				calls_ok = calls_ok and Ferry.mag_reason(0).ends_with("Bad.") and Ferry.mag_reason(Ferry.MAG_LIMIT + 1).ends_with("Bad.") \
 					and Ferry.mag_reason(Ferry.MAG_LIMIT).ends_with("Good.") and Ferry.mag_reason(1).ends_with("Good.")
 				var day0: float = g.day
+				calls_ok = calls_ok and not rf._aid_mag  # no mistake yet, no aid
 				rf.call_mag(false)  # a fixed plane's mag is good: "bad" is wrong
+				calls_ok = calls_ok and rf._aid_mag and String(rf.card().foot).begins_with("Good:")  # E4: the rule on the card
 				var wrong_ok: bool = rf._calls[0] == -1 and g.day > day0 and g._log_list.get_children().any(func(l): return l.text.begins_with("Not quite. Left mag"))
 				calls_ok = calls_ok and wrong_ok
 				rf.call_mag(true)
@@ -739,6 +761,15 @@ func run(main, args: PackedStringArray) -> void:
 	ok = ok and g.ferry == null  # an unsigned logbook keeps it on the ground
 	g._open_signoff()
 	await _snap(shot, "signoff")
+	var entry_ok: bool = g.entry_hint(0) == ""  # no mistake, no hint
+	g._entry_pick(0, "The owner can't approve the method.")  # sent back
+	entry_ok = entry_ok and g.entry_hint(0) != ""  # E4: the rule beside the choices for the next pick
+	await _snap(shot, "signoff_hint")
+	g._entry_pick(0, "")
+	entry_ok = entry_ok and g.entry_hint(0) == ""
+	if not entry_ok:
+		print("AID entry: the rule didn't show after an entry was sent back, or didn't go")
+	ok = ok and entry_ok
 	g._sign_logbook()
 	# Pause really stops the world, and resuming leaves nothing paused behind.
 	g._close_panel()
@@ -921,6 +952,7 @@ func _trouble_tests(shot: String) -> bool:
 
 ## Every way the start can go wrong, for real, then none of them.
 var _shot := ""  # the --shot prefix, for helpers that snap mid-way
+var _looped := false  # the ground-loop aid test runs once
 
 
 func _start_failures() -> bool:
@@ -1007,6 +1039,19 @@ func _fly(well: bool, shot := "") -> void:
 	Input.action_press("throttle_up")
 	var flown := {}
 	var climbed := false
+	if well and g.ferry and g.ferry.state == "run" and g.ferry.mode == "fly" and not _looped:
+		_looped = true  # E4: one ground loop, on purpose; the straight-line cue shows on the next roll
+		var lf = g.ferry
+		var aid_ok: bool = not lf._aid_rudder
+		lf.z_off = 17.0
+		lf._fly(1.0 / 60.0)
+		lf.speed = 8.0
+		lf._fly(1.0 / 60.0)
+		aid_ok = aid_ok and lf._aid_rudder and String(g.prompt.text).contains("STRAIGHT")
+		lf._line_up()
+		if not aid_ok:
+			print("AID rudder: no straight-line cue after a ground loop")
+			_chk(false, 3)
 	var flight_t := 0.0  # game seconds
 	while g.ferry and flight_t < 40.0:
 		flight_t += get_process_delta_time()
@@ -1269,10 +1314,15 @@ func _troubleshoot(id: String) -> bool:
 		return false
 	var right: String = g._answer(id, t)
 	var wrong: Array = g.TESTS[t].options.filter(func(o): return o[1] != right)
+	var aid_ok: bool = not g.verdict_aid(id)
 	g._call(id, wrong[0][1])
+	aid_ok = aid_ok and g.verdict_aid(id)  # E4: a wrong call offers the manual page for the next try
 	var stayed: bool = g._test_for(job, id) == t and job.get("dstep", {}).get(id, 0) == step
 	g._call(id, right)
-	return stayed and g._test_for(job, id) != t
+	aid_ok = aid_ok and not g.verdict_aid(id)  # and it's gone after that try
+	if not aid_ok:
+		print("AID verdict: not shown after a wrong call, or not gone after the next")
+	return stayed and aid_ok and g._test_for(job, id) != t
 
 
 ## The weight-and-balance sum: the options must include the right CG.

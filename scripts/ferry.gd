@@ -51,6 +51,9 @@ var carb_heat := false
 var _seen := [-1, -1, -1]  # the drops the pilot has held long enough to read: left, right, carb heat
 var _calls := [-1, -1]  # the pilot's call on each mag once read: 1 good, 0 bad, -1 not called yet
 const MAG_LIMIT := 75  # rpm: the most a C-85 mag may drop at the run-up (JOBS_ATA.md)
+## Error-activated aids (E4): switched on by a mistake, for the rest of this try only.
+var _aid_mag := false  # a wrong mag call: the limit and the three cases on the card, even on Hard
+var _aid_rudder := false  # a ground loop: a straight-line cue on the roll until it's airborne
 const WRONG_CALL_DAYS := 0.05  # a wrong call costs time, as a wrong verdict does (main._verdict)
 var _mag_t := 0.0
 var _done_t := -1.0
@@ -170,6 +173,9 @@ func call_mag(good: bool) -> void:
 		main.sound.sfx("deny")
 		main.log_line("Not quite. %s mag: %s Call it again." % [side, mag_reason(drop)])
 		main.note_cost("mag_call", WRONG_CALL_DAYS, 0, "%s mag called %s" % [side, "good" if good else "bad"])
+		if not _aid_mag:
+			_aid_mag = true
+			main.playlog("aid: mag limits on the card")
 		main._advance(WRONG_CALL_DAYS)
 
 
@@ -231,6 +237,8 @@ func card() -> Dictionary:
 		var call_keys: String = "%s / %s" % [k.call("call_good"), k.call("call_bad")]
 		# The limit on the card on Easy and Medium; on Hard you know it, or it's in the manual (N).
 		var foot := "Mag drop %d rpm max (C-85). Carb heat: about 50." % MAG_LIMIT if main.guide("medium") else ""
+		if _aid_mag:  # after a wrong call: the rule in full, on every difficulty, for this run-up
+			foot = "Good: drops a little, no more than %d rpm, runs smooth. Bad: past %d and rough, or no drop at all." % [MAG_LIMIT, MAG_LIMIT]
 		return {"title": "RUN-UP", "alert": alert, "foot": foot, "steps": [
 			{"text": "Hold %d rpm" % RUNUP_RPM, "key": throttle_keys, "ok": _at_rpm() or not _seen.has(-1), "read": "%d" % rpm,
 				"how": "Throttle up until the tach reads %d. A check at idle tells you nothing." % RUNUP_RPM},
@@ -484,6 +492,8 @@ func _fly(delta: float) -> void:
 	var k: Callable = main.key_name
 	var rudder_keys: String = "%s/%s" % [k.call("rudder_left"), k.call("rudder_right")]
 	var hint := "%s: throttle up. %s: rudder, hold the centerline." % [k.call("throttle_up"), rudder_keys]
+	if alt > 2.0:
+		_aid_rudder = false  # it's flying: the cue has done its job
 	if on_grass:
 		hint = "Off the runway! Rudder back to the asphalt."
 	elif mph >= 40 and on_ground:
@@ -492,6 +502,8 @@ func _fly(delta: float) -> void:
 		hint = "Climbing out..."
 	elif mph > 17:
 		hint = "%s lifts the tail. %s: rudder, she'll swing left." % [k.call("stick_forward"), rudder_keys]
+	if _aid_rudder and on_ground and not on_grass and mph < 40:  # after a ground loop: the straight-line cue, this roll only
+		hint = "STRAIGHT: power swings it left. %s, small and early, more as it speeds up." % k.call("rudder_right")
 	main.prompt.text = "%d mph     %d ft     %d rpm\n%s" % [mph, alt * 3.28, rpm, hint]
 	if trouble != "":
 		var t: Dictionary = main.TROUBLE[trouble]
@@ -506,6 +518,9 @@ func _fly(delta: float) -> void:
 			return
 	if on_ground and (absf(z_off) > 16.0 or absf(yaw) > 0.75):
 		main._say("Ground loop! She got away from you. Taxi back and line up again.")
+		if not _aid_rudder:
+			main.playlog("aid: rudder cue on the take-off roll")
+		_aid_rudder = true
 		_line_up()
 	elif plane.position.x < RUNWAY_END_X and alt < 2.0:
 		main._say("Ran out of runway! Lining up to try again.")

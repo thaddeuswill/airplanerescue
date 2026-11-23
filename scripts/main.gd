@@ -1153,6 +1153,7 @@ func _mag_line(job: Dictionary) -> String:
 ## Climb in for a run-up: start it, 2,100 rpm, check each mag, shut down (ferry.gd, run-up mode).
 func _start_runup() -> void:
 	var job: Dictionary = current_job
+	_aid_off("runup")  # the next run-up: the marks have had their try
 	if job.get("parked", "apron") == "hangar":
 		_say("Roll it out first. Never run an engine up inside the hangar.")
 		return
@@ -1246,6 +1247,7 @@ func _run_damage(job: Dictionary, cause: String) -> String:
 	job.get_or_add("caused", {})[hit] = true  # its supplies are on you
 	if job == current_job:
 		note_cost("runup_damage", 0.0, FAULTS[hit].cost, "%s, from running it unready" % FAULTS[hit].name)
+		_aid_on("runup", true)  # the work order marks what else mustn't be run, until the next run-up
 	job.found[hit] = true
 	if visuals.has(hit):
 		visuals[hit].queue_free()
@@ -1608,16 +1610,41 @@ func _hard_take_off() -> void:
 func _verdict(id: String) -> void:
 	var t := _test_for(current_job, id)
 	var rows: Array = [[TESTS[t].ask]]
+	if verdict_aid(id):  # after a wrong call on this trail: the manual's page for the test, for the next try
+		rows.append(["Not sure? The manual's page for the %s says what each reading means." % TESTS[t].name.to_lower(),
+			"Open the manual (%s)" % key_name("manual"), func(): _open_manual(t), true])
 	for o in TESTS[t].options:
 		rows.append(["", o[0], func(): _call(id, o[1]), true])
 	rows.append(["", "Look at it again", func(): _diagnose(id), true])
 	_open_panel(TESTS[t].name, rows, true)
 
 
+## Error-activated aids (E4), switched on by a mistake and gone after the next try: job.aid holds
+## which are live. The cockpit's two (mag limits, rudder cue) live in ferry.gd.
+func verdict_aid(id: String) -> bool:
+	return current_job != null and current_job.get("aid", {}).get("verdict", "") == id
+
+
+func _aid_on(kind: String, value) -> void:
+	if current_job == null:
+		return
+	var aid: Dictionary = current_job.get_or_add("aid", {})
+	if not aid.has(kind):
+		playlog("aid: %s" % kind)
+	aid[kind] = value
+
+
+func _aid_off(kind: String) -> void:
+	if current_job != null:
+		current_job.get("aid", {}).erase(kind)
+
+
 func _call(id: String, key: String) -> void:
 	var job: Dictionary = current_job
 	var t := _test_for(job, id)
+	_aid_off("verdict")  # one try with the aid; a wrong call brings it back
 	if key != _answer(id, t):
+		_aid_on("verdict", id)
 		note_cost("verdict", 0.05, 0, "A wrong call on the %s" % TESTS[t].name.to_lower())
 		var misses: Dictionary = job.get_or_add("misses", {})
 		misses[id] = misses.get(id, 0) + 1
@@ -2022,6 +2049,8 @@ func _open_signoff(step := 0) -> void:
 	if step < ENTRY_STEPS.size():
 		var s: Array = ENTRY_STEPS[step]
 		rows.append([s[0] + "..."])
+		if entry_hint(step) != "":  # after an entry was sent back: the rule, for the next pick
+			rows.append(["What the inspector wants\n" + entry_hint(step)])
 		var picks: Array = s[1].duplicate()
 		picks.sort_custom(func(a, b): return a[0] < b[0])  # alphabetical: the right one isn't always first
 		for p in picks:
@@ -2031,8 +2060,21 @@ func _open_signoff(step := 0) -> void:
 	_open_panel("Aircraft logbook", rows)
 
 
+## What an inspector wants at each step of the entry: the rule, not the option (E4).
+const ENTRY_HINTS := [
+	"The data you worked to: approved or acceptable data, such as an advisory circular or the maker's manual. Not a person, not habit.",
+	"Who signs: the person who did the work, with the type and number of their certificate.",
+]
+
+
+func entry_hint(step: int) -> String:
+	return ENTRY_HINTS[step] if current_job != null and current_job.get("aid", {}).get("entry", -1) == step and step < ENTRY_HINTS.size() else ""
+
+
 func _entry_pick(step: int, wrong: String) -> void:
+	_aid_off("entry")
 	if wrong != "":
+		_aid_on("entry", step)
 		note_cost("entry", 0.0, 0, "A logbook entry sent back")
 		sound.sfx("deny")
 		_say("An inspector would hand that back. " + wrong)
@@ -4549,6 +4591,8 @@ func _fault_icon(id: String) -> String:
 func _fault_row(id: String, at: String, suspect: bool) -> Array:
 	var f: Dictionary = FAULTS[id]
 	var title: String = ("Suspect: " if suspect else "") + f.name
+	if current_job != null and current_job.get("aid", {}).get("runup", false) and RUNUP_DAMAGE.has(id) and not current_job.fixed.has(id):
+		title = "DON'T RUN IT YET: " + title + ". " + RUNUP_DAMAGE[id][2]  # after running one unready (E4)
 	var text := "%s\n%s" % [title, "\n".join(writeup(id))]
 	if f.zone != "engine" or guide("easy"):
 		if at == f.zone:

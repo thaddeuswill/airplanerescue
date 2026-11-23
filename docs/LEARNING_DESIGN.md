@@ -201,7 +201,7 @@ code; every name was checked against the source. Gaps are backlog items E2-E5 or
 ### Guidance
 | Subcategory | Where the game does it | |
 |---|---|---|
-| Determine need | Difficulty decides how much help (`guide`); first-time walkthroughs; the first two take-offs coached (`preflight.gd coached`); a job's next step pulses after 20 s idle (`IDLE_HINT`) | partly: **gap E4**, repeated wrong answers don't bring more help |
+| Determine need | Difficulty decides how much help (`guide`); first-time walkthroughs; the first two take-offs coached (`preflight.gd coached`); a job's next step pulses after 20 s idle (`IDLE_HINT`) | done: error-activated aids for wrong mag calls, verdicts, logbook entries, running it unready and ground loops (iteration 8) |
 | Give suggestions | The current step's how-to; "closest you can afford"; NEEDED; Easy lists greyed actions with where the tool is; Easy stops an unready run-up | done |
 | Provide aids | The service manual (N), with figures; H outlines every possible step (`_draw_next_marks`); D lays the wiring diagram over a job (`show_diagram`); live readings on the cockpit card | done |
 | Access guidance | N, H and J any time; the checklist setting | partly: **gap E3**, a walkthrough can't be opened again |
@@ -229,5 +229,5 @@ code; every name was checked against the source. Gaps are backlog items E2-E5 or
 | G7 | Distraction: a tick slip can draw over an open walkthrough | G7 |
 | E2 | Support replay: no way to replay a lesson or a job | E2 |
 | E3 | Access guidance: a walkthrough can't be opened again | E3 |
-| E4 | Determine need: repeated wrong answers don't bring more help | E4 |
+| E4 | ~~Determine need~~ closed in iteration 8 (error-activated guidance) | done |
 | E5 | ~~Facilitate reflection: no debrief~~ closed in iteration 5 | done |

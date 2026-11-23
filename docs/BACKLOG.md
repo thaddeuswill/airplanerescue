@@ -5,7 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 7 is in review; see the log in `docs/PROCESS.md`.)
+(None. Iteration 8 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 
@@ -50,7 +50,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   the career save unchanged; self-test checks it.
 - **E3. Open a walkthrough again.** A "?" on each menu (or F1) shows its walkthrough any time.
   Acceptance: every menu with a walkthrough has the way back in; self-test opens one a second time.
-- **E4. Error-activated guidance** (the pattern, 2026-11-23). A specific error, or a pattern of them,
+- ~~**E4. Error-activated guidance**~~ In iteration 8. (the pattern, 2026-11-23). A specific error, or a pattern of them,
   switches on help aimed at that error, for a limited time so nobody leans on it; better players
   never see it. Each error type gets its own aid: a wrong mag call puts the 75 rpm limit and the
   three cases on the cockpit card (even on Hard) for that run-up; a wrong verdict opens the
@@ -107,6 +107,24 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   accident; (f) supporting the instructional methods and sequence; (g) actions introduced so they
   build agency and fit the story. Every action in the game against each, with fixes as backlog
   items. Acceptance: a table in `docs/LEARNING_DESIGN.md`; every "no" a backlog item.
+
+- **P8. Achievement badges.** A badge per skill, earned by meeting the standard for that learning
+  objective (`docs/LEARNING_DESIGN.md`, "mastered by the end"): torque to spec first try, both mags
+  called right, a troubleshooting chain with no wrong calls, a clean walk-around (nothing missed),
+  a correct logbook entry first time, a clean start, a debrief with nothing extra. Grouped by
+  system; a badge board (a pocket or the hangar wall, with P2's tally) shows earned and not yet
+  earned; activities that can earn one show its small icon. Acceptance: each badge awarded only
+  when its standard is met; the board shows both; self-test awards one and withholds one.
+- **P9. Task order as evidence** (the assigned-task pattern). The game already always has a task
+  (next-step icon, checklist, task list) and makes completion clear. Missing: recording the order
+  a player does a procedure's steps in (walk-around before run-up, the don't-run-it-yet items
+  first, test before verdict), since order shows understanding. Acceptance: a play-log line per
+  task completed, in order; the debrief notes an order that cost something; self-test checks the
+  lines.
+- **P10. Iconic directions.** The game's icons (next-step icon, ? and ! markers, the task-state
+  symbols) should draw the eye when they change (a brief pulse or a sound) and be playtested so
+  players read them right. Acceptance: a pulse when the next-step icon or a marker changes;
+  a playtest note in `docs/` with what players took each icon to mean.
 
 ## Fun (Lazzaro's four types, 2026-11-23)
 

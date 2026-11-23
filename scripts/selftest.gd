@@ -927,6 +927,7 @@ func run(main, args: PackedStringArray) -> void:
 	g._after_flight()
 	await _snap(shot, "ending")
 	ok = ok and g.panel != null and not g.panel_closable
+	ok = await _ending_ok() and ok
 	g.rescued = rescued_now
 	g._open_game_over(500)
 	var was := [g.money, g.jobs.duplicate(true)]
@@ -1879,4 +1880,31 @@ func _logbook_ok() -> bool:
 	g._close_panel()
 	var ok: bool = ring_ok and order_ok and money_ok and shown_ok and pages_new < pages_old
 	print("logbook: progress ring %s, rank first and large %s, entries without money %s, badge grid %s, ten jobs on %d pages (was %d)" % [ring_ok, order_ok and rank_size == Style.SIZE_XL, money_ok, grid_ok, pages_new, pages_old])
+	return ok
+
+
+## E6: the ending is the ticket's glass card: centred and fitting at full size, not closable, one
+## primary button (Keep flying) and quiet others, the two career figures, the ring full, the rank
+## among the achievements, and none of the old prose or trivia.
+func _ending_ok() -> bool:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var card: Control = g.panel
+	if card == null or card.name != "EndingCard":
+		print("ending: not the glass card")
+		return false
+	var vp: Vector2 = card.get_viewport_rect().size
+	var centre_ok: bool = card.get_global_rect().get_center().distance_to(vp / 2.0) < 3.0
+	var buttons: Array = card.find_children("*", "Button", true, false)
+	var primary: Array = buttons.filter(func(b): return b.name == "Primary")
+	var one_primary: bool = primary.size() == 1 and primary[0].text == "Keep flying" and buttons.size() == 3
+	var figures: Array = card.find_children("Figure", "Label", true, false)
+	var rings: Array = card.find_children("Ring", "Control", true, false)
+	var texts := "\n".join(card.find_children("*", "Label", true, false).map(func(l): return l.text))
+	var trimmed: bool = not texts.contains("Longest neglected") and not texts.contains("hangar door")
+	var rank_ok: bool = texts.contains("Rank: " + g.rank_title(g.rank))
+	var ok: bool = centre_ok and not g.panel_closable and one_primary and figures.size() == 2 \
+		and rings.size() == 1 and rings[0].done == g.GOAL and trimmed and rank_ok
+	print("ending: card centred %s, one primary %s, figures %d, ring %s, trimmed %s, rank %s, scale %.2f" % [centre_ok,
+		one_primary, figures.size(), rings.size() == 1 and rings[0].done == g.GOAL, trimmed, rank_ok, card.scale.x])
 	return ok

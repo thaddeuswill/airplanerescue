@@ -196,6 +196,25 @@ static func role_color(role: String) -> Color:
 	return COLOR_TEXT_PAPER
 
 
+## A quiet button on the dark glass (the ticket and the ending): cream text, a thin brass edge,
+## no fill until hovered. The red primary stays the one filled button on the card.
+static func glass_button(b: Button) -> void:
+	b.add_theme_font_override("font", display(800))
+	b.add_theme_font_size_override("font_size", BUTTON_QUIET_FONT_SIZE)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(CREAM_100, {"normal": 0.0, "hover": 0.10, "pressed": 0.16, "focus": 0.0}[st])
+		sb.draw_center = st != "focus" and st != "normal"
+		sb.set_border_width_all(2 if st == "focus" else 1)
+		sb.border_color = COLOR_FOCUS if st == "focus" else COLOR_GLASS_EDGE
+		sb.set_corner_radius_all(RADIUS_SM)
+		sb.content_margin_left = SPACE_3
+		sb.content_margin_right = SPACE_3
+		b.add_theme_stylebox_override(st, sb)
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(c, COLOR_TEXT_HUD)
+
+
 ## kind: "primary" (filled red), "quiet" (ink tint), "exit" (solid ink).
 static func button(b: Button, kind := "primary") -> void:
 	var bg: Color = {"primary": COLOR_ACTION_PRIMARY, "quiet": COLOR_ACTION_QUIET, "exit": COLOR_ACTION_EXIT}.get(kind, COLOR_ACTION_QUIET)

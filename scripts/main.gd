@@ -2325,14 +2325,15 @@ static func make_registration(r: RandomNumberGenerator) -> String:
 ## The end-of-mission card (D3): centred, on frosted earth glass with the scene showing through.
 ## Money as a column of signed figures, gains green and losses red (the sign says it without the
 ## colour); what cost extra; the job's stats; the badges and promotion it earned; the advice.
-func _open_mission_card(e: Dictionary) -> void:
+## A centred frosted-glass card, the shared frame of the ticket and the ending: opened as the
+## panel, the column inside returned to fill. Show it with _show_glass_card once filled.
+func _glass_card(card_name: String, title: String, closable: bool) -> VBoxContainer:
 	_close_panel()
-	panel_closable = true
-	_list_title = "Debrief"
+	panel_closable = closable
+	_list_title = title
 	_paper_sheet = false
-	var d: Dictionary = e.debrief
 	var card := PanelContainer.new()
-	card.name = "MissionCard"
+	card.name = card_name
 	panel = card
 	card.set_anchors_preset(Control.PRESET_CENTER)
 	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -2360,6 +2361,24 @@ func _open_mission_card(e: Dictionary) -> void:
 	shine.color = Style.COLOR_GLASS_SHINE
 	shine.custom_minimum_size.y = 1
 	vb.add_child(shine)
+	return vb
+
+
+## Puts a filled glass card on screen: fades in once its text has settled, focus on its button.
+func _show_glass_card(card: Control, focus: Control) -> void:
+	ui.add_child(card)
+	if focus:
+		focus.grab_focus.call_deferred()
+	card.modulate.a = 0.0
+	_fit_card.call_deferred(card)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	player.frozen = true
+
+
+func _open_mission_card(e: Dictionary) -> void:
+	var d: Dictionary = e.debrief
+	var vb := _glass_card("MissionCard", "Debrief", true)
+	var card: Control = panel
 	# Laid out like a ticket (Thad): station and registration top left, the line items with their
 	# figures down the right, the achievements, and the total added up at the bottom.
 	var head := HBoxContainer.new()
@@ -2458,12 +2477,7 @@ func _open_mission_card(e: Dictionary) -> void:
 	go.pressed.connect(sound.sfx.bind("thread"))
 	go.pressed.connect(_open_travel)
 	vb.add_child(go)
-	ui.add_child(card)
-	go.grab_focus.call_deferred()
-	card.modulate.a = 0.0
-	_fit_card.call_deferred(card)
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	player.frozen = true
+	_show_glass_card(card, go)
 
 
 ## True while the end-of-mission ticket is up: the apprentice checklist's slips wait until it closes.
@@ -2575,10 +2589,88 @@ func _career_stats() -> Array:
 	return rows
 
 
+## The ending, as a ticket (E6, Thad): the career in figures, what it earned, and the way on. Only
+## what serves the game: no closing prose, no trivia. It can't be closed by accident.
 func _open_ending() -> void:
 	sound.done_tone()
-	_open_panel("All %d planes rescued" % GOAL, [["Every one of them flew out on your signature. Somewhere a hangar door stands open, and a field is a little less quiet."]]
-		+ _career_stats() + [["", "Keep flying", _open_travel, true], ["", "Main menu", _quit_to_title, true], ["", "Start a new career", _restart, true]], false)
+	var vb := _glass_card("EndingCard", "Career", false)
+	var card: Control = panel
+	var head := HBoxContainer.new()
+	vb.add_child(head)
+	var titles := VBoxContainer.new()
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	titles.add_theme_constant_override("separation", 0)
+	head.add_child(titles)
+	titles.add_child(_card_heading("Career"))
+	titles.add_child(Style.label("All %d planes rescued" % GOAL, "hud", Style.SIZE_XL, 900))
+	var ring := ProgressRing.new()
+	ring.name = "Ring"
+	ring.done = rescued
+	ring.total = GOAL
+	ring.ink = Style.COLOR_TEXT_HUD
+	ring.track = Color(Style.COLOR_TEXT_HUD_MUTED, 0.35)
+	ring.fill = Style.COLOR_TEXT_GAIN
+	ring.custom_minimum_size = Vector2(56, 56)
+	head.add_child(ring)
+	_card_gap(vb, Style.SPACE_3)
+	vb.add_child(_glass_rule())
+	_card_gap(vb, Style.SPACE_4)
+	# The figures: what the career cleared (every ticket's total) and what's in hand now.
+	var figures := HBoxContainer.new()
+	figures.add_theme_constant_override("separation", Style.SPACE_8)
+	vb.add_child(figures)
+	for f in [["Cleared over the career", career_cleared()], ["Cash in hand", money]]:
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 0)
+		col.add_child(_card_heading(f[0]))
+		var v := Style.label("%s$%s" % ["" if f[1] >= 0 else "\u2212", _thousands(absi(f[1]))], "gain" if f[1] > 0 else "hud", Style.SIZE_2XL)
+		v.name = "Figure"
+		v.add_theme_font_override("font", Style.figures(true))
+		col.add_child(v)
+		figures.add_child(col)
+	_card_gap(vb, Style.SPACE_4)
+	vb.add_child(_card_heading("Achievements"))
+	var ach := HFlowContainer.new()
+	ach.name = "Achievements"
+	ach.add_theme_constant_override("h_separation", Style.SPACE_4)
+	vb.add_child(ach)
+	ach.add_child(_card_award("hud/badge.svg", "Rank: " + rank_title(rank)))
+	for b in BADGES:
+		if badges.has(b[0]):
+			ach.add_child(_card_award("hud/badge.svg", b[1]))
+	vb.add_child(Style.label("%d of %d badges earned" % [badges.size(), BADGES.size()], "hud_muted", Style.SIZE_SM))
+	_card_gap(vb, Style.SPACE_6)
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", Style.SPACE_3)
+	vb.add_child(buttons)
+	var go := Button.new()
+	go.name = "Primary"
+	go.text = "Keep flying"
+	Style.button(go, "primary")
+	go.custom_minimum_size = Vector2(200, 46)
+	go.pressed.connect(sound.sfx.bind("thread"))
+	go.pressed.connect(_open_travel)
+	buttons.add_child(go)
+	for q in [["Main menu", _quit_to_title], ["Start a new career", _restart]]:
+		var b := Button.new()
+		b.text = q[0]
+		Style.glass_button(b)
+		b.custom_minimum_size.y = 46
+		b.pressed.connect(sound.sfx.bind("thread"))
+		b.pressed.connect(q[1])
+		buttons.add_child(b)
+	_show_glass_card(card, go)
+
+
+## The career's take: every delivered job's ticket total added up (older entries without a
+## ticket count their pay less fuel and parts).
+func career_cleared() -> int:
+	var sum := 0
+	for e in logbook:
+		var d: Dictionary = e.get("debrief", {})
+		sum += int(d.net) if d.has("net") else int(e.get("pay", 0)) - int(e.get("fuel", 0)) - int(e.get("parts", 0))
+	return sum
 
 
 func _open_game_over(cheapest: int) -> void:

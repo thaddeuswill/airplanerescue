@@ -5,9 +5,8 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 19 is in review; see the log in `docs/PROCESS.md`. Refined in review, Thad:
-"remove the 1 of 10 from the top and make it like progress circle instead": the title reads
-"Logbook" and planes rescued is a progress ring beside it, the count small in its middle.)
+(None. Iteration 19 is in review, with the progress ring Thad asked for in review; see the log in
+`docs/PROCESS.md`.)
 
 ## Next
 

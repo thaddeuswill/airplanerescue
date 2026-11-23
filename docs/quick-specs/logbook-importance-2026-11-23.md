@@ -12,7 +12,10 @@ then the badges; the money breakdown already showed on each ticket.
 
 ## What
 
-- Title: "Logbook" with planes rescued beside it ("Logbook 1 of 10 rescued").
+- Title: "Logbook", with planes rescued as a progress ring at the right of the title (Thad, in
+  review: "make it like progress circle instead"): the arc in the accent red for each plane, the
+  count ("1/10") small in Courier Prime in its middle, the words on hover (`ProgressRing`,
+  `_header_ring`).
 - First: rank and what the next rank needs, the rank in 28 px.
 - Then one entry per job, newest first: registration, station and city, what it cleared (signed);
   what was fixed and the spots and faults count; the newest keeps its "Next time". Older entries
@@ -23,6 +26,6 @@ then the badges; the money breakdown already showed on each ticket.
 
 ## Acceptance
 
-Self-test (`_logbook_ok`): rank first and 28 px, entries next with no money breakdown, the grid of
+Self-test (`_logbook_ok`): the title is "Logbook" and the ring's count is the planes rescued; rank first and 28 px, entries next with no money breakdown, the grid of
 eight last; a ten-job career paginates to fewer pages than the old layout (2 against 3 at the
 test's window, 2 against 6 at 1280x720). Screenshot at 1280x720.

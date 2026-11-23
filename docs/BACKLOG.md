@@ -9,6 +9,16 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **D3. The end-of-mission screen, redone** (Thad, 2026-11-23: "in the middle of the screen glassy
+  background with colors of green and red for the positive and negative and the stats and
+  achievements"). The debrief moves from the paper sheet on the left to a card centred on screen,
+  on a translucent glass panel with the rescue scene showing through. Money in green (pay, net when
+  positive) and red (fuel, parts, rent, each extra cost, net when negative). Shows the job's stats
+  and the achievements: badges earned on this job, and any promotion. Big Shoulders and Courier
+  Prime figures per the design system. Acceptance: centred at 1280x720 and larger windows; every
+  figure coloured by its sign; badges earned on the job listed, none when none; the "Next time"
+  advice and form line kept; self-test checks the colours and the badge list; screenshots.
+
 - **D2. No clock time unless it bears on your score or achievements** (Thad, 2026-11-23: "i dont
   want any clock time unless it has anything to do with your score or achievements"). Extends D1.
   - **Goes (display only, changes nothing you earn):** the HUD's "DAY n"; the "Welcome back. Day n"

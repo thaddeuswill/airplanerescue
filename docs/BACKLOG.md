@@ -9,6 +9,20 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **L1. Signing off is one button** (Thad, 2026-11-23: "the logbook should always be in accordance
+  with the maintenance manual so theres no point for that screen or hud it should be a button to
+  just sign off the plane"). The entry-writing steps go ("Done in accordance with...", "Signed
+  by..."): the entry is always to the maintenance manual and signed with your certificate, written
+  for you; one Sign off button where that screen was. What depends on it, each to settle at
+  planning:
+  - The By the Book badge (signed with no entry sent back) has nothing left to measure: retire it
+    (seven badges) or give it a new standard.
+  - The entry aid (E4's "what the inspector wants") and the "entry" debrief advice go.
+  - The apprenticeship's sign-off step and its walkthrough page say "press Sign off".
+  - Saves: badges already earned stay; nothing else stored.
+  Acceptance: one button signs the plane off, the entry shown as written; no entry choices
+  anywhere; self-test signs off with it; the badge decision applied; screenshots at 1280x720.
+
 From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad to order:
 
 - **U7. The pilot squawk card, uncrowded** (Thad, 2026-11-23: "the pilot squawk doesnt look right

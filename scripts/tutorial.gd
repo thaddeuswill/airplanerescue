@@ -218,7 +218,7 @@ func _process(delta: float) -> void:
 	_card.queue_redraw()
 	queue_redraw()
 	if main.tut.has("reward") and not is_instance_valid(_reward) and main.ferry == null and not is_instance_valid(main._loader) \
-			and main.panel_kind != "menu" and not main.ticket_open():  # the ticket carries it (D3)
+			and main.panel_kind != "menu" and main.map_open():  # on the map, after the ticket (Thad)
 		_show_reward(int(main.tut.reward))
 
 
@@ -697,12 +697,14 @@ func _show_reward(l: int) -> void:
 	col.add_child(title)
 	var learned := Style.label("You learned " + LESSONS[l].teaches + ".", "muted", Style.SIZE_MD, 600)
 	col.add_child(learned)
-	var bonus := Label.new()
-	bonus.text = "BONUS  +$%d" % r.cash + ("     GIFT  COMPRESSION TESTER" if r.gift == "tester" else "")
-	bonus.add_theme_font_override("font", Style.figures(true))
-	bonus.add_theme_font_size_override("font_size", Style.SIZE_LG)
-	bonus.add_theme_color_override("font_color", Style.COLOR_STATUS_OK)
-	col.add_child(bonus)
+	if r.gift == "tester":  # the bonus is on the ticket with the rest of the money (D3); the gift is here
+		var gift := Label.new()
+		gift.name = "Gift"
+		gift.text = "GIFT  COMPRESSION TESTER"
+		gift.add_theme_font_override("font", Style.figures(true))
+		gift.add_theme_font_size_override("font_size", Style.SIZE_LG)
+		gift.add_theme_color_override("font_color", Style.COLOR_STATUS_OK)
+		col.add_child(gift)
 	var line := Style.label(r.line, "body", Style.SIZE_MD, 600)
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	line.custom_minimum_size.x = 480
@@ -725,14 +727,6 @@ func _show_reward(l: int) -> void:
 	main.sound.chime()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	b.grab_focus.call_deferred()
-
-
-## The lesson's sign-off, for the end-of-mission ticket (D3): one screen ends the job, lesson or not.
-func reward_summary(l: int) -> Dictionary:
-	var r: Dictionary = REWARDS[l]
-	return {"title": ("Signed off: " + LESSONS[l].title) if l < 3 else "Apprenticeship done",
-		"learned": "You learned " + LESSONS[l].teaches + ".", "line": r.line,
-		"gift": "Compression tester" if r.gift == "tester" else ""}
 
 
 func _close_reward() -> void:

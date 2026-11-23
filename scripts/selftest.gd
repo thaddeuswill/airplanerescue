@@ -939,6 +939,12 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "game_over")
 	ok = ok and g.panel != null and not g.panel_closable
 	g._open_travel()
+	# A lesson's sign-off card opens on the map (Thad), not over the ticket.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var reward_on_map: bool = is_instance_valid(g.tutorial._reward)
+	if reward_on_map:
+		await _snap(shot, "lesson_on_map", 0.4)
 	_chk(ok, 275)
 	ok = ok and g.logbook.size() == 1 and g.logbook[0].has("parts")  # the cost sheet was written
 	_chk(ok, 276)
@@ -949,10 +955,11 @@ func run(main, args: PackedStringArray) -> void:
 		var want: Array = lesson_steps.filter(func(id): return id != "tour")
 		var missing: Array = want.filter(func(id): return not id in g.tut.get("last", []))
 		if not missing.is_empty() or int(g.tut.get("lesson", -1)) != (lesson + 1 if lesson < 3 else 0) \
-				or int(g.logbook[-1].get("debrief", {}).get("bonus", 0)) != int(g.tutorial.REWARDS[lesson].cash) or g.tut.has("reward"):
-			# Paid out on the ticket (D3), and seen there, so the lesson's own card isn't still waiting.
-			print("TUTORIAL lesson %d: unticked %s, now lesson %s, bonus %s, reward still pending %s" % [lesson, missing,
-				g.tut.get("lesson"), g.logbook[-1].get("debrief", {}).get("bonus"), g.tut.has("reward")])
+				or int(g.logbook[-1].get("debrief", {}).get("bonus", 0)) != int(g.tutorial.REWARDS[lesson].cash) \
+				or int(g.tut.get("reward", 0)) != lesson or not reward_on_map:
+			# The bonus is paid on the ticket (D3); the sign-off card waits for the map and opens there.
+			print("TUTORIAL lesson %d: unticked %s, now lesson %s, bonus %s, reward %s, card on the map %s" % [lesson, missing,
+				g.tut.get("lesson"), g.logbook[-1].get("debrief", {}).get("bonus"), g.tut.get("reward"), reward_on_map])
 			ok = false
 		var want_next: Array = ["tire"] if lesson == 1 else ["stuck_valve"]
 		var lesson_calls: Array = g.jobs.filter(func(jj): return jj.get("lesson", false))
@@ -1763,9 +1770,8 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	var total_ok: bool = tot_txt.replace(",", "") == "%s$%d" % ["+" if want_total > 0 else "-" if want_total < 0 else "", absi(want_total)]
 	var fit_ok: bool = card.get_global_rect().size.y <= card.get_viewport_rect().size.y
 	# A lesson's sign-off is on the ticket, and its own card doesn't open over it.
-	var lesson_ok: bool = int(deb.get("bonus", 0)) == 0 or (card.find_children("Lesson", "Label", true, false).size() == 1 \
-		and not is_instance_valid(g.tutorial._reward))
-	print("ticket: lesson on it, no second card %s" % lesson_ok)
+	var lesson_ok: bool = not is_instance_valid(g.tutorial._reward)  # the sign-off card waits for the map
+	print("ticket: no lesson card over it %s" % lesson_ok)
 	var ticket_ok: bool = lesson_ok and reg_ok and station_ok and total_ok and fit_ok
 	print("ticket: registration %s %s, station %s, total %s %s, fits %s" % [reg_ok, reg_txt, station_ok, total_ok, tot_txt, fit_ok])
 	var awards: Array = card.find_children("Award*", "HBoxContainer", true, false)
@@ -1777,7 +1783,6 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 		"extra": ["Left mag called bad  (1 h)"], "next": "x"}}
 	plain["day"] = 4
 	var derived_ok: bool = g.registration(plain) == g.registration(plain.duplicate(true)) and g.registration(plain).begins_with("N")
-	g.tutorial._close_reward()  # the lesson's sign-off was seen on the real ticket; this one is a plain job
 	g._open_mission_card(plain)
 	await get_tree().process_frame
 	var none_ok: bool = derived_ok and g.panel.find_children("Award*", "HBoxContainer", true, false).is_empty() \

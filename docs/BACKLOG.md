@@ -5,20 +5,14 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 14 (2026-11-23): take days and hours off the debrief (D1).**
-
-- **Goal**: the debrief talks money and mistakes only; time figures added nothing (Thad).
-- **Items**: the sheet's header and summary lose the day and days-on-site figures; each extra cost
-  shows its dollars, or nothing when it only cost time; the logbook's copy of those lines too, old
-  entries included (time stripped when shown, the save unchanged).
-- **Risk gate**: saves: the stored lines change wording only, no layout change, old ones are
-  cleaned when shown, so no `SAVE_VERSION` bump. Money rules: rent, net and the advice's weighing
-  are untouched (time still counts toward which mistake cost most). Form (P4) and Clean Job count
-  lines, not their wording: unchanged. Layout: screenshot at 1280x720. Check: self-test reads the
-  sheet and an old-style line and finds no day or hour figure.
-- **Acceptance**: as D1 below.
+(None. Iteration 14 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
+
+- **T1. A parse error must fail the self-test, not hang it** (found in iteration 14, proposed by
+  Claude). The watchdog lives in `selftest.gd`, so a script that doesn't parse leaves Godot idle
+  with no output until something outside kills it. Acceptance: a deliberate parse error ends the
+  run non-zero within a minute, saying where.
 
 - ~~**D1. Take days and hours off the debrief** (Thad, 2026-11-23: "it adds nothing to the game").~~ In iteration 14.
   The sheet drops "x days on site" and the time each extra cost took ("0.4 days", "3 h"); money

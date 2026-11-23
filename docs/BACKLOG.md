@@ -9,6 +9,19 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **U1. UX and typography audit of every pop-up and menu changed or made since the process began**
+  (Thad, 2026-11-23: "please look at every pop up and menu weve changed or created that has text
+  and run an audit on that as well"; he asked for it in iteration 17, and under the process it waits
+  for its own). The ux-laws audit (law, problem with its number, fix, effort; ten findings at most
+  per screen) and the anti-AI typography checklist, on: the task list (T), the badge board and
+  tracker, badge and promotion banners, the mag-call cockpit card, the error-activated aids (the
+  manual-page offer, the entry hint, the rudder cue), the apprenticeship sign-off card, the squawk
+  notes, the menu walkthroughs, the rescue calls, the wallet, the logbook, the catalogs, the
+  ending and game-over sheets, the cockpit checklist. Screenshots at 1280x720 for each; the
+  findings written to `docs/` with the top fixes; the fixes themselves as follow-up items,
+  ordered by Thad. Acceptance: every listed screen audited from a screenshot; findings in the
+  format; top fixes proposed.
+
 - **F5. Don't pay for the owner's fuel** (Thad, 2026-11-23: "i dont think we should pay for the fuel
   in the plane because its not our plane"). Today the fuel truck bill for the customer's plane
   comes out of your pocket and shows under Fuel on the ticket (with your own flight there). The

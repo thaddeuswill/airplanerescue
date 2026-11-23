@@ -5,14 +5,25 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 17 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 18 (2026-11-23): UX and typography audit of every changed pop-up and menu (U1).**
+
+- **Goal**: every screen with text that the iterations changed or made, audited against the ux-laws
+  numbers and the anti-AI typography checklist, from a 1280x720 screenshot.
+- **Items**: the audit document `docs/UX_AUDIT_2026-11-23.md` (per screen: findings in the skill's
+  table format, ten at most; then the top fixes across all screens); the fixes proposed as backlog
+  items for Thad to order. No game code changes in this iteration.
+- **Risk gate**: nothing in the game changes, so saves, soft-locks, money and layout are untouched.
+  The risk is an audit that guesses: each finding must be measured from a screenshot or the code
+  (sizes, counts, contrast), never "feels". Definition of done still runs (no code changed, so it
+  confirms the build).
+- **Acceptance**: as U1 below.
 
 ## Next
 
-- **U1. UX and typography audit of every pop-up and menu changed or made since the process began**
+- ~~**U1. UX and typography audit of every pop-up and menu changed or made since the process began**
   (Thad, 2026-11-23: "please look at every pop up and menu weve changed or created that has text
   and run an audit on that as well"; he asked for it in iteration 17, and under the process it waits
-  for its own). The ux-laws audit (law, problem with its number, fix, effort; ten findings at most
+  for its own).~~ In iteration 18. The ux-laws audit (law, problem with its number, fix, effort; ten findings at most
   per screen) and the anti-AI typography checklist, on: the task list (T), the badge board and
   tracker, badge and promotion banners, the mag-call cockpit card, the error-activated aids (the
   manual-page offer, the entry hint, the rudder cue), the apprenticeship sign-off card, the squawk

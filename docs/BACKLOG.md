@@ -187,6 +187,14 @@ starts once iteration 9's verification is in.
   checkboxes on the call sheet. Acceptance: the plan is optional on Easy; the debrief shows plan
   against outcome; self-test covers a plan that matched and one that didn't.
 
+- **P19. Job status: a career ladder.** Good reports (clean debriefs, badges, no comebacks, owners
+  who call back) move you up: Apprentice (the lessons), A&P Mechanic, Lead Mechanic, then an
+  Inspection Authorization (IA). Each rung is a tangible benefit: better pay, harder and better
+  work. In real life annual inspections need an IA, so annual calls open only once you hold one.
+  Pairs with P14 (unlock by demonstrated objectives) and P7 (the economy). Acceptance: each rung
+  names what earns it and what it opens; the logbook shows your rung and the next; self-test
+  promotes on the record and holds back without it.
+
 ## Fun (Lazzaro's four types, 2026-11-23)
 
 Hard fun is the core (mastering real procedures) and serious fun comes from the repair ritual.

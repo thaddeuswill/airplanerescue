@@ -12,6 +12,15 @@ Iteration 1 (2026-11-23). Every part of the game, against two frames:
 Every measure and flow claim names the code or self-test check behind it. Where there's none, it's
 marked **gap** with the backlog item that closes it (`docs/BACKLOG.md`, items G1-G7).
 
+**Principle: selective fidelity** (2026-11-23). A simulation doesn't have to reproduce reality;
+the more it tries to copy every complexity and irrelevance, the less it works. So the game is
+exact where the learning objective lives and abstract everywhere else. Real: torque values, the
+75 rpm mag drop, timing degrees, prop track, the troubleshooting chains, the approved-data wording
+of a logbook entry (CLAUDE.md, "real values beat game feel"). Abstracted: travel (one card), flight
+physics (a few numbers), the length of a job (minutes, not hours), money (a simple ledger), the
+walk-around (eight spots, not every rivet). The test for any new detail: does it serve a learning
+objective? If not, abstract it or leave it out.
+
 ---
 
 ## A. The apprenticeship

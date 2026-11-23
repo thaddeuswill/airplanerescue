@@ -1723,6 +1723,8 @@ func _debrief_no_time(deb: Dictionary) -> bool:
 ## - red, zero brass); the achievements are this job's badges (Sharp Eyes comes at this sign-off)
 ## and nothing else; a job with none says so; an entry saved before D3 still opens.
 func _mission_card_ok(deb: Dictionary) -> bool:
+	# The RESCUED banner went when the card opened (it ran over the figures).
+	var banner_ok: bool = not is_instance_valid(g._banner_node) or g._banner_node.is_queued_for_deletion()
 	await get_tree().process_frame
 	var card: Control = g.panel
 	var centre_ok := card != null and card.name == "MissionCard" \
@@ -1752,6 +1754,6 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	var none_ok: bool = g.panel.find_children("Award*", "HBoxContainer", true, false).is_empty() \
 		and g.panel.find_children("*", "Label", true, false).any(func(l): return l.text.begins_with("No new badges"))
 	g._close_panel()
-	var ok := centre_ok and colour_ok and n_gain >= 2 and n_loss >= 1 and badge_ok and none_ok
-	print("mission card: centred %s, colours %s (%d gain, %d loss), badges %s %s, none %s" % [centre_ok, colour_ok, n_gain, n_loss, badge_ok, got, none_ok])
+	var ok := banner_ok and centre_ok and colour_ok and n_gain >= 2 and n_loss >= 1 and badge_ok and none_ok
+	print("mission card: banner cleared %s, centred %s, colours %s (%d gain, %d loss), badges %s %s, none %s" % [banner_ok, centre_ok, colour_ok, n_gain, n_loss, badge_ok, got, none_ok])
 	return ok

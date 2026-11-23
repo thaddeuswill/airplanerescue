@@ -2022,8 +2022,8 @@ func _ferry_done() -> void:
 	_sign_off()
 	plane.queue_free()  # flown off to its owner
 	plane = null
+	_banner("RESCUED", "%d of %d planes back in the air" % [rescued, GOAL])  # before the card, which clears it (D3)
 	_after_flight()
-	_banner("RESCUED", "%d of %d planes back in the air" % [rescued, GOAL])
 
 
 ## The aircraft logbook entry: what was done, in your words, over your signature.

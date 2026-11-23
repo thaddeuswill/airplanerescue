@@ -9,6 +9,13 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **D1. Take days and hours off the debrief** (Thad, 2026-11-23: "it adds nothing to the game").
+  The sheet drops "x days on site" and the time each extra cost took ("0.4 days", "3 h"); money
+  stays (pay, fuel, parts, rent, net, and the dollars of each extra cost). A time-only mistake (a
+  wrong verdict, a wrong mag call) still shows, by what happened, with no figure. Acceptance:
+  self-test reads the sheet and finds no day or hour figure; the debrief advice still names the
+  biggest extra; screenshot at 1280x720.
+
 2. **A wall of saved planes in the hangar, and the rescue tally on the map** (audit item 5).
    Acceptance: a photo per rescue appears by the map; the map shows "N of 10 back in the air";
    screenshot at 1280x720; self-test checks the count matches the logbook.

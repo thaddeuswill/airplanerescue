@@ -2387,13 +2387,19 @@ func _open_mission_card(e: Dictionary) -> void:
 	station.name = "Station"
 	ids.add_child(station)
 	ids.add_child(_card_heading("Registration"))
-	var reg := Style.label(registration(e), "hud", Style.SIZE_2XL)
+	var reg := Style.label(registration(e), "hud", Style.SIZE_XL)
 	reg.name = "Registration"
 	reg.add_theme_font_override("font", Style.figures(true))
 	ids.add_child(reg)
+	# The job's stats, top right beside the registration: they're about the plane, not the money.
+	var side := VBoxContainer.new()
+	side.add_theme_constant_override("separation", 0)
+	head.add_child(side)
 	var tally := Style.label("DEBRIEF\n%d of %d RESCUED" % [rescued, GOAL], "hud_muted", Style.SIZE_SM, 800)
 	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	head.add_child(tally)
+	side.add_child(tally)
+	_card_stat(side, "Spots checked", "%d of %d" % [d.get("checked", 0), ZONES.size()])
+	_card_stat(side, "Faults fixed", "%d of %d" % [d.get("fixed", 0), d.get("faults", 0)])
 	if d.get("said", "") != "":
 		var said := Style.label(d.said, "loss" if String(d.said).begins_with("A comeback") else "hud_muted", Style.SIZE_SM)
 		said.name = "Said"
@@ -2414,7 +2420,7 @@ func _open_mission_card(e: Dictionary) -> void:
 	var lines := debrief_lines(d)
 	if not lines.is_empty():
 		vb.add_child(_card_heading("Cost you extra (in the figures above)"))
-	const MAX_SHOWN := 4  # the ticket fits a 720 px window; the logbook keeps the full list
+	const MAX_SHOWN := 3  # the ticket fits a 720 px window; the logbook keeps the full list
 	for i in mini(lines.size(), MAX_SHOWN):
 		var what: String = lines[i]
 		var amt := 0
@@ -2425,9 +2431,6 @@ func _open_mission_card(e: Dictionary) -> void:
 		_card_figure(vb, "- " + what if amt == 0 else what, -amt, false, "loss", true)
 	if lines.size() > MAX_SHOWN:
 		vb.add_child(Style.label("and %d more, in your logbook" % (lines.size() - MAX_SHOWN), "hud_muted", Style.SIZE_SM))
-	vb.add_child(_card_heading("This job"))
-	_card_stat(vb, "Spots checked", "%d of %d" % [d.get("checked", 0), ZONES.size()])
-	_card_stat(vb, "Faults fixed", "%d of %d" % [d.get("fixed", 0), d.get("faults", 0)])
 	vb.add_child(_card_heading("Achievements"))
 	var got: Array = d.get("badges", [])
 	var ach := HFlowContainer.new()
@@ -2463,13 +2466,32 @@ func _open_mission_card(e: Dictionary) -> void:
 	ui.add_child(card)
 	go.grab_focus.call_deferred()
 	card.modulate.a = 0.0
-	card.scale = Vector2(0.97, 0.97)
-	card.pivot_offset = Vector2(300, 260)
-	var tw := card.create_tween().set_parallel().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(card, "modulate:a", 1.0, Style.MOTION_BASE)
-	tw.tween_property(card, "scale", Vector2.ONE, Style.MOTION_BASE)
+	_fit_card.call_deferred(card)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	player.frozen = true
+
+
+## Size, centre and fit the card: its own size, centred in the window, scaled down about its centre
+## if the window is too small for it. Run again whenever its contents change size, since wrapped
+## text first lays out far too tall and settles a frame later.
+func _place_card(card: Control) -> void:
+	if not is_instance_valid(card):
+		return
+	var vp := get_viewport().get_visible_rect().size
+	card.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	card.size = card.get_combined_minimum_size()
+	card.position = ((vp - card.size) / 2.0).round()
+	card.pivot_offset = card.size / 2.0
+	var k := minf(1.0, minf((vp.y - 24.0) / card.size.y, (vp.x - 24.0) / card.size.x))
+	card.scale = Vector2(k, k)
+
+
+func _fit_card(card: Control) -> void:
+	if not is_instance_valid(card):
+		return
+	card.minimum_size_changed.connect(_place_card.bind(card))
+	_place_card(card)
+	card.create_tween().tween_property(card, "modulate:a", 1.0, Style.MOTION_BASE)
 
 
 ## One money row on the card: words left, the signed figure right in Courier Prime, green for a
@@ -2481,6 +2503,7 @@ func _card_figure(box: Control, what: String, amount: int, big := false, force_r
 	var l := Style.label(what, "hud", Style.SIZE_LG if big else Style.SIZE_SM if small else Style.SIZE_MD, 800 if big else 600)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size.x = 390  # wrapped text with no width yet lays out thousands of px tall
 	row.add_child(l)
 	var role := force_role if force_role != "" else ("gain" if amount > 0 else "loss" if amount < 0 else "hud_muted")
 	var fig := Style.label("" if amount == 0 and force_role == "loss" else ("%s$%s" % ["+" if amount > 0 else "-" if amount < 0 else "", _thousands(absi(amount))]), role)
@@ -2498,10 +2521,12 @@ func _card_figure(box: Control, what: String, amount: int, big := false, force_r
 func _card_stat(box: Control, what: String, value: String) -> void:
 	var row := HBoxContainer.new()
 	box.add_child(row)
-	var l := Style.label(what, "hud", Style.SIZE_SM)
+	row.add_theme_constant_override("separation", Style.SPACE_3)
+	var l := Style.label(what, "hud_muted", Style.SIZE_SM)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(l)
-	var v := Style.label(value, "hud_muted", Style.SIZE_SM)
+	var v := Style.label(value, "hud", Style.SIZE_SM)
 	v.add_theme_font_override("font", Style.figures(true))
 	row.add_child(v)
 

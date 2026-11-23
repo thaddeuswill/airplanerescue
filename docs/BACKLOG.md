@@ -126,6 +126,15 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   players read them right. Acceptance: a pulse when the next-step icon or a marker changes;
   a playtest note in `docs/` with what players took each icon to mean.
 
+- **P11. Real-world supplementary activities.** Before and after play, tied to the real world with as
+  few trips out of the game as possible: (a) before a job type, a short reading list (its service
+  manual chapter and the AC 43.13-1B section, from `reference/`); (b) after a session, an
+  after-action review the player or an instructor can print: each job's debrief, the play-log
+  learning events (mag calls, verdicts, aids shown), and what to review; (c) a follow-up quiz per
+  ATA chapter for the jobs done. Acceptance: the review exports from the logbook to a file; the
+  reading list shows on the call; quiz questions come from the manual data, never invented
+  values; self-test checks the export.
+
 ## Fun (Lazzaro's four types, 2026-11-23)
 
 Hard fun is the core (mastering real procedures) and serious fun comes from the repair ritual.

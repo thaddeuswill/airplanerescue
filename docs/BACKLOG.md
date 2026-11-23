@@ -5,42 +5,28 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 15 (2026-11-23): the end-of-mission screen, redone (D3).**
+**Iteration 16 (2026-11-23): no days counted, no job timed (D2).**
 
-- **Goal**: the debrief as a centred glass card: gains in green, losses in red, the job's stats and
-  what it earned.
-- **Items**: a centred card on a translucent, blurred earth-glass panel (the scene shows through);
-  money as a column of signed figures (+ green, − red, the net by its sign), the extra costs in red;
-  stats (planes rescued, spots checked, faults fixed, cash in hand); achievements: badges earned on
-  this job (recorded as they're earned) and a promotion; the advice and form line kept; the
-  RESCUED banner gives way to the card, which carries its words.
-- **Joined mid-iteration (Thad, refines the card): "remove the rescued and the top right of the
-  money earned just put all that in the end mission screen".** On delivery: no RESCUED banner, no
-  "+$" pop at the top right, no owner's-thanks line at the top; the owner's words (or the comeback
-  news) go on the card under the title; badges and a promotion earned at sign-off show on the card,
-  not as banners. Where no card follows (the tenth plane's ending), the banner stays.
-- **Joined mid-iteration (Thad, refines the card's layout): laid out like a ticket.** Top left the
-  station (the city), under it the plane's registration (an N-number) in place of "Rag-wing
-  taildragger"; then every line item (pay, fuel, parts, rent, each extra cost) with its figure
-  right-aligned; under that the achievements; at the bottom the total, added up like a ticket.
-  The registration is made when the call comes in (14 CFR 47.15 format: N, a first digit 1-9, up
-  to five characters, at most two letters at the end, no I or O), saved on the job and its logbook
-  entry; jobs and entries from older saves get one worked out from what they are, so it never
-  changes between looks.
-- **Joined mid-iteration (Thad): "have the apprentice check list on the maps section instead of
-  after the job is done".** The lesson's sign-off card (job n of 3 done, what you learned, what's
-  next, the gift) opens over the map once the ticket closes, never over the ticket; its bonus
-  figure moves to the ticket as a line item (all money on the ticket), so the card no longer
-  repeats it.
-- **Risk gate**: design system: its mood says "not glassy"; Thad asked for glass, so the product
-  owner's call wins for this screen, kept in the system's earth, brass and cream with two new HUD
-  tokens for gain and loss, contrast checked over the brightest scene (white snow): green 6.6:1,
-  red 5.4:1. Colour never alone: every figure carries its + or − sign. Saves: the logbook's
-  debrief gains `badges` and `promoted`, read with defaults, so old entries still open; no
-  `SAVE_VERSION` bump. Layout: centred at 1280x720 and 1920x1080, screenshots. Flow: the button
-  and Esc behave as before (on to the map; Esc closes). Checks: self-test reads the card's colours
-  by sign, the badge list (earned this job only, "none" when none), and that it's centred.
-- **Acceptance**: as D3 below.
+- **Goal**: the game keeps no day count and times nothing; what ran on days runs on money or not
+  at all, as Thad chose.
+- **Items**: (1) rent becomes a flat hangar fee per job, on the ticket; (2) calls don't expire; (3)
+  a wrong verdict or mag call costs a small charge instead of time; (4) mail order arrives at once
+  at its 25% markup; (5) odd jobs just pay; (6) the ramp's tighter deadlines go (the difficulty
+  rating itself never read the deadline). Every day figure leaves the player's screens: HUD,
+  greeting, work scene, wallet, job sheet, pause menu, logbook, career, badge board, flight card,
+  map ("waits n days", "days' rent"), catalog, lesson notes and walkthroughs, kickback and forced
+  landing lines.
+- **Amounts (game balance, for the playtest, like `ECONOMY`)**: hangar fee $60 a job (today's
+  tickets show $52-75 of rent); a wrong guess $25.
+- **Risk gate**: saves: `day`, deadlines and badge days are stored; bump `SAVE_VERSION` to 3 and
+  `_migrate` (drop deadlines, keep old fields harmless). Money rules: CLAUDE.md's settled "guessing
+  costs time only" becomes "guessing costs a small charge", changed by Thad 2026-11-23; the
+  ticket's total still adds up. Soft-locks: nothing may wait on a day passing (mail order, odd
+  jobs, an owner's wait); self-test checks a mail order is on hand at once. Layout: screenshots.
+  Checks: the self-test reads every sheet, the HUD and the cards and finds no day figure; the
+  fee is on the ticket; a wrong call costs the charge; a call left alone never expires; an old
+  save loads.
+- **Acceptance**: as D2 below.
 
 ## Next
 
@@ -64,10 +50,10 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   figure coloured by its sign; badges earned on the job listed, none when none; the "Next time"
   advice and form line kept; self-test checks the colours and the badge list; screenshots.
 
-- **D2. No days counted, no job timed** (Thad, 2026-11-23, in three steps: "i dont want any clock
+- ~~**D2. No days counted, no job timed** (Thad, 2026-11-23, in three steps: "i dont want any clock
   time unless it has anything to do with your score or achievements"; "rent days can stay but
   anything maintenance wise with days should go"; then "i dont want days to be counted or how long a
-  job takes").
+  job takes").~~ In iteration 16.
   - **What it means:** the game stops keeping a day count (`day`, `_advance`) and stops timing jobs.
     Every day figure and every "a day's wait", "half a day lost", "x days on site" goes.
   - **Replacements, chosen by Thad 2026-11-23 ("go with your suggestions for all six"):**

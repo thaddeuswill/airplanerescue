@@ -873,8 +873,9 @@ func walk_pages(id: String) -> Array:
 				["HANGAR FEE", "$60 a job, back home."]]]]
 		"logbook":
 			return [["sheet", "YOUR LOGBOOK", "Every plane you've put back in the air (%s)." % k.call("logbook"), [
-				["EACH ENTRY", "Where, what you did, what it paid and cost."],
-				["THE GOAL", "Ten entries."]]]]
+				["RANK", "First: what the next rank needs."],
+				["EACH ENTRY", "The plane, the station, what you did, what it cleared."],
+				["BADGES", "Last: all eight, the ones you've earned in ink."]]]]
 		"manual":
 			return [
 				["book", "THE SERVICE MANUAL", "It opens at whatever you're working on (%s)." % k.call("manual"), [

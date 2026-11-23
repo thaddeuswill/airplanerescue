@@ -3854,31 +3854,34 @@ func _confirm_restart() -> void:
 		["", "Yes, start over", _restart, true], ["", "Keep playing", _close_panel, true]])
 
 
+## The logbook, by importance (LB1, Thad): what the next rank needs first (it's what to do next),
+## then one short entry per job, newest first, then the badges as a grid. The money breakdown of
+## each job stays on its ticket; the logbook is the record.
 func _open_logbook() -> void:
 	tutorial.walk("logbook")  # first time here: a walkthrough of this menu (tutorial.gd)
-	var rows := [["Planes back in the air: %d of %d" % [rescued, GOAL]]]
-	rows.append(["Rank: %s\n%s" % [rank_title(rank), rank_next_line()]])  # job status (P19)
-	# The badge board: every badge, earned or not, with its standard (P8).
-	rows.append(["Badges: %d of %d" % [badges.size(), BADGES.size()]])
-	for b in BADGES:
-		var got: bool = badges.has(b[0])
-		rows.append(["%s  (%s)%s\n%s" % [b[1], b[2], "  earned" if got else "", b[3]], "", null, false,
-			"hud/badge.svg" if got else "hud/badge_none.svg"])
+	var rows := [["Rank: %s\n%s" % [rank_title(rank), rank_next_line()], "", null, false, "", {"lead": Style.SIZE_XL, "name": "Rank"}]]
 	for i in range(logbook.size() - 1, -1, -1):
-		var e: Dictionary = logbook[i]
-		var net: int = e.pay - e.get("fuel", 0) - e.get("parts", 0)
-		rows.append(["%s  -  %s%s%s\n%s\nPaid $%d - fuel $%d - parts $%d = %s$%d" % [e.city, e.type,
-			"  (GROUNDED)" if e.get("grounded", false) else "",
-			(", sat %d yrs" % e.years) if e.get("years", 0) > 0 else "", ", ".join(e.work), e.pay, e.get("fuel", 0), e.get("parts", 0),
-			"" if net >= 0 else "-", absi(net)]])
-		var d: Dictionary = e.get("debrief", {})  # entries from before the debrief (E5) have none
-		if d.has("checked"):  # the job's stats, moved here off the ticket (D4)
-			rows.append(["Spots checked %d of %d. Faults fixed %d of %d." % [d.checked, ZONES.size(), d.get("fixed", 0), d.get("faults", 0)]])
-		if not d.is_empty():
-			rows.append([("Cost extra: " + "; ".join(debrief_lines(d)) if d.extra.size() > 0 else "Nothing cost extra.") + "\nNext time: " + d.next])
+		rows.append(logbook_entry_row(logbook[i], i == logbook.size() - 1))
 	if logbook.is_empty():
 		rows.append(["No entries yet. Your first rescue goes here."])
-	_open_panel("Logbook", rows)
+	rows.append(["Badges: %d of %d" % [badges.size(), BADGES.size()], "", null, false, "", {"grid": BADGES.map(func(b): return [b[0], b[1], b[3], badges.has(b[0])]), "name": "Badges"}])
+	_open_panel("Logbook   %d of %d rescued" % [rescued, GOAL], rows)
+
+
+## One job in the logbook: registration and station, what was done, what it cleared; the newest
+## keeps its "Next time". Entries from older saves have no registration or debrief and still show.
+func logbook_entry_row(e: Dictionary, newest: bool) -> Array:
+	var d: Dictionary = e.get("debrief", {})
+	var cleared: int = int(d.net) if d.has("net") else int(e.pay) - int(e.get("fuel", 0)) - int(e.get("parts", 0))
+	var head := "%s  %s %s   %s$%s" % [registration(e), station_code(e.city), e.city, "+" if cleared >= 0 else "\u2212", _thousands(absi(cleared))]
+	if e.get("grounded", false):
+		head += "   GROUNDED"
+	var body := ", ".join(e.work)
+	if d.has("checked"):
+		body += ". Spots %d of %d, faults %d of %d." % [d.checked, ZONES.size(), d.get("fixed", 0), d.get("faults", 0)]
+	if newest and d.get("next", "") != "":
+		body += "\nNext time: " + d.next
+	return [head + "\n" + body, "", null, false, "", {"name": "Entry"}]
 
 
 func _say(text: String) -> void:
@@ -4083,6 +4086,11 @@ func _open_panel(title: String, rows: Array, closable := true, stamp := "") -> V
 
 ## Roughly how tall a row will be once wrapped. Errs tall, so a page never overflows the screen.
 func _row_height(r: Array) -> float:
+	var opt: Dictionary = r[5] if r.size() > 5 and r[5] is Dictionary else {}
+	if opt.has("grid"):  # caption plus rows of icon-and-name cells
+		return 30.0 + ceilf(opt.grid.size() / 4.0) * 72.0 + 21.0
+	if opt.has("lead"):  # a large first line
+		return 40.0 + ceilf(r[0].get_slice("\n", 1).length() * 7.0 / _text_width(r)) * 17.0 + 21.0
 	var w := _text_width(r)
 	var tall := 0.0
 	if r.size() > 4 and r[4] != "":
@@ -4135,9 +4143,46 @@ func _turn_page(by: int) -> void:
 
 
 func _add_row(vb: VBoxContainer, r: Array) -> void:
+	var opt: Dictionary = r[5] if r.size() > 5 and r[5] is Dictionary else {}
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 14)
+	hb.name = opt.get("name", "Row")
 	vb.add_child(hb)
+	if opt.has("grid"):  # a grid of badges: icon over name, the standard on hover (LB1)
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hb.add_child(col)
+		var cap := Label.new()
+		cap.text = r[0]
+		cap.add_theme_font_size_override("font_size", Style.SIZE_MD)
+		col.add_child(cap)
+		var grid := GridContainer.new()
+		grid.name = "Grid"
+		grid.columns = 4
+		grid.add_theme_constant_override("h_separation", Style.SPACE_4)
+		grid.add_theme_constant_override("v_separation", Style.SPACE_3)
+		col.add_child(grid)
+		for g in opt.grid:
+			var cell := VBoxContainer.new()
+			cell.custom_minimum_size.x = 130
+			cell.tooltip_text = g[2]
+			cell.mouse_filter = Control.MOUSE_FILTER_STOP
+			var icon := TextureRect.new()
+			icon.texture = load("res://textures/hud/badge.svg" if g[3] else "res://textures/hud/badge_none.svg")
+			icon.custom_minimum_size = Vector2(36, 36)
+			icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cell.add_child(icon)
+			var nm := Label.new()
+			nm.text = g[1]
+			nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			nm.add_theme_font_size_override("font_size", Style.SIZE_SM)
+			nm.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER if g[3] else Style.COLOR_TEXT_PAPER_MUTED)
+			nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cell.add_child(nm)
+			grid.add_child(cell)
+		return
 	if r.size() > 4 and r[4] != "":
 		var icon := TextureRect.new()
 		icon.texture = load(("res://textures/%s" if r[4].ends_with(".svg") else "res://textures/%s.png") % r[4])
@@ -4158,7 +4203,7 @@ func _add_row(vb: VBoxContainer, r: Array) -> void:
 		l.text = parts[i]
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		l.custom_minimum_size.x = _text_width(r)
-		l.add_theme_font_size_override("font_size", Style.SIZE_MD if i == 0 else Style.SIZE_SM)
+		l.add_theme_font_size_override("font_size", (opt.get("lead", Style.SIZE_MD) if i == 0 else Style.SIZE_SM))
 		if i > 0:
 			l.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER_MUTED if _paper_sheet else C_BRASS)
 		words.add_child(l)

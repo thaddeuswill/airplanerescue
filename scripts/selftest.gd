@@ -798,6 +798,7 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "debrief", 0.3)
 	ok = await _mission_card_ok(deb) and ok
 	ok = _no_days_ok() and ok
+	ok = _logbook_ok() and ok
 	# Badges (P8): earned only when the standard was met. This run checked every spot and missed
 	# nothing (Sharp Eyes) and the scene tests torqued to spec (To Spec); it also called a mag wrong,
 	# had an entry sent back and looped on purpose, so those badges must be withheld.
@@ -1832,4 +1833,48 @@ func _no_days_ok() -> bool:
 	var migrate_ok: bool = int(old.version) == g.SAVE_VERSION and not old.has("day") and not old.jobs[0].has("deadline") and not old.jobs[0].has("arrived")
 	var ok: bool = bad.is_empty() and fee_ok and hud_ok and migrate_ok
 	print("no days: shown %s, fee %s, hud %s, old save %s" % ["none" if bad.is_empty() else str(bad), fee_ok, hud_ok, migrate_ok])
+	return ok
+
+
+
+## LB1: the logbook opens on the rank, then the entries newest first with no money breakdown, then
+## the badge grid of eight. A ten-job career fits on fewer pages than the old layout did.
+func _logbook_ok() -> bool:
+	g._close_panel()
+	g._open_logbook()
+	var first: Array = g._pages[0]
+	var last: Array = g._pages[-1]
+	var name_of := func(r: Array) -> String: return String(r[5].get("name", "")) if r.size() > 5 and r[5] is Dictionary else ""
+	var flat: Array = []
+	for pg in g._pages:
+		flat.append_array(pg)
+	var order_ok: bool = name_of.call(first[0]) == "Rank" and name_of.call(last[-1]) == "Badges" \
+		and flat.slice(1, flat.size() - 1).all(func(r): return name_of.call(r) == "Entry" or g.logbook.is_empty())
+	var money_ok: bool = not flat.any(func(r): return String(r[0]).contains("Paid $") or String(r[0]).contains("Cost extra"))
+	var shown_ok := false
+	var rank_rows: Array = g._list.find_children("Rank", "HBoxContainer", false, false)
+	var rank_size: int = rank_rows[0].get_child(0).get_child(0).get_theme_font_size("font_size") if rank_rows.size() > 0 else 0
+	g._page = g._pages.size() - 1
+	g._show_page()
+	var grids: Array = g._list.find_children("Grid", "GridContainer", true, false).filter(func(n): return not n.is_queued_for_deletion() and not n.get_parent().get_parent().is_queued_for_deletion())
+	var grid_ok: bool = grids.size() == 1 and grids[0].get_child_count() == g.BADGES.size()
+	shown_ok = rank_size == Style.SIZE_XL and grid_ok
+	# A ten-job career: new rows against the old layout's (tally, rank, badge header, 8 badges, 3 rows a job).
+	var e: Dictionary = g.logbook[-1] if g.logbook.size() > 0 else {"city": "Omaha", "type": "Cub", "pay": 3000, "work": ["Flat main tire"]}
+	var new_rows: Array = [first[0]]
+	var old_rows: Array = [["Planes back in the air: 10 of 10"], ["Rank: x\n" + g.rank_next_line()], ["Badges: 2 of 8"]]
+	for b in g.BADGES:
+		old_rows.append(["%s  (%s)  earned\n%s" % [b[1], b[2], b[3]], "", null, false, "hud/badge.svg"])
+	for i in 10:
+		new_rows.append(g.logbook_entry_row(e, i == 0))
+		old_rows.append(["%s  -  %s\n%s\nPaid $3000 - fuel $500 - parts $100 = $2400" % [e.city, e.type, ", ".join(e.work)]])
+		old_rows.append(["Spots checked 8 of 8. Faults fixed 1 of 1."])
+		old_rows.append(["Cost extra: Left mag called bad\nNext time: Read each drop against the limit."])
+	new_rows.append(last[-1])
+	var room: float = g.get_viewport().get_visible_rect().size.y - 230.0
+	var pages_new: int = g._paginate(new_rows, room).size()
+	var pages_old: int = g._paginate(old_rows, room).size()
+	g._close_panel()
+	var ok: bool = order_ok and money_ok and shown_ok and pages_new < pages_old
+	print("logbook: rank first and large %s, entries without money %s, badge grid %s, ten jobs on %d pages (was %d)" % [order_ok and rank_size == Style.SIZE_XL, money_ok, grid_ok, pages_new, pages_old])
 	return ok

@@ -5,22 +5,27 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 10: an achievement tracker on the main screen (P13).** Goal: the badges are always in
-view at a field, greyed until earned, and colour in with a sound when one is. Planned 2026-11-23;
-starts once iteration 9's verification is in.
+**Iteration 11: job status, a career ladder (P19).** Goal: good work earns rank, and each rank is a
+tangible benefit the player can see coming. Started 2026-11-23.
 
-1. **The tracker.**
-   - A row of eight small badge icons on the HUD at a field, in process order (walk-around to
-     flight), greyed until earned; hovering is not needed: the name shows beside a newly earned
-     one for a few seconds.
-   - Earning one: the icon colours in with a brief pulse and the chime (with the banner already
-     there).
-   - Placed out of the way of the squawk (top right), the next-step icon (top left) and the
-     pockets (bottom left); hidden in sheets, jobs and the cockpit.
-   - Acceptance: shown at a field, hidden elsewhere; an earned badge draws coloured, an unearned
-     one grey; screenshot at 1280x720; definition-of-done set passes.
-   - Risk gate: HUD only; reads `badges`, changes nothing. Screen space: checked at the smallest
-     window against the squawk, icon and pockets.
+1. **Four ranks**, earned from the record (never lost once earned):
+   - **Apprentice**: during the three lessons.
+   - **A&P Mechanic**: on finishing the apprenticeship.
+   - **Lead Mechanic**: 5 planes delivered, 3 of them clean jobs (nothing extra on the debrief),
+     and no comeback in your last 3. Benefit: calls pay 10% more.
+   - **Inspection Authorization (IA)**: 8 planes delivered, 6 badges, and no comeback in your last
+     5. Benefit: calls pay 20% more, and annual inspections open (in real life an annual needs an
+     IA, so before this the game offers none).
+   - The numbers are game rules for this ladder, not real-world requirements (a real IA needs an A&P
+     held for three years and a test); the logbook says so.
+   - Promotion: a banner, a chime and a play-log line, checked on each delivery.
+   - The logbook shows your rank, the next one, and what it still needs, in figures.
+   - Acceptance: the self-test promotes on a record that meets a rank and holds back one that
+     doesn't; annuals never spawn below IA; the raise shows in a new call's pay; definition-of-done
+     set passes; screenshot of the logbook's rank line.
+   - Risk gate: pay changes (a raise on new calls only; existing calls keep their pay), and annuals
+     move later in the career. Saves: a new `rank` key, worked out from the record when a save
+     doesn't have it, so older careers get the rank they've earned. No money taken away.
 
 ## Next
 
@@ -187,7 +192,7 @@ starts once iteration 9's verification is in.
   checkboxes on the call sheet. Acceptance: the plan is optional on Easy; the debrief shows plan
   against outcome; self-test covers a plan that matched and one that didn't.
 
-- **P19. Job status: a career ladder.** Good reports (clean debriefs, badges, no comebacks, owners
+- ~~**P19. Job status: a career ladder.**~~ In iteration 11. Good reports (clean debriefs, badges, no comebacks, owners
   who call back) move you up: Apprentice (the lessons), A&P Mechanic, Lead Mechanic, then an
   Inspection Authorization (IA). Each rung is a tangible benefit: better pay, harder and better
   work. In real life annual inspections need an IA, so annual calls open only once you hold one.

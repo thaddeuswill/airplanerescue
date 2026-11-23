@@ -5,35 +5,26 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 16 (2026-11-23): no days counted, no job timed (D2).**
+**Iteration 17 (2026-11-23): the ticket's hierarchy (D4).**
 
-- **Goal**: the game keeps no day count and times nothing; what ran on days runs on money or not
-  at all, as Thad chose.
-- **Items**: (1) rent becomes a flat hangar fee per job, on the ticket; (2) calls don't expire; (3)
-  a wrong verdict or mag call costs a small charge instead of time; (4) mail order arrives at once
-  at its 25% markup; (5) odd jobs just pay; (6) the ramp's tighter deadlines go (the difficulty
-  rating itself never read the deadline). Every day figure leaves the player's screens: HUD,
-  greeting, work scene, wallet, job sheet, pause menu, logbook, career, badge board, flight card,
-  map ("waits n days", "days' rent"), catalog, lesson notes and walkthroughs, kickback and forced
-  landing lines.
-- **Amounts (game balance, for the playtest, like `ECONOMY`)**: hangar fee $60 a job, confirmed
-  by Thad 2026-11-23 as a placeholder until logistics is designed ("thats leaning into logistics
-  which we havent gotten that far yet"); a wrong guess $25 (proposed, not objected to).
-- **Risk gate**: saves: `day`, deadlines and badge days are stored; bump `SAVE_VERSION` to 3 and
-  `_migrate` (drop deadlines, keep old fields harmless). Money rules: CLAUDE.md's settled "guessing
-  costs time only" becomes "guessing costs a small charge", changed by Thad 2026-11-23; the
-  ticket's total still adds up. Soft-locks: nothing may wait on a day passing (mail order, odd
-  jobs, an owner's wait); self-test checks a mail order is on hand at once. Layout: screenshots.
-  Checks: the self-test reads every sheet, the HUD and the cards and finds no day figure; the
-  fee is on the ticket; a wrong call costs the charge; a call left alone never expires; an old
-  save loads.
-- **Acceptance**: as D2 below.
+- **Goal**: the ticket reads in order of importance at a glance.
+- **Items**: a type scale with clear steps: the total largest (Courier Prime bold, 36), the
+  registration next (28), line items 18, labels small and quiet (13, tracked caps, brass) so they
+  never read as titles; the station and registration as one block top left; the top right down to
+  one short line ("DEBRIEF"); the rescued tally moves to the career stats (already there as
+  Planes rescued) and the spots checked and faults fixed to the job's logbook entry. No new screen.
+- **Risk gate**: layout: must still fit 720 px (it scales down if not, but shouldn't need to);
+  sizes from `Style` only. Saves: the logbook entry gains `checked` and `fixed` counts, read with
+  defaults. Checks: self-test measures the font sizes (total > registration > line items > labels)
+  and that the top right holds one line; the logbook shows the stats; screenshots at 1280x720 and
+  1920x1080.
+- **Acceptance**: as D4 below.
 
 ## Next
 
-- **D4. The ticket's hierarchy** (Thad, 2026-11-23: "theres no hierarchy in the ticket window why
+- ~~**D4. The ticket's hierarchy** (Thad, 2026-11-23: "theres no hierarchy in the ticket window why
   is all the title text the same size and there is to much in the top right corner consolidate
-  that or move that info to another screen dont [invent] other screens tho"). One clear order of
+  that or move that info to another screen dont [invent] other screens tho").~~ In iteration 17. One clear order of
   importance: the total largest, then the registration, then the line items; the small caps
   labels (STATION, REGISTRATION, COST YOU EXTRA, ACHIEVEMENTS) quieter than the values they label,
   not the same size as titles. Top right cut down to one line or moved: the rescued tally and the

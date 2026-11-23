@@ -11,6 +11,14 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad to order:
 
+- **U7. The pilot squawk card, uncrowded** (Thad, 2026-11-23: "the pilot squawk doesnt look right
+  its way to crowded i like long write ups just show like 3 sentences at a time"). The write-ups
+  stay long; the card shows about three sentences at a time and pages through the rest (Next, or
+  Enter), with the squawk itself on the first page and "Look first" on the last; more space
+  around each part (the U1 proximity rule); curly quotes (from U6); the pinned squawk hidden while
+  the card is open (from U3). Acceptance: no page over three sentences; every sentence of the
+  write-up reachable; the GO LOOK button on the last page; self-test pages through it;
+  screenshots at 1280x720.
 - **U2. The catalog still says "arrives in 1 day"** (a D2 defect, `catalog.gd:392`). Say "25% over
   shelf"; extend the no-days check to the catalog's cards. Acceptance: no day text on any catalog
   card; the check reads them.

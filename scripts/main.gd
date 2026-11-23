@@ -1619,6 +1619,8 @@ func _call(id: String, key: String) -> void:
 	var t := _test_for(job, id)
 	if key != _answer(id, t):
 		note_cost("verdict", 0.05, 0, "A wrong call on the %s" % TESTS[t].name.to_lower())
+		var misses: Dictionary = job.get_or_add("misses", {})
+		misses[id] = misses.get(id, 0) + 1
 		_advance(0.05)
 		if not current_job:
 			return
@@ -2676,7 +2678,7 @@ func _input(e: InputEvent) -> void:  # before the GUI, so Tab isn't eaten by foc
 			panel.next_section(e.shift_pressed)
 			get_viewport().set_input_as_handled()
 		return
-	for kind in ["wallet", "clipboard", "logbook", "manual"]:
+	for kind in ["wallet", "clipboard", "logbook", "manual", "tasks"]:
 		if e.is_action_pressed(kind):
 			_pocket(kind)
 			get_viewport().set_input_as_handled()
@@ -3125,7 +3127,7 @@ func _setup_pockets() -> void:
 	strip.offset_bottom = -14
 	strip.add_theme_constant_override("separation", 8)
 	strip.modulate.a = 0.55  # always there, never asking for attention
-	for p in [["wallet", "Tab"], ["clipboard", "J"], ["logbook", "L"], ["manual", "N"]]:
+	for p in [["wallet", "Tab"], ["clipboard", "J"], ["logbook", "L"], ["manual", "N"], ["tasks", "T"]]:
 		var icon := _hud_icon(p[0], 40)
 		var key := _keycap(p[1], 10)
 		key.position = Vector2(20 if p[1] == "Tab" else 28, 27)
@@ -3190,10 +3192,76 @@ func _pocket(kind: String) -> void:
 			else:
 				_open_panel("Clipboard", [["No plane at this field. Take a call from the MAP on the hangar workbench."]])
 		"logbook": _open_logbook()
+		"tasks": _open_tasks()
 		"manual":
 			_open_manual(_manual_job())
 			return  # _open_manual sets panel_kind
 	panel_kind = kind
+
+
+# ---------- the task list (P3): what's done, failed, to try again, not tried yet ----------
+
+## The four states, each with its symbol and its word (never color alone).
+const TASK_STATES := {
+	"done": ["Done", "hud/task_done.svg"], "failed": ["Can't be done", "hud/task_failed.svg"],
+	"retry": ["Try again", "hud/task_retry.svg"], "todo": ["To do", "hud/task_todo.svg"],
+}
+
+
+## This job's tasks as it stands: [{state, text, note}]. Built from what you know, so a fault you
+## haven't found never appears; something heard but not tracked down is named by its next test.
+func task_list(job: Dictionary) -> Array:
+	var out := []
+	var add := func(state: String, text: String, note := ""): out.append({"state": state, "text": text, "note": note})
+	var n: int = job.get("checked", {}).size()
+	add.call("done" if n >= ZONES.size() else "todo", "Check all %d spots" % ZONES.size(), "%d of %d checked" % [n, ZONES.size()])
+	var swapped_wrong: Array = job.get("tried", {}).keys().filter(func(c): return job.tried[c] == false)
+	for id in job.faults:
+		var f: Dictionary = FAULTS[id]
+		if job.get("sym", {}).has(id) and not job.found.has(id):  # heard, not tracked down: the trail, not the cause
+			var t := _test_for(job, id)
+			var missed: int = job.get("misses", {}).get(id, 0)
+			add.call("retry" if missed > 0 else "todo", "Track it down: next, the %s" % (TESTS[t].name.to_lower() if t != "" else "run-up"),
+				("%d wrong call%s so far" % [missed, "" if missed == 1 else "s"]) if missed > 0 else String(TESTS[t].clue if t != "" else ""))
+			continue
+		if not job.found.has(id):
+			continue
+		if f.get("ground", false):
+			add.call("failed", f.name, "No field fix here: ground it and call the owner.")
+		elif job.fixed.has(id):
+			add.call("done", "Fix: " + f.name)
+		elif job.get("caused", {}).has(id):
+			add.call("retry", "Fix: " + f.name, "You broke it running it unready: the part's on you.")
+		elif swapped_wrong.has(SUSPECTS.get(id, "")):
+			add.call("retry", "Fix: " + f.name, "The %s you swapped wasn't it." % FAULTS[SUSPECTS[id]].part.to_lower())
+		else:
+			add.call("todo", "Fix: " + f.name, "Started" if job.get("work", {}).has(id) else "")
+	var r: String = job.get("runup", "")
+	add.call("done" if r == "ran" else ("retry" if r == "dead" else "todo"), "Run it up from the cabin",
+		"It wouldn't start: fix what stopped it, then try again." if r == "dead" else "")
+	if not cowl_closed(job):
+		add.call("todo", "Close the engine cowl", "Screw it down before you sign.")
+	if job.get("parked", "apron") == "hangar":
+		add.call("todo", "Roll it out to the apron")
+	add.call("done" if job.get("fuel", 1.0) >= 0.5 else "todo", "Fuel it: half tanks at least")
+	var sent_back: bool = job.get("lost", []).any(func(l): return l.kind == "entry")
+	add.call("done" if job.get("signed", false) else ("retry" if sent_back else "todo"), "Sign the logbook",
+		"An entry was sent back: write what you worked to." if sent_back and not job.get("signed", false) else "")
+	add.call("todo", "Fly it out to the owner")
+	return out
+
+
+func _open_tasks() -> void:
+	tutorial.walk("tasks")
+	var job = current_job
+	if job == null or job.city != location:
+		_open_panel("Task list", [["No plane here. Take a call from the MAP on the hangar workbench."]])
+		return
+	var rows := [["%s at %s" % [job.type, job.city]]]
+	for t in task_list(job):
+		var st: Array = TASK_STATES[t.state]
+		rows.append(["%s: %s%s" % [st[0], t.text, ("\n" + t.note) if t.note != "" else ""], "", null, false, st[1]])
+	_open_panel("Task list", rows)
 
 
 func _open_wallet() -> void:
@@ -3280,7 +3348,7 @@ var _side: Control  # something shown beside the sheet, like the chart: goes whe
 ## The paperwork sheets: what a mechanic writes on or carries in a pocket goes on cream stock with
 ## ink (the design system's paper surface), like the catalog and the manual. Menus stay on the
 ## dark hangar surface.
-const PAPER_SHEETS := ["Work order", "Clipboard", "Logbook", "Aircraft logbook", "Wallet", "Toolbox", "Parts on hand", "Weight and balance", "Fuel truck", "Debrief"]
+const PAPER_SHEETS := ["Work order", "Clipboard", "Logbook", "Aircraft logbook", "Wallet", "Toolbox", "Parts on hand", "Weight and balance", "Fuel truck", "Debrief", "Task list"]
 var _paper_sheet := false
 
 
@@ -3518,7 +3586,7 @@ func _add_row(vb: VBoxContainer, r: Array) -> void:
 	vb.add_child(hb)
 	if r.size() > 4 and r[4] != "":
 		var icon := TextureRect.new()
-		icon.texture = load("res://textures/%s.png" % r[4])
+		icon.texture = load(("res://textures/%s" if r[4].ends_with(".svg") else "res://textures/%s.png") % r[4])
 		icon.custom_minimum_size = Vector2(40, 40)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -3798,7 +3866,7 @@ const DEFAULT_KEYS := {
 	"throttle_up": [KEY_W], "throttle_down": [KEY_S], "rudder_left": [KEY_A], "rudder_right": [KEY_D],
 	"stick_forward": [KEY_UP], "stick_back": [KEY_DOWN], "starter": [KEY_SPACE],
 	"fuel_valve": [KEY_F], "master": [KEY_M], "primer": [KEY_P], "mags": [KEY_I], "carb_heat": [KEY_H],
-	"playtest_note": [KEY_F8], "manual": [KEY_N], "call_good": [KEY_G], "call_bad": [KEY_B],
+	"playtest_note": [KEY_F8], "manual": [KEY_N], "call_good": [KEY_G], "call_bad": [KEY_B], "tasks": [KEY_T],
 }
 
 

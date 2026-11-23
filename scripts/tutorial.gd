@@ -397,11 +397,12 @@ func _tour_pages() -> Array:
 		["card", "YOUR CHECKLIST", "Your first three jobs, one step at a time.", [
 			["TICKS", "Each step checks itself off when you do it right."],
 			["HELP", "Only the step you're on is explained."]]],
-		["pockets", "YOUR POCKETS", "Four things you carry, each on a key.", [
+		["pockets", "YOUR POCKETS", "Five things you carry, each on a key.", [
 			[k.call("wallet"), "Wallet: money, parts, tools."],
 			[k.call("clipboard"), "Work order for this plane."],
 			[k.call("logbook"), "Logbook: every plane you've saved."],
-			[k.call("manual"), "Service manual, open at your job."]]],
+			[k.call("manual"), "Service manual, open at your job."],
+			[k.call("tasks"), "Task list: what's done and what's left."]]],
 		["", "READY", "First job: walk to the map on the hangar workbench and press %s." % k.call("interact"), [
 			["ESC", "Pause, settings, quit."],
 			["SAVING", "Automatic, after every step."]]],
@@ -927,6 +928,12 @@ func walk_pages(id: String) -> Array:
 					["RED BUTTON", "The written-up job, on that part's card."]]],
 				["bay_tabs", "WALK ROUND IT", "The tabs move you round the spot.", [
 					["ENGINE", "Close the cowl before you leave."]]]]
+		"tasks":
+			return [["sheet", "YOUR TASK LIST", "This job, as it stands (%s). Only what you know about." % k.call("tasks"), [
+				["DONE", "Green check. Nothing more to do."],
+				["TRY AGAIN", "Yellow flag. It went wrong once; it can still be done."],
+				["CAN'T BE DONE", "Red cross. No fix here: ground it."],
+				["TO DO", "Grey question mark. Not tried yet."]]]]
 		"truck":
 			return [["sheet", "THE FUEL TRUCK", "Half tanks at least to fly it out.", [
 				["WHERE", "On the apron, never in the hangar."],

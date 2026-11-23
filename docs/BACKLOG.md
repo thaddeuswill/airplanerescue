@@ -5,7 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 6 is in review; see the log in `docs/PROCESS.md`.)
+(None. Iteration 7 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 
@@ -69,7 +69,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   terms without giving away the answer ("Find out why it runs rough", not "Replace the plugs"),
   updated as the job changes. Acceptance: available any time at a field after the apprenticeship;
   never names a fault you haven't found; self-test checks it.
-- **P3. Task completion list with states.** For the job in hand: done (green check), failed and
+- ~~**P3. Task completion list with states.**~~ In iteration 7. For the job in hand: done (green check), failed and
   can't be retried (red cross), tried and can be retried (yellow flag), not tried yet (grey
   question mark). Extends the apprentice checklist to every job, on demand so it doesn't take the
   screen. Acceptance: each state shows in the right case; self-test covers all four.
@@ -94,6 +94,19 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   through natural actions (no menu answer standing in for the skill). Acceptance: a table in
   `docs/LEARNING_DESIGN.md` of every fault, its objective and the action that demonstrates it; any
   fault where a menu stands in for the skill becomes a backlog item.
+
+- **P7. An economy that teaches.** Transactions should reflect the trade-offs the objectives teach.
+  Today money and time are two currencies and tools buy capability. Missing: pay that rises with the
+  difficulty of the objective a job exercises (not just its parts), easier, earlier kinds of job
+  paying less as the career moves on, and spending that unlocks new kinds of work. Playtest to
+  tune it. Acceptance: pay per call follows `call_difficulty`; a scripted career shows easy calls
+  paying less later; self-test covers it. (The pattern's name was cut off in the source page.)
+- **A1. Audit actions against the seven criteria.** (a) easy to understand and use; (b) not too many
+  possibilities at once, especially for weaker players; (c) efficient, steady progress toward the
+  objectives; (d) choices that fit the current context; (e) never giving the answer away by
+  accident; (f) supporting the instructional methods and sequence; (g) actions introduced so they
+  build agency and fit the story. Every action in the game against each, with fixes as backlog
+  items. Acceptance: a table in `docs/LEARNING_DESIGN.md`; every "no" a backlog item.
 
 ## Fun (Lazzaro's four types, 2026-11-23)
 

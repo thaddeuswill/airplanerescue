@@ -180,7 +180,7 @@ code; every name was checked against the source. Gaps are backlog items E2-E5 or
 | Introduce goals | Tour card 1: ten planes, don't go broke (`tutorial.gd _tour_pages`); each lesson's checklist title; the pilot's squawk, pinned top right (`_update_squawk`); the work order (`_open_inspection`) | done |
 | Encourage buy-in | Real procedures and real values (the C-85, AC 43.13-1B); the owner's thanks on delivery (`THANKS`, `_sign_off`); radio news from planes you saved; reward cards (`_show_reward`) | done; owners with stories would deepen it (F2) |
 | Reinforce goals | The next-step icon (`_objective`); markers ? and ! (`_refresh_markers`); the checklist's current line; the look-first note under the squawk (`squawk_note`) | done |
-| Indicate progress | Ticks and slips (`tutorial.gd _poll`); "N of 8 spots"; "N of M steps in place" in a job; "Planes back in the air: N of 10" on reward cards; the logbook | partly: the tally isn't where calls are chosen (item 2) |
+| Indicate progress | Ticks and slips (`tutorial.gd _poll`); "N of 8 spots"; "N of M steps in place" in a job; "Planes back in the air: N of 10" on reward cards; the logbook | partly: the task list shows each job's progress with its four states (T, iteration 7); the tally isn't where calls are chosen (item 2) |
 
 ### Control
 | Subcategory | Where the game does it | |

@@ -103,7 +103,7 @@ func run(main, args: PackedStringArray) -> void:
 			var openers := {"work_order": func(): g._open_inspection("engine"), "map": g._open_travel, "wallet": g._open_wallet,
 				"logbook": g._open_logbook, "manual": func(): g._open_manual(""), "shop": g._open_shop, "mailorder": g._open_toolbox,
 				"kit": g._open_kit, "work": func(): g._open_work(wj.faults[0], func(): pass), "bay": func(): g._open_bay(g.FAULTS[wj.faults[0]].zone),
-				"truck": g._open_truck, "parts_table": g._open_parts_table, "signoff": func(): g._open_signoff(0)}
+				"truck": g._open_truck, "parts_table": g._open_parts_table, "signoff": func(): g._open_signoff(0), "tasks": g._open_tasks}
 			for id in openers:
 				g._close_panel()
 				await get_tree().process_frame
@@ -117,6 +117,8 @@ func run(main, args: PackedStringArray) -> void:
 					await _snap(pre, "%s_%d" % [id, i], 0.3)
 					if g.tutorial.walking():
 						g.tutorial._walk_next()
+				if id == "tasks":  # and the sheet itself, once its walkthrough is done
+					await _snap(pre, "tasks_sheet", 0.3)
 			get_tree().quit(0)
 			return
 		if a.begins_with("--tutorial-shot="):  # the apprenticeship: tour pages, checklist, squawk quiz, reward
@@ -415,6 +417,34 @@ func run(main, args: PackedStringArray) -> void:
 	await get_tree().process_frame
 	ok = ok and pending and not g._parts_table_dirty
 	_chk(ok, 71)
+	# The task list (P3): all four states, and never a fault you haven't found.
+	var tj := {"city": job.city, "type": "Test", "faults": [], "found": {}, "fixed": {}, "checked": {"prop": true},
+		"work": {}, "tried": {}, "fuel": 0.2, "parked": "apron"}
+	g._assign_faults(tj, ["tire", "brakes", "prop_strike", "spark_plugs", "magneto"])
+	tj.found = {"tire": true, "brakes": true, "prop_strike": true}
+	tj.fixed = {"tire": true}
+	tj.caused = {"brakes": true}  # broken by running it unready: to do again
+	tj.runup = "dead"
+	if tj.diag.has("magneto"):
+		tj.sym = {"magneto": true}  # heard, not tracked down, one wrong call so far
+		tj.misses = {"magneto": 1}
+	var tl: Array = g.task_list(tj)
+	var by := func(text: String) -> String:
+		for t in tl:
+			if String(t.text).contains(text):
+				return t.state
+		return ""
+	var tasks_ok: bool = by.call("Flat main tire") == "done" and by.call("Fix: " + g.FAULTS.brakes.name) == "retry" \
+		and by.call(g.FAULTS.prop_strike.name) == "failed" and by.call("Check all") == "todo" and by.call("Run it up") == "retry" \
+		and not tl.any(func(t): return String(t.text).contains(g.FAULTS.spark_plugs.name) or String(t.text).contains(g.FAULTS.magneto.name)) \
+		and (not tj.diag.has("magneto") or by.call("Track it down") == "retry")
+	g._pocket("tasks")
+	tasks_ok = tasks_ok and g._list_title == "Task list"
+	g._close_panel()
+	if not tasks_ok:
+		print("TASK LIST: ", tl)
+	ok = ok and tasks_ok
+	_chk(ok, 73)
 	_run_up()
 	# A clean start hears every run-up fault; a dead battery or starter cuts the test short.
 	# On Easy the run-up is refused while known don't-run-it work is open.

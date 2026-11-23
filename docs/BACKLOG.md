@@ -37,18 +37,26 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   advice and form line kept; self-test checks the colours and the badge list; screenshots.
 
 - **D2. No clock time unless it bears on your score or achievements** (Thad, 2026-11-23: "i dont
-  want any clock time unless it has anything to do with your score or achievements"). Extends D1.
+  want any clock time unless it has anything to do with your score or achievements"; refined the
+  same day: "rent days can stay but anything maintenance wise with days should go").
   - **Goes (display only, changes nothing you earn):** the HUD's "DAY n"; the "Welcome back. Day n"
     greeting; "Day n" atop the work scene, the wallet, the job sheet, the pause menu's Continue line
     and each logbook entry; the logbook's "(x days on site)"; the career's "Days on the road";
     "earned day n" on the badge board; the flight card's "about x days on the road and in the air".
-  - **Stays (it changes money, which is the score, or whether you can finish):** how long the owner
-    waits (the call's deadline), rent per day and the net estimate's days of rent, mail order's
-    one-day wait, the odd jobs' days, a day lost to a kickback or a forced landing.
-  - **Not clock time, stays:** dialogue ("flew 40 hours this season", "a quart every few hours").
-  - To confirm with Thad: that money counts as score, so the second list stays.
-  - Acceptance: self-test reads the HUD, logbook, wallet, badge board and career sheets and finds no
-    day count; the deadline, rent and mail-order lines are still shown; screenshots at 1280x720.
+  - **Goes (maintenance in days):** mail order's "arrives in 1 day" and "a day's wait" (the catalog,
+    the TOOLS box, the lesson notes and walkthroughs); "half a day lost" to a prop kickback; "a day
+    lost" after a forced landing.
+  - **Stays:** rent per day ("$40 a day", the net estimate's days of rent); how long the owner waits
+    (missing it loses the plane, which is the end-of-game tally); dialogue ("flew 40 hours this
+    season").
+  - **To confirm with Thad:** does the time itself go, or only the words? "Guessing costs time only"
+    is a settled decision (CLAUDE.md): a wrong verdict, a wrong mag call and mail order all cost
+    time, which turns into rent and the owner's wait. Taking the time away makes a wrong guess free.
+    Taking only the words away keeps the cost but hides it. And the odd jobs' "3 days": money, or
+    maintenance?
+  - Acceptance: self-test reads the HUD, logbook, wallet, badge board, career, catalog and flight
+    card and finds no day count; the rent and owner's-wait lines are still shown; screenshots at
+    1280x720.
 
 - **T1. A parse error must fail the self-test, not hang it** (found in iteration 14, proposed by
   Claude). The watchdog lives in `selftest.gd`, so a script that doesn't parse leaves Godot idle

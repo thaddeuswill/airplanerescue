@@ -9,6 +9,17 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **W1. No wallet: cash at the top right** (Thad, 2026-11-23: "remove the wallet menu just show your
+  cash at the top right of the screen instead"). The wallet pocket (Tab) and its sheet go; your cash
+  shows at the top right of the main screen, in figures (Courier Prime, thousands separators),
+  backed against the 3D world. What the wallet also held moves where it already lives elsewhere:
+  parts in the truck and materials on the parts table and in the catalog's "you have"; the tool
+  roll in the work scenes and the catalog foot; the hangar fee on the map's estimate. The
+  walkthrough page and the HUD pocket icon for it go; U4's wallet finding is moot. Acceptance: no
+  wallet sheet or key; cash always visible top right in the world (hidden over sheets like the
+  tracker, or kept, to settle at planning); self-test reads it and checks it matches; screenshots
+  at 1280x720.
+
 - **L1. Signing off is one button** (Thad, 2026-11-23: "the logbook should always be in accordance
   with the maintenance manual so theres no point for that screen or hud it should be a button to
   just sign off the plane"). The entry-writing steps go ("Done in accordance with...", "Signed

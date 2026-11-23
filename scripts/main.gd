@@ -323,9 +323,10 @@ func _hand_propped(job: Dictionary) -> bool:
 
 var money := 3000:
 	set(v):
-		if is_node_ready() and v != money:
+		if is_node_ready() and v != money and not _quiet_money:
 			_money_pop(v - money)
 		money = v
+var _quiet_money := false  # the delivery's pay goes on the end-of-mission card, not a pop (D3)
 var day := 1.0  # travel, inspections and repairs take time; calls have deadlines
 var rescued := 0
 var location := START_CITY
@@ -2022,7 +2023,8 @@ func _ferry_done() -> void:
 	_sign_off()
 	plane.queue_free()  # flown off to its owner
 	plane = null
-	_banner("RESCUED", "%d of %d planes back in the air" % [rescued, GOAL])  # before the card, which clears it (D3)
+	if _pending_debrief.is_empty() or rescued == GOAL:  # the card says RESCUED itself (D3); the ending has no card
+		_banner("RESCUED", "%d of %d planes back in the air" % [rescued, GOAL])
 	_after_flight()
 
 
@@ -2167,7 +2169,9 @@ func _sign_off() -> void:
 	pay = maxi(0, pay)
 	var supplies: int = roundi(job.get("supplies", {}).get("billed", 0.0))  # the owner pays for what the job used
 	pay += supplies
+	_quiet_money = true
 	money += pay
+	_quiet_money = false
 	rescued += 1
 	jobs.erase(job)
 	current_job = null
@@ -2185,11 +2189,12 @@ func _sign_off() -> void:
 	if logbook[-1].debrief.extra.is_empty():
 		earn_badge("clean_job")
 	_check_promotion()
+	# The owner's words go on the end-of-mission card (D3), not across the top of the screen.
 	if found_later.is_empty():
-		_say("%s paid $%d%s. \"%s\"" % [job.get("owner", "The owner"), pay, (" (with $%d of supplies)" % supplies) if supplies > 0 else "",
-			THANKS[rng.randi() % THANKS.size()]])
+		logbook[-1].debrief["said"] = "%s: \"%s\"%s" % [job.get("owner", "The owner"), THANKS[rng.randi() % THANKS.size()],
+			("  The pay includes $%d of supplies." % supplies) if supplies > 0 else ""]
 	else:
-		_say("A comeback: the owner's next mechanic found %s. Owner paid $%d of $%d." % [", ".join(found_later), pay, job.reward])
+		logbook[-1].debrief["said"] = "A comeback: the owner's next mechanic found %s. Owner paid $%d of $%d." % [", ".join(found_later), pay, job.reward]
 	var earlier := logbook.filter(func(e): return e.pay > 0 and e.has("owner") and e.city != job.city)
 	if earlier.size() > 0 and rng.randf() < 0.4:  # now and then, word from a plane you saved before
 		var e: Dictionary = earlier[rng.randi() % earlier.size()]
@@ -2341,6 +2346,12 @@ func _open_mission_card(e: Dictionary) -> void:
 	head.add_child(titles)
 	titles.add_child(kicker)
 	titles.add_child(Style.label("%s at %s" % [e.type, e.city], "hud", Style.SIZE_XL, 900))
+	if d.get("said", "") != "":
+		var said := Style.label(d.said, "loss" if String(d.said).begins_with("A comeback") else "hud_muted", Style.SIZE_SM)
+		said.name = "Said"
+		said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		said.custom_minimum_size.x = 420
+		titles.add_child(said)
 	var tally := Style.label("%d of %d\nRESCUED" % [rescued, GOAL], "hud_muted", Style.SIZE_SM, 800)
 	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	tally.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -3588,6 +3599,8 @@ func _check_promotion() -> void:
 	_job_record("promoted", rank)
 	playlog("promoted: " + rank)
 	sound.chime()
+	if _signed_off():
+		return  # the end-of-mission card shows it (D3)
 	_banner("PROMOTED: " + rank_title(rank).to_upper(), rank_next_line())
 
 
@@ -3623,8 +3636,10 @@ func earn_badge(id: String) -> void:
 	playlog("badge: " + id)
 	_tracker_pulse(id)
 	sound.chime()
-	_banner("BADGE: " + badge_name(id).to_upper(), "%d of %d earned. See them in your logbook (%s)." % [badges.size(), BADGES.size(), key_name("logbook")])
 	_save_game()
+	if _signed_off():
+		return  # earned at sign-off: the end-of-mission card shows it (D3)
+	_banner("BADGE: " + badge_name(id).to_upper(), "%d of %d earned. See them in your logbook (%s)." % [badges.size(), BADGES.size(), key_name("logbook")])
 
 
 ## The unearned badge an activity can earn, for the task list and the cockpit card ("" if none).
@@ -3636,6 +3651,11 @@ func _job_record(key: String, value: String) -> void:
 		current_job.get_or_add("earned_" + key, []).append(value)
 	elif not _pending_debrief.is_empty():
 		_pending_debrief.debrief.get_or_add(key, []).append(value)
+
+
+## True between sign-off and the end-of-mission card: what's earned now is shown on the card.
+func _signed_off() -> bool:
+	return current_job == null and not _pending_debrief.is_empty()
 
 
 func badge_on_offer(id: String) -> String:

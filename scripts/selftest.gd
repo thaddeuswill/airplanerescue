@@ -1723,8 +1723,12 @@ func _debrief_no_time(deb: Dictionary) -> bool:
 ## - red, zero brass); the achievements are this job's badges (Sharp Eyes comes at this sign-off)
 ## and nothing else; a job with none says so; an entry saved before D3 still opens.
 func _mission_card_ok(deb: Dictionary) -> bool:
-	# The RESCUED banner went when the card opened (it ran over the figures).
+	# Delivery puts everything on the card (Thad): no RESCUED banner, no "+$" pop at the top right,
+	# no owner's line across the top; the owner's words are on the card.
 	var banner_ok: bool = not is_instance_valid(g._banner_node) or g._banner_node.is_queued_for_deletion()
+	var pops: Array = g.ui.get_children().filter(func(n): return n is Label and n.text.begins_with("+$") and not n.is_queued_for_deletion())
+	var top_ok: bool = pops.is_empty() and not g.msg.text.contains("paid $")
+	var said_ok: bool = String(deb.get("said", "")) != "" and g.panel.find_children("Said", "Label", true, false).size() == 1
 	await get_tree().process_frame
 	var card: Control = g.panel
 	var centre_ok := card != null and card.name == "MissionCard" \
@@ -1754,6 +1758,6 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	var none_ok: bool = g.panel.find_children("Award*", "HBoxContainer", true, false).is_empty() \
 		and g.panel.find_children("*", "Label", true, false).any(func(l): return l.text.begins_with("No new badges"))
 	g._close_panel()
-	var ok := banner_ok and centre_ok and colour_ok and n_gain >= 2 and n_loss >= 1 and badge_ok and none_ok
-	print("mission card: banner cleared %s, centred %s, colours %s (%d gain, %d loss), badges %s %s, none %s" % [banner_ok, centre_ok, colour_ok, n_gain, n_loss, badge_ok, got, none_ok])
+	var ok := banner_ok and top_ok and said_ok and centre_ok and colour_ok and n_gain >= 2 and n_loss >= 1 and badge_ok and none_ok
+	print("mission card: banner cleared %s, nothing at the top %s, owner's words %s, centred %s, colours %s (%d gain, %d loss), badges %s %s, none %s" % [banner_ok, top_ok, said_ok, centre_ok, colour_ok, n_gain, n_loss, badge_ok, got, none_ok])
 	return ok

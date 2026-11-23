@@ -5,20 +5,29 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 18 (2026-11-23): UX and typography audit of every changed pop-up and menu (U1).**
-
-- **Goal**: every screen with text that the iterations changed or made, audited against the ux-laws
-  numbers and the anti-AI typography checklist, from a 1280x720 screenshot.
-- **Items**: the audit document `docs/UX_AUDIT_2026-11-23.md` (per screen: findings in the skill's
-  table format, ten at most; then the top fixes across all screens); the fixes proposed as backlog
-  items for Thad to order. No game code changes in this iteration.
-- **Risk gate**: nothing in the game changes, so saves, soft-locks, money and layout are untouched.
-  The risk is an audit that guesses: each finding must be measured from a screenshot or the code
-  (sizes, counts, contrast), never "feels". Definition of done still runs (no code changed, so it
-  confirms the build).
-- **Acceptance**: as U1 below.
+(None. Iteration 18 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
+
+From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad to order:
+
+- **U2. The catalog still says "arrives in 1 day"** (a D2 defect, `catalog.gd:392`). Say "25% over
+  shelf"; extend the no-days check to the catalog's cards. Acceptance: no day text on any catalog
+  card; the check reads them.
+- **U3. One message at a time at the top.** Clear the message band and banners on opening a sheet,
+  the cockpit or the pause; hide the pinned squawk under the notes card. Acceptance: at most one
+  text band at the top in the cockpit, under the notes and behind the pause; screenshots.
+- **U4. Stats read value-first.** The ending, game over, wallet and badge board show the figure
+  large and its label small; Keep flying is the ending's one primary button; game over fits one
+  page. Acceptance: self-test measures value > label on those rows; screenshots.
+- **U5. One money format.** Thousands separators wherever money shows (map, wallet, ending, game
+  over, messages). Acceptance: self-test finds no "$" followed by four or more bare digits on any
+  sheet.
+- **U6. Small text fixes.** The cockpit card's foot line wraps instead of cutting off; curly quotes
+  in the squawk; no stop after a question; the calls walkthrough says how calls are ordered; the
+  task list marks the next task and drops "To do:"; badge offers in the label style; the
+  inspector's note in accent ink; a backing behind the badge row. Acceptance: each visible in a
+  screenshot; the cut-off line checked by the self-test.
 
 - ~~**U1. UX and typography audit of every pop-up and menu changed or made since the process began**
   (Thad, 2026-11-23: "please look at every pop up and menu weve changed or created that has text

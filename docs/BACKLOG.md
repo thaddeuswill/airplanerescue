@@ -5,12 +5,26 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 18 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 19 (2026-11-23): the logbook, by importance (LB1).**
+
+- **Goal**: the logbook opens on what to do next, then the record, then the badges.
+- **Items**: the header reads "Logbook" with the planes-rescued figure beside it; first, rank and
+  what the next rank needs, in large type; then one compact entry per job, newest first
+  (registration and station, what was fixed, what it cleared; the newest keeps its "Next time");
+  then the badges as a grid of eight (icon and name; the standard on hover); entries lose their
+  pay/fuel/parts breakdown and "Cost extra" list. The logbook walkthrough says the new order.
+- **Risk gate**: saves: nothing stored changes; old entries (no registration, no debrief) still
+  show, with a registration worked out (`registration()`). Layout: the sheet's pagination
+  estimates row heights; the rank and grid rows get their own height so a page never overflows;
+  screenshot at 1280x720. Checks: self-test opens the logbook and checks the order (rank first,
+  entries, badges last), no money breakdown in entries, the grid holds 8, the page count for a
+  10-job career is lower than today's.
+- **Acceptance**: as LB1 below.
 
 ## Next
 
-- **LB1. The logbook, by importance** (Thad, 2026-11-23: asked what matters most in the log, agreed
-  to Claude's order). From the top: (1) rank and what the next rank needs, the most prominent;
+- ~~**LB1. The logbook, by importance** (Thad, 2026-11-23: asked what matters most in the log, agreed
+  to Claude's order).~~ In iteration 19. From the top: (1) rank and what the next rank needs, the most prominent;
   (2) one compact entry per job, newest first: registration, what was fixed, what it cleared (the
   last job may keep its "Next time" line); (3) badges as a compact grid of eight on one page;
   (4) planes rescued as a figure in the header, not a row. Dropped: each entry's pay, fuel and

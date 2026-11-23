@@ -5,21 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 20 (2026-11-23): the "all planes rescued" ending as a ticket (E6).**
-
-- **Goal**: the ending reads like the end-of-mission ticket and holds only what serves the game.
-- **Items**: a centred glass card built by the ticket's own code (shared setup); top: "Career"
-  label and "All 10 planes rescued", the planes-rescued progress ring full at the right; the career
-  figures large in Courier Prime with small labels: cleared over the career (the tickets' totals
-  added up) and cash in hand; achievements: the rank and the badges earned (and how many of 8);
-  Keep flying as the one primary button, Main menu and Start a new career as quiet glass buttons.
-  Cut, settled here as not serving play: the two lines of closing prose and "Longest neglected".
-  The game-over sheet is not changed (U4).
-- **Risk gate**: flow: the ending still can't be closed by accident (no Esc), and each button does
-  what it did. Saves: nothing stored. Layout: fits 1280x720 at full size (measured). Checks:
-  self-test opens the ending and checks it's the glass card, centred, not closable, one primary
-  button, the figures and the ring; screenshots at 1280x720 and 1920x1080.
-- **Acceptance**: as E6 below.
+(None. Iteration 20 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 

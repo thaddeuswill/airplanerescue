@@ -42,15 +42,16 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   job takes").
   - **What it means:** the game stops keeping a day count (`day`, `_advance`) and stops timing jobs.
     Every day figure and every "a day's wait", "half a day lost", "x days on site" goes.
-  - **What runs on days today, each needing a replacement (Thad to choose):**
-    - Rent is charged per day. Option: a flat hangar fee per job, shown as money.
-    - Calls expire when the owner's wait runs out. Option: calls don't expire.
-    - Guessing costs time (settled in CLAUDE.md: a wrong verdict, a wrong mag call). Option: a
-      wrong guess costs money instead (a small charge), or costs nothing but the try.
-    - Mail order arrives "in a day". Option: it arrives at once for its 25% markup.
-    - Odd jobs take 3 days. Option: they just pay.
-    - Difficulty ratings use the deadline's tightness; the economy pays for it. Option: drop that
-      term from the rating.
+  - **Replacements, chosen by Thad 2026-11-23 ("go with your suggestions for all six"):**
+    1. Rent: a flat hangar fee per job, shown as money.
+    2. Calls don't expire (no owner's wait).
+    3. A wrong guess (verdict, mag call) costs a small amount of money instead of time. This
+       changes the settled "guessing costs time only" in CLAUDE.md; update it there when built.
+    4. Mail order arrives at once, still 25% over shelf price.
+    5. Odd jobs just pay.
+    6. The difficulty rating, and so the pay, drops the deadline term.
+    The fee and the guess charge are game balance (like `ECONOMY`), set at planning from today's
+    typical rent and marked for the playtest.
   - **Saves:** `day` and job deadlines are saved; a `SAVE_VERSION` bump and a `_migrate` step.
   - Acceptance: no day figure anywhere the player looks (self-test reads every sheet, the HUD and
     the cards); the replacements above work as chosen; old saves load.

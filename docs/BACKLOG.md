@@ -14,6 +14,11 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   stats (planes rescued, spots checked, faults fixed, cash in hand); achievements: badges earned on
   this job (recorded as they're earned) and a promotion; the advice and form line kept; the
   RESCUED banner gives way to the card, which carries its words.
+- **Joined mid-iteration (Thad, refines the card): "remove the rescued and the top right of the
+  money earned just put all that in the end mission screen".** On delivery: no RESCUED banner, no
+  "+$" pop at the top right, no owner's-thanks line at the top; the owner's words (or the comeback
+  news) go on the card under the title; badges and a promotion earned at sign-off show on the card,
+  not as banners. Where no card follows (the tenth plane's ending), the banner stays.
 - **Risk gate**: design system: its mood says "not glassy"; Thad asked for glass, so the product
   owner's call wins for this screen, kept in the system's earth, brass and cream with two new HUD
   tokens for gain and loss, contrast checked over the brightest scene (white snow): green 6.6:1,

@@ -5,27 +5,26 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 11: job status, a career ladder (P19).** Goal: good work earns rank, and each rank is a
-tangible benefit the player can see coming. Started 2026-11-23.
+**Iteration 12: an economy that teaches (P7).** Goal: what a call pays says what the work is worth
+to your learning: harder objectives pay more, and work you've outgrown pays less. Planned
+2026-11-23; building starts once iteration 11's verification is in.
 
-1. **Four ranks**, earned from the record (never lost once earned):
-   - **Apprentice**: during the three lessons.
-   - **A&P Mechanic**: on finishing the apprenticeship.
-   - **Lead Mechanic**: 5 planes delivered, 3 of them clean jobs (nothing extra on the debrief),
-     and no comeback in your last 3. Benefit: calls pay 10% more.
-   - **Inspection Authorization (IA)**: 8 planes delivered, 6 badges, and no comeback in your last
-     5. Benefit: calls pay 20% more, and annual inspections open (in real life an annual needs an
-     IA, so before this the game offers none).
-   - The numbers are game rules for this ladder, not real-world requirements (a real IA needs an A&P
-     held for three years and a test); the logbook says so.
-   - Promotion: a banner, a chime and a play-log line, checked on each delivery.
-   - The logbook shows your rank, the next one, and what it still needs, in figures.
-   - Acceptance: the self-test promotes on a record that meets a rank and holds back one that
-     doesn't; annuals never spawn below IA; the raise shows in a new call's pay; definition-of-done
-     set passes; screenshot of the logbook's rank line.
-   - Risk gate: pay changes (a raise on new calls only; existing calls keep their pay), and annuals
-     move later in the career. Saves: a new `rank` key, worked out from the record when a save
-     doesn't have it, so older careers get the rank they've earned. No money taken away.
+1. **Pay follows the objective, not just the parts.**
+   - A difficulty premium: each step of a call's rating (`call_difficulty`, 1 Routine to 5
+     Expert) adds a fixed amount to its pay, on top of the parts at cost, the plane type, the years
+     it sat and the rank's raise.
+   - Outgrown work pays less: as the career moves on, a call rated below where you are pays a
+     little less per step below (never less than 70%), so the easy jobs of your first week stop
+     being the best money.
+   - The map already shows each call's rating and what it would clear, so the player sees the
+     trade-off before choosing.
+   - The amounts are game balance (`ECONOMY` in `main.gd`), not real-world values, and are marked
+     for playtest tuning.
+   - Acceptance: the self-test spawns the same call at two ratings and the harder one pays more;
+     the same easy call pays less later in a career than early; definition-of-done set passes;
+     screenshot of the map.
+   - Risk gate: pay only, on new calls only; existing calls keep their pay. The apprenticeship's
+     lesson calls are exempt from the discount so the first jobs aren't penalised. No save change.
 
 ## Next
 
@@ -118,7 +117,7 @@ tangible benefit the player can see coming. Started 2026-11-23.
   the part the reading implicates; the entry could be assembled from the job's own record).
   Acceptance: a table in `docs/LEARNING_DESIGN.md` of every fault, its objective and the action
   that shows it; every place a menu stands in for the skill becomes a backlog item.
-- **P7. An economy that teaches.** Transactions should reflect the trade-offs the objectives teach.
+- ~~**P7. An economy that teaches.**~~ In iteration 12. Transactions should reflect the trade-offs the objectives teach.
   Today money and time are two currencies and tools buy capability. Missing: pay that rises with the
   difficulty of the objective a job exercises (not just its parts), easier, earlier kinds of job
   paying less as the career moves on, and spending that unlocks new kinds of work. Playtest to

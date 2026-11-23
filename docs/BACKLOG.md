@@ -9,6 +9,14 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **F5. Don't pay for the owner's fuel** (Thad, 2026-11-23: "i dont think we should pay for the fuel
+  in the plane because its not our plane"). Today the fuel truck bill for the customer's plane
+  comes out of your pocket and shows under Fuel on the ticket (with your own flight there). The
+  owner's plane is fuelled at the owner's cost: billed to the owner like supplies, or not a cost to
+  you at all; your own flight to the job stays yours. Acceptance: the fuel truck costs you nothing
+  net; the ticket's Fuel line is your trip only; the map's estimate drops the plane's fuel;
+  self-test checks.
+
 - **M1. Difficulty first on the calls; the plane's papers when you arrive** (Thad, 2026-11-23:
   "differential the text so you can easyly find out what you need thats important, where, how
   difficult and, how much i am getting paid the accept screen should have the logbook and the pilot

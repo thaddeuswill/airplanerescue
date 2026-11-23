@@ -145,6 +145,7 @@ func run(main, args: PackedStringArray) -> void:
 			g.logbook.append({"city": tj.city, "type": tj.type, "pay": tj.reward, "work": []})
 			g.logbook[-1]["debrief"] = g.job_debrief(tj, tj.reward, [], false)
 			g._pending_debrief = g.logbook[-1]
+			g.tutorial._close_notes()  # the squawk notes belong to the walk-around, not the ticket
 			g._open_debrief()
 			await _snap(pre, "debrief", 0.5)
 			g._close_panel()
@@ -1751,8 +1752,8 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 			colour_ok = colour_ok and c == Style.COLOR_TEXT_GAIN and (l.text.begins_with("+") or String(l.get_parent().name) in ["Award", "Gift"])
 		elif l.name == "loss":
 			n_loss += 1
-			colour_ok = colour_ok and c == Style.COLOR_TEXT_LOSS and (l.text.begins_with("-") or l.text == "")
-		elif l.text.begins_with("+$") or l.text.begins_with("-$"):
+			colour_ok = colour_ok and c == Style.COLOR_TEXT_LOSS and (l.text.begins_with("\u2212") or l.text == "")
+		elif l.text.begins_with("+$") or l.text.begins_with("\u2212$"):
 			colour_ok = false  # a signed figure left uncoloured
 	# The ticket: station code and N-number top left; the total is the line items added up; it fits.
 	var reg_l: Array = card.find_children("Registration", "Label", true, false)
@@ -1765,7 +1766,7 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	var tot_row: Array = card.find_children("Total", "HBoxContainer", true, false)
 	var want_total: int = int(deb.pay) + int(deb.get("bonus", 0)) - int(deb.fuel) - int(deb.parts) - int(deb.rent) - int(deb.get("guesses", 0))
 	var tot_txt: String = tot_row[0].get_child(1).text if tot_row.size() > 0 else ""
-	var total_ok: bool = tot_txt.replace(",", "") == "%s$%d" % ["+" if want_total > 0 else "-" if want_total < 0 else "", absi(want_total)]
+	var total_ok: bool = tot_txt.replace(",", "") == "%s$%d" % ["+" if want_total > 0 else "\u2212" if want_total < 0 else "", absi(want_total)]
 	var fit_ok: bool = card.get_global_rect().size.y <= card.get_viewport_rect().size.y
 	# A lesson's sign-off is on the ticket, and its own card doesn't open over it.
 	# The sign-off card waits for the map, and the checklist's tick slips are held, not drawn over it.

@@ -2176,7 +2176,7 @@ func _sign_off() -> void:
 	_check_promotion()
 	# The owner's words go on the end-of-mission card (D3), not across the top of the screen.
 	if found_later.is_empty():
-		logbook[-1].debrief["said"] = "%s: \"%s\"%s" % [job.get("owner", "The owner"), THANKS[rng.randi() % THANKS.size()],
+		logbook[-1].debrief["said"] = "%s: \u201c%s\u201d%s" % [job.get("owner", "The owner"), THANKS[rng.randi() % THANKS.size()],
 			("  The pay includes $%d of supplies." % supplies) if supplies > 0 else ""]
 	else:
 		logbook[-1].debrief["said"] = "A comeback: the owner's next mechanic found %s. Owner paid $%d of $%d." % [", ".join(found_later), pay, job.reward]
@@ -2346,6 +2346,7 @@ func _open_mission_card(e: Dictionary) -> void:
 	sb.border_color = Style.COLOR_GLASS_EDGE
 	sb.anti_aliasing = true
 	sb.set_content_margin_all(Style.SPACE_6)
+	sb.content_margin_top = Style.SPACE_4
 	sb.content_margin_left = Style.SPACE_8
 	sb.content_margin_right = Style.SPACE_8
 	card.add_theme_stylebox_override("panel", sb)
@@ -2353,7 +2354,7 @@ func _open_mission_card(e: Dictionary) -> void:
 	mat.shader = load("res://shaders/glass.gdshader")
 	card.material = mat
 	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", Style.SPACE_2)
+	vb.add_theme_constant_override("separation", Style.SPACE_1)  # tight inside a group; _card_gap between groups (proximity)
 	card.add_child(vb)
 	var shine := ColorRect.new()  # the lit top edge
 	shine.color = Style.COLOR_GLASS_SHINE
@@ -2373,6 +2374,7 @@ func _open_mission_card(e: Dictionary) -> void:
 	var station := Style.label("%s  %s" % [station_code(e.city), e.city.to_upper()], "hud", Style.SIZE_MD, 700)
 	station.name = "Station"
 	ids.add_child(station)
+	_card_gap(ids, Style.SPACE_2)  # the station and the registration are two facts, not one
 	ids.add_child(_card_heading("Registration"))
 	var reg := Style.label(registration(e), "hud", Style.SIZE_XL)
 	reg.name = "Registration"
@@ -2388,22 +2390,27 @@ func _open_mission_card(e: Dictionary) -> void:
 		said.name = "Said"
 		said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		said.custom_minimum_size.x = 536
+		_card_gap(vb, Style.SPACE_2)
 		vb.add_child(said)
+	_card_gap(vb, Style.SPACE_3)
 	vb.add_child(_glass_rule())
+	_card_gap(vb, Style.SPACE_3)
 	# The line items, signed. The total below is these added up, nothing else.
 	var bonus := int(d.get("bonus", 0))
 	_card_figure(vb, "Paid by the owner", d.pay)
 	if bonus > 0:
 		_card_figure(vb, "Apprenticeship bonus", bonus)
+	_card_gap(vb, Style.SPACE_2)  # what came in, then what went out
 	_card_figure(vb, "Fuel", -int(d.fuel))
 	_card_figure(vb, "Parts", -int(d.parts))
 	_card_figure(vb, "Hangar fee", -int(d.rent))
 	if int(d.get("guesses", 0)) > 0:
-		_card_figure(vb, "Wrong guesses", -int(d.guesses))
+		_card_figure(vb, "Extra parts", -int(d.guesses))  # Thad's name for the wrong-guess charge
 	# What cost extra is already in the figures above (a comeback cut the pay, a mail order raised
 	# the parts): listed so you can see why, not added again.
 	var lines := debrief_lines(d)
 	if not lines.is_empty():
+		_card_gap(vb, Style.SPACE_4)
 		vb.add_child(_card_heading("Cost you extra (in the figures above)"))
 	const MAX_SHOWN := 3  # the ticket fits a 720 px window; the logbook keeps the full list
 	for i in mini(lines.size(), MAX_SHOWN):
@@ -2413,9 +2420,10 @@ func _open_mission_card(e: Dictionary) -> void:
 		if m:  # the dollars ride at the end of the line: "Gasket kit by mail  ($30)"
 			amt = int(m.get_string(1))
 			what = what.substr(0, m.get_start())
-		_card_figure(vb, "- " + what if amt == 0 else what, -amt, false, "loss", true)
+		_card_figure(vb, "\u2212 " + what if amt == 0 else what, -amt, false, "loss", true)
 	if lines.size() > MAX_SHOWN:
 		vb.add_child(Style.label("and %d more, in your logbook" % (lines.size() - MAX_SHOWN), "hud_muted", Style.SIZE_SM))
+	_card_gap(vb, Style.SPACE_4)
 	vb.add_child(_card_heading("Achievements"))
 	var got: Array = d.get("badges", [])
 	var ach := HFlowContainer.new()
@@ -2429,17 +2437,19 @@ func _open_mission_card(e: Dictionary) -> void:
 	if got.is_empty() and d.get("promoted", []).is_empty():
 		ach.add_child(Style.label("No new badges on this job. %d of %d earned." % [badges.size(), BADGES.size()], "hud_muted", Style.SIZE_SM))
 	# The total, like the foot of a ticket: a double rule, then the sum.
+	_card_gap(vb, Style.SPACE_4)
 	vb.add_child(_glass_rule())
-	vb.add_child(_glass_rule())
+	_card_gap(vb, Style.SPACE_2)
 	var total := int(d.net) + bonus
 	_card_figure(vb, "Total", total, true)
 	vb.get_child(vb.get_child_count() - 1).name = "Total"
-	vb.add_child(_glass_rule())
+	_card_gap(vb, Style.SPACE_3)
 	var advice := Style.label("Next time: " + d.next, "hud", Style.SIZE_SM)
 	advice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	advice.custom_minimum_size.x = 536
 	vb.add_child(advice)
 	vb.add_child(Style.label(form_line(), "hud_muted", Style.SIZE_SM))
+	_card_gap(vb, Style.SPACE_4)
 	var go := Button.new()
 	go.text = "On to the next call"
 	Style.button(go, "primary")
@@ -2502,7 +2512,7 @@ func _card_figure(box: Control, what: String, amount: int, big := false, force_r
 	l.custom_minimum_size.x = 390  # wrapped text with no width yet lays out thousands of px tall
 	row.add_child(l)
 	var role := force_role if force_role != "" else ("gain" if amount > 0 else "loss" if amount < 0 else "hud_muted")
-	var fig := Style.label("" if amount == 0 and force_role == "loss" else ("%s$%s" % ["+" if amount > 0 else "-" if amount < 0 else "", _thousands(absi(amount))]), role)
+	var fig := Style.label("" if amount == 0 and force_role == "loss" else ("%s$%s" % ["+" if amount > 0 else "\u2212" if amount < 0 else "", _thousands(absi(amount))]), role)  # a true minus, not a hyphen
 	fig.name = role
 	fig.add_theme_font_override("font", Style.figures(true))
 	fig.add_theme_font_size_override("font_size", Style.SIZE_2XL if big else Style.SIZE_SM if small else Style.SIZE_MD)
@@ -2517,6 +2527,15 @@ func _card_heading(text: String) -> Label:
 	var l := Style.label(text.to_upper(), "hud_muted", Style.SIZE_XS, 700)
 	l.add_theme_font_override("font", Style.caps(700, Style.SIZE_XS))
 	return l
+
+
+## Space between groups on the ticket: bigger than the space inside one, so the groups read as
+## groups without more rules (proximity).
+func _card_gap(box: Control, px: int) -> void:
+	var c := Control.new()
+	c.custom_minimum_size.y = px
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(c)
 
 
 func _glass_rule() -> ColorRect:

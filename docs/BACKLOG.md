@@ -27,6 +27,11 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   to five characters, at most two letters at the end, no I or O), saved on the job and its logbook
   entry; jobs and entries from older saves get one worked out from what they are, so it never
   changes between looks.
+- **Joined mid-iteration (Thad): "have the apprentice check list on the maps section instead of
+  after the job is done".** The lesson's sign-off card (job n of 3 done, what you learned, what's
+  next, the gift) opens over the map once the ticket closes, never over the ticket; its bonus
+  figure moves to the ticket as a line item (all money on the ticket), so the card no longer
+  repeats it.
 - **Risk gate**: design system: its mood says "not glassy"; Thad asked for glass, so the product
   owner's call wins for this screen, kept in the system's earth, brass and cream with two new HUD
   tokens for gain and loss, contrast checked over the brightest scene (white snow): green 6.6:1,

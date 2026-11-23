@@ -857,6 +857,18 @@ func run(main, args: PackedStringArray) -> void:
 		pays.append(g.jobs[0].reward)
 	ladder_ok = ladder_ok and absf(pays[1] - pays[0] * 1.10) <= 50.0 and pays[1] > pays[0]
 	seed(g.test_seed + 1)  # hand the global generator back to this run's seed
+	# The economy (P7): a harder call pays more than an easy one; an easy call pays less later in a
+	# career than early; never below the floor; a lesson's call is never discounted.
+	g.rank = "ap"
+	g.rescued = 0
+	var econ_ok: bool = g._pay_for(2000, 3, false) > g._pay_for(2000, 1, false)
+	var early: int = g._pay_for(2000, 1, false)
+	g.rescued = 8
+	var late: int = g._pay_for(2000, 1, false)
+	econ_ok = econ_ok and late < early and late >= int(early * g.ECONOMY.floor) - 50 and g._pay_for(2000, 1, true) == early
+	if not econ_ok:
+		ladder_ok = false
+		print("ECONOMY: early ", early, " late ", late, " hard ", g._pay_for(2000, 3, false))
 	# Annuals need an IA.
 	var annuals := 0
 	g.rank = "lead"

@@ -652,7 +652,7 @@ func _spawn_job() -> void:
 	var cost := 0
 	for id in job.faults:
 		cost += FAULTS[id].cost + (60 if job.diag.has(id) else 0)  # troubleshooting pays too
-	job.reward = int(round((t[1] + cost + years * 150 + (250 if job.annual else 0)) * (1.0 + rank_raise()) / 50.0)) * 50  # parts at cost: rent eats the rest; a rank's raise on top
+	job.reward = _pay_for(t[1] + cost + years * 150 + (250 if job.annual else 0), call_difficulty(job), lesson > 0)
 	# Sometimes the cowl comes off for one job and shows you another behind it.
 	if r >= 2 and lesson == 0 and job.faults.any(func(id): return FAULTS[id].zone == "engine") and rng.randf() < 0.35:
 		var pick := HIDDEN_CLUES.keys().filter(func(id): return not job.faults.has(id))
@@ -5220,6 +5220,27 @@ func _open_travel() -> void:
 
 
 const DIFFICULTY_NAMES := ["Routine", "Light", "Moderate", "Heavy", "Expert"]
+
+## The economy that teaches (P7): game balance, not real-world values; tune in playtests.
+## per_step: dollars added per step of a call's rating above Routine. outgrown: the share of pay
+## lost per step a call sits below where your career is. floor: the least an outgrown call pays.
+const ECONOMY := {"per_step": 300, "outgrown": 0.10, "floor": 0.70}
+
+
+## Where your career is, on the same 1-5 scale as a call's rating: up one every two rescues.
+func career_level() -> int:
+	return clampi(1 + rescued / 2, 1, 5)
+
+
+## What a call pays: its base (plane type, parts at cost, years sat, annual), plus a premium for
+## each step of its rating, times the rank's raise, times a discount if it's work you've outgrown.
+## A lesson's call is never discounted. Rounded to $50, as owners quote.
+func _pay_for(base: int, rating: int, lesson_call: bool) -> int:
+	var pay: float = (base + (rating - 1) * ECONOMY.per_step) * (1.0 + rank_raise())
+	var below: int = career_level() - rating
+	if below > 0 and not lesson_call:
+		pay *= maxf(ECONOMY.floor, 1.0 - ECONOMY.outgrown * below)
+	return int(round(pay / 50.0)) * 50
 
 
 ## How hard a call is, 1 to 5, before you take it: one more for each extra fault (up to two), a

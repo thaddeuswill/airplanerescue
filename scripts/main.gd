@@ -649,6 +649,7 @@ func _spawn_job() -> void:
 		"spent": {"fuel": 0, "parts": 0, "mail": 0}, "fuel": rng.randf_range(0.03, 0.3), "parked": "apron",
 		"owner": OWNERS[rng.randi() % OWNERS.size()], "tried": {}, "hidden": "",
 		"deadline": day + 5 - mini(1, r / 4) + rng.randi() % 5}  # each spot takes two hours: skipping one is a real gamble
+	job["reg"] = make_registration(rng)  # its N-number, for the ticket (D3)
 	_assign_faults(job, picks)
 	var cost := 0
 	for id in job.faults:
@@ -2176,7 +2177,7 @@ func _sign_off() -> void:
 	jobs.erase(job)
 	current_job = null
 	var spent: Dictionary = job.get("spent", {})
-	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": pay, "supplies": supplies, "owner": job.get("owner", "The owner"),
+	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "reg": registration(job), "pay": pay, "supplies": supplies, "owner": job.get("owner", "The owner"),
 		"work": job.faults.map(func(id): return ("Comeback: " if id in missed else "") + FAULTS[id].name), "years": job.get("years", 0),
 		"fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "days": day - job.get("arrived", day)})
 	var found_later: Array = missed.map(func(id): return FAULTS[id].name.to_lower())
@@ -2299,6 +2300,43 @@ func _open_debrief() -> void:
 	_open_mission_card(e)
 
 
+## Each city's station: its airport's ICAO identifier (the city's primary airport; FAA Order JO
+## 7350 location identifiers with the K prefix of the contiguous US).
+const STATIONS := {
+	"Wichita": "KICT", "Omaha": "KOMA", "Dallas": "KDAL", "Chicago": "KMDW", "Billings": "KBIL",
+	"Miami": "KMIA", "New York": "KJFK", "Seattle": "KBFI", "Portland": "KPDX", "Atlanta": "KATL",
+	"Nashville": "KBNA", "Bangor": "KBGR", "Los Angeles": "KLAX", "Phoenix": "KPHX", "Las Vegas": "KLAS",
+	"Albuquerque": "KABQ", "Denver": "KDEN", "Salt Lake City": "KSLC", "Fargo": "KFAR", "Minneapolis": "KMSP",
+}
+
+
+func station_code(city: String) -> String:
+	return STATIONS.get(city, city.to_upper())
+
+
+## A US registration in the 14 CFR 47.15 format: N, then one to five characters, the first a digit
+## 1-9, up to two letters at the end, never I or O (they read as 1 and 0). Made when the call comes in
+## and saved on the job and its logbook entry; a job or entry from an older save gets one worked out
+## from what it is, so it reads the same every time.
+func registration(job: Dictionary) -> String:
+	if job.has("reg"):
+		return job.reg
+	var r := RandomNumberGenerator.new()
+	r.seed = hash("%s|%s|%s" % [job.get("city", ""), job.get("type", ""), job.get("day", job.get("deadline", 0))])
+	return make_registration(r)
+
+
+static func make_registration(r: RandomNumberGenerator) -> String:
+	const LETTERS := "ABCDEFGHJKLMNPQRSTUVWXYZ"
+	var letters := r.randi_range(0, 2)
+	var n := "N%d" % r.randi_range(1, 9)
+	for i in (r.randi_range(2, 3) if letters < 2 else 2):
+		n += str(r.randi_range(0, 9))
+	for i in letters:
+		n += LETTERS[r.randi_range(0, LETTERS.length() - 1)]
+	return n
+
+
 ## The end-of-mission card (D3): centred, on frosted earth glass with the scene showing through.
 ## Money as a column of signed figures, gains green and losses red (the sign says it without the
 ## colour); what cost extra; the job's stats; the badges and promotion it earned; the advice.
@@ -2336,63 +2374,60 @@ func _open_mission_card(e: Dictionary) -> void:
 	shine.color = Style.COLOR_GLASS_SHINE
 	shine.custom_minimum_size.y = 1
 	vb.add_child(shine)
-	var kicker := Style.label("DEBRIEF", "hud_muted", Style.SIZE_SM, 800)
-	kicker.add_theme_font_override("font", Style.caps(800, Style.SIZE_SM))
+	# Laid out like a ticket (Thad): station and registration top left, the line items with their
+	# figures down the right, the achievements, and the total added up at the bottom.
 	var head := HBoxContainer.new()
 	vb.add_child(head)
-	var titles := VBoxContainer.new()
-	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	titles.add_theme_constant_override("separation", 0)
-	head.add_child(titles)
-	titles.add_child(kicker)
-	titles.add_child(Style.label("%s at %s" % [e.type, e.city], "hud", Style.SIZE_XL, 900))
+	var ids := VBoxContainer.new()
+	ids.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ids.add_theme_constant_override("separation", 0)
+	head.add_child(ids)
+	ids.add_child(_card_heading("Station"))
+	var station := Style.label("%s  %s" % [station_code(e.city), e.city.to_upper()], "hud", Style.SIZE_LG, 800)
+	station.name = "Station"
+	ids.add_child(station)
+	ids.add_child(_card_heading("Registration"))
+	var reg := Style.label(registration(e), "hud", Style.SIZE_2XL)
+	reg.name = "Registration"
+	reg.add_theme_font_override("font", Style.figures(true))
+	ids.add_child(reg)
+	var tally := Style.label("DEBRIEF\n%d of %d RESCUED" % [rescued, GOAL], "hud_muted", Style.SIZE_SM, 800)
+	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	head.add_child(tally)
 	if d.get("said", "") != "":
 		var said := Style.label(d.said, "loss" if String(d.said).begins_with("A comeback") else "hud_muted", Style.SIZE_SM)
 		said.name = "Said"
 		said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		said.custom_minimum_size.x = 420
-		titles.add_child(said)
-	var tally := Style.label("%d of %d\nRESCUED" % [rescued, GOAL], "hud_muted", Style.SIZE_SM, 800)
-	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	tally.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	head.add_child(tally)
+		said.custom_minimum_size.x = 536
+		vb.add_child(said)
 	vb.add_child(_glass_rule())
-	# The money, signed: what came in, what went out, and where it left you.
+	# The line items, signed. The total below is these added up, nothing else.
+	var bonus := int(d.get("bonus", 0))
 	_card_figure(vb, "Paid by the owner", d.pay)
+	if bonus > 0:
+		_card_figure(vb, "Apprenticeship bonus", bonus)
 	_card_figure(vb, "Fuel", -int(d.fuel))
 	_card_figure(vb, "Parts", -int(d.parts))
 	_card_figure(vb, "Hangar rent", -int(d.rent))
-	vb.add_child(_glass_rule())
-	_card_figure(vb, "Net", d.net, true)
-	# What cost extra, each a loss.
-	vb.add_child(_card_heading("Cost you extra"))
+	# What cost extra is already in the figures above (a comeback cut the pay, a mail order raised
+	# the parts): listed so you can see why, not added again.
 	var lines := debrief_lines(d)
-	if lines.is_empty():
-		vb.add_child(Style.label("Nothing. A clean job.", "gain", Style.SIZE_MD))
-	for i in lines.size():
+	if not lines.is_empty():
+		vb.add_child(_card_heading("Cost you extra (in the figures above)"))
+	const MAX_SHOWN := 4  # the ticket fits a 720 px window; the logbook keeps the full list
+	for i in mini(lines.size(), MAX_SHOWN):
 		var what: String = lines[i]
 		var amt := 0
 		var m := RegEx.create_from_string("\\s*\\(\\$([0-9]+)\\)$").search(what)
 		if m:  # the dollars ride at the end of the line: "Gasket kit by mail  ($30)"
 			amt = int(m.get_string(1))
 			what = what.substr(0, m.get_start())
-		_card_figure(vb, "- " + what if amt == 0 else what, -amt, false, "loss")
-	# The job's stats and what it earned.
+		_card_figure(vb, "- " + what if amt == 0 else what, -amt, false, "loss", true)
+	if lines.size() > MAX_SHOWN:
+		vb.add_child(Style.label("and %d more, in your logbook" % (lines.size() - MAX_SHOWN), "hud_muted", Style.SIZE_SM))
 	vb.add_child(_card_heading("This job"))
-	var stats := GridContainer.new()
-	stats.columns = 4
-	stats.add_theme_constant_override("h_separation", Style.SPACE_6)
-	vb.add_child(stats)
-	for st in [["Spots checked", "%d of %d" % [d.get("checked", 0), ZONES.size()]],
-			["Faults fixed", "%d of %d" % [d.get("fixed", 0), d.get("faults", 0)]],
-			["Planes rescued", "%d of %d" % [rescued, GOAL]], ["Cash in hand", "$" + _thousands(money)]]:
-		var cell := VBoxContainer.new()
-		cell.add_theme_constant_override("separation", 0)
-		cell.add_child(Style.label(st[0].to_upper(), "hud_muted", Style.SIZE_XS, 800))
-		var v := Style.label(st[1], "hud", Style.SIZE_MD)
-		v.add_theme_font_override("font", Style.figures(true))
-		cell.add_child(v)
-		stats.add_child(cell)
+	_card_stat(vb, "Spots checked", "%d of %d" % [d.get("checked", 0), ZONES.size()])
+	_card_stat(vb, "Faults fixed", "%d of %d" % [d.get("fixed", 0), d.get("faults", 0)])
 	vb.add_child(_card_heading("Achievements"))
 	var got: Array = d.get("badges", [])
 	var ach := HFlowContainer.new()
@@ -2405,6 +2440,12 @@ func _open_mission_card(e: Dictionary) -> void:
 		ach.add_child(_card_award("hud/badge.svg", badge_name(id)))
 	if got.is_empty() and d.get("promoted", []).is_empty():
 		ach.add_child(Style.label("No new badges on this job. %d of %d earned." % [badges.size(), BADGES.size()], "hud_muted", Style.SIZE_SM))
+	# The total, like the foot of a ticket: a double rule, then the sum.
+	vb.add_child(_glass_rule())
+	vb.add_child(_glass_rule())
+	var total := int(d.net) + bonus
+	_card_figure(vb, "Total", total, true)
+	vb.get_child(vb.get_child_count() - 1).name = "Total"
 	vb.add_child(_glass_rule())
 	var advice := Style.label("Next time: " + d.next, "hud", Style.SIZE_MD)
 	advice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2433,11 +2474,11 @@ func _open_mission_card(e: Dictionary) -> void:
 
 ## One money row on the card: words left, the signed figure right in Courier Prime, green for a
 ## gain and red for a loss, a zero in brass. The sign is always printed, so colour never stands alone.
-func _card_figure(box: Control, what: String, amount: int, big := false, force_role := "") -> void:
+func _card_figure(box: Control, what: String, amount: int, big := false, force_role := "", small := false) -> void:
 	var row := HBoxContainer.new()
 	row.name = "Figure"
 	box.add_child(row)
-	var l := Style.label(what, "hud", Style.SIZE_LG if big else Style.SIZE_MD, 800 if big else 600)
+	var l := Style.label(what, "hud", Style.SIZE_LG if big else Style.SIZE_SM if small else Style.SIZE_MD, 800 if big else 600)
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	row.add_child(l)
@@ -2445,12 +2486,24 @@ func _card_figure(box: Control, what: String, amount: int, big := false, force_r
 	var fig := Style.label("" if amount == 0 and force_role == "loss" else ("%s$%s" % ["+" if amount > 0 else "-" if amount < 0 else "", _thousands(absi(amount))]), role)
 	fig.name = role
 	fig.add_theme_font_override("font", Style.figures(true))
-	fig.add_theme_font_size_override("font_size", Style.SIZE_XL if big else Style.SIZE_MD)
+	fig.add_theme_font_size_override("font_size", Style.SIZE_XL if big else Style.SIZE_SM if small else Style.SIZE_MD)
 	fig.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	fig.custom_minimum_size.x = 130
 	row.add_child(fig)
 	if force_role == "loss":
 		l.add_theme_color_override("font_color", Style.COLOR_TEXT_LOSS)
+
+
+## A stat line on the ticket: words left, the figure right, in brass (no sign: it isn't money).
+func _card_stat(box: Control, what: String, value: String) -> void:
+	var row := HBoxContainer.new()
+	box.add_child(row)
+	var l := Style.label(what, "hud", Style.SIZE_SM)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(l)
+	var v := Style.label(value, "hud_muted", Style.SIZE_SM)
+	v.add_theme_font_override("font", Style.figures(true))
+	row.add_child(v)
 
 
 func _card_heading(text: String) -> Label:

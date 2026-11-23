@@ -42,10 +42,11 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 - **R1. Registration numbers instead of plane descriptions everywhere** (Thad, 2026-11-23: "the
   red plane or this other plane kinda looks sloppy, it doesn't really look like something that
   you would see in the real world"). The map, job sheets, work orders, logbook, radio and owner
-  lines name the plane by its N-number (from D3) instead of "Rag-wing taildragger". Open
-  question: is the make and model wanted anywhere (a mechanic's work order would read
-  "N4127K, Piper J-3")? And should the station be the city or an airport identifier (real
-  identifiers would need a source per city)? Acceptance: no type description left in player text;
+  lines name the plane by its N-number (from D3) instead of "Rag-wing taildragger". Decided by
+  Thad 2026-11-23: the work order and logbook give the make and model after it ("N4127K, Piper
+  J-3"); the station is the airport identifier (the ticket already uses `STATIONS`, D3). Needs at
+  planning: the real make and model for each of the five types (only the Cub, a J-3 with a C85-12,
+  is settled). Acceptance: no type description left in player text;
   self-test checks; screenshots.
 
 - ~~**D3. The end-of-mission screen, redone** (Thad, 2026-11-23: "in the middle of the screen glassy

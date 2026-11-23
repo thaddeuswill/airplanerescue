@@ -1746,6 +1746,21 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 			colour_ok = colour_ok and c == Style.COLOR_TEXT_LOSS and (l.text.begins_with("-") or l.text == "")
 		elif l.text.begins_with("+$") or l.text.begins_with("-$"):
 			colour_ok = false  # a signed figure left uncoloured
+	# The ticket: station code and N-number top left; the total is the line items added up; it fits.
+	var reg_l: Array = card.find_children("Registration", "Label", true, false)
+	var reg_txt: String = reg_l[0].text if reg_l.size() > 0 else ""
+	var reg_ok: bool = RegEx.create_from_string("^N[1-9][0-9]{0,4}[A-HJ-NP-Z]{0,2}$").search(reg_txt) != null and reg_txt.length() <= 6 \
+		and reg_txt == g.logbook[-1].get("reg", "")
+	var st_l: Array = card.find_children("Station", "Label", true, false)
+	var station_ok: bool = st_l.size() == 1 and st_l[0].text.begins_with(g.station_code(g.logbook[-1].city)) \
+		and g.STATIONS.size() == g.CITIES.size() and g.CITIES.keys().all(func(c): return String(g.STATIONS.get(c, "")).length() == 4)
+	var tot_row: Array = card.find_children("Total", "HBoxContainer", true, false)
+	var want_total: int = int(deb.pay) + int(deb.get("bonus", 0)) - int(deb.fuel) - int(deb.parts) - int(deb.rent)
+	var tot_txt: String = tot_row[0].get_child(1).text if tot_row.size() > 0 else ""
+	var total_ok: bool = tot_txt.replace(",", "") == "%s$%d" % ["+" if want_total > 0 else "-" if want_total < 0 else "", absi(want_total)]
+	var fit_ok: bool = card.get_global_rect().size.y <= card.get_viewport_rect().size.y
+	var ticket_ok: bool = reg_ok and station_ok and total_ok and fit_ok
+	print("ticket: registration %s %s, station %s, total %s %s, fits %s" % [reg_ok, reg_txt, station_ok, total_ok, tot_txt, fit_ok])
 	var awards: Array = card.find_children("Award*", "HBoxContainer", true, false)
 	var got: Array = deb.get("badges", [])
 	var badge_ok: bool = got.has("sharp_eyes") and got.all(func(b): return g.badges.has(b)) \
@@ -1753,11 +1768,13 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	# None earned: the card says so. And an older entry (no badges or stats saved) still opens.
 	var plain := {"type": "Cub", "city": "Ames", "debrief": {"pay": 900, "fuel": 40, "parts": 0, "rent": 80, "net": 780,
 		"extra": ["Left mag called bad  (1 h)"], "next": "x"}}
+	plain["day"] = 4
+	var derived_ok: bool = g.registration(plain) == g.registration(plain.duplicate(true)) and g.registration(plain).begins_with("N")
 	g._open_mission_card(plain)
 	await get_tree().process_frame
-	var none_ok: bool = g.panel.find_children("Award*", "HBoxContainer", true, false).is_empty() \
+	var none_ok: bool = derived_ok and g.panel.find_children("Award*", "HBoxContainer", true, false).is_empty() \
 		and g.panel.find_children("*", "Label", true, false).any(func(l): return l.text.begins_with("No new badges"))
 	g._close_panel()
-	var ok := banner_ok and top_ok and said_ok and centre_ok and colour_ok and n_gain >= 2 and n_loss >= 1 and badge_ok and none_ok
+	var ok := ticket_ok and banner_ok and top_ok and said_ok and centre_ok and colour_ok and n_gain >= 2 and n_loss >= 1 and badge_ok and none_ok
 	print("mission card: banner cleared %s, nothing at the top %s, owner's words %s, centred %s, colours %s (%d gain, %d loss), badges %s %s, none %s" % [banner_ok, top_ok, said_ok, centre_ok, colour_ok, n_gain, n_loss, badge_ok, got, none_ok])
 	return ok

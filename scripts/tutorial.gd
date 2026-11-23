@@ -262,7 +262,11 @@ func rescued_one() -> bool:
 	main.tut.lesson = 0 if l >= 3 else l + 1
 	main.tut.done = {}
 	main.tut.base = main.rescued
+	main._quiet_money = true  # the bonus goes on the end-of-mission ticket, not a pop (D3)
 	main.money += REWARDS[l].cash
+	main._quiet_money = false
+	if not main._pending_debrief.is_empty():
+		main._pending_debrief.debrief["bonus"] = REWARDS[l].cash
 	if REWARDS[l].gift != "":
 		main.tools[REWARDS[l].gift] = true
 	return main.tut.lesson > 0

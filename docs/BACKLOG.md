@@ -16,8 +16,9 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   greeting, work scene, wallet, job sheet, pause menu, logbook, career, badge board, flight card,
   map ("waits n days", "days' rent"), catalog, lesson notes and walkthroughs, kickback and forced
   landing lines.
-- **Amounts (game balance, for the playtest, like `ECONOMY`)**: hangar fee $60 a job (today's
-  tickets show $52-75 of rent); a wrong guess $25.
+- **Amounts (game balance, for the playtest, like `ECONOMY`)**: hangar fee $60 a job, confirmed
+  by Thad 2026-11-23 as a placeholder until logistics is designed ("thats leaning into logistics
+  which we havent gotten that far yet"); a wrong guess $25 (proposed, not objected to).
 - **Risk gate**: saves: `day`, deadlines and badge days are stored; bump `SAVE_VERSION` to 3 and
   `_migrate` (drop deadlines, keep old fields harmless). Money rules: CLAUDE.md's settled "guessing
   costs time only" becomes "guessing costs a small charge", changed by Thad 2026-11-23; the

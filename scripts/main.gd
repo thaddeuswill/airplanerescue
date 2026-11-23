@@ -403,6 +403,8 @@ func _ready() -> void:
 			get_tree().root.add_child.call_deferred(monkey)
 	had_save = _load_game()
 	_refresh_tracker()  # the HUD was built before the save loaded: show its badges
+	if rank_index(earned_rank()) > rank_index(rank) or rank == "":
+		rank = earned_rank()  # a career from before the ladder gets the rank its record earns
 	if keep_difficulty != "":
 		difficulty = keep_difficulty
 		keep_difficulty = ""
@@ -491,7 +493,7 @@ func _install_update() -> void:
 
 var save_path := "user://airplane_rescue.save"
 var test_seed := 0  # printed with every self-test result
-const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held", "tut", "badges"]
+const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held", "tut", "badges", "rank"]
 const SAVE_VERSION := 2  # bump when the layout changes, and teach _migrate the step
 var _greeting := ""  # the first message of this session
 var had_save := false  # a career was loaded at launch (so the title screen offers Continue)
@@ -642,7 +644,7 @@ func _spawn_job() -> void:
 	if r >= 2 and lesson == 0 and rng.randf() < 0.06:  # now and then a plane that can't be fixed where it sits
 		picks.push_front(GROUND_FAULTS[rng.randi() % GROUND_FAULTS.size()])
 	var job := {"city": options[rng.randi() % options.size()], "type": t[0], "years": years, "washed": years == 0, "lesson": lesson > 0,
-		"fixed": {}, "found": {}, "checked": {}, "work": {}, "annual": r >= 3 and lesson == 0 and rng.randf() < 0.15,
+		"fixed": {}, "found": {}, "checked": {}, "work": {}, "annual": rank == "ia" and lesson == 0 and rng.randf() < 0.15,  # an annual needs an IA
 		"spent": {"fuel": 0, "parts": 0, "mail": 0}, "fuel": rng.randf_range(0.03, 0.3), "parked": "apron",
 		"owner": OWNERS[rng.randi() % OWNERS.size()], "tried": {}, "hidden": "",
 		"deadline": day + 5 - mini(1, r / 4) + rng.randi() % 5}  # each spot takes two hours: skipping one is a real gamble
@@ -650,7 +652,7 @@ func _spawn_job() -> void:
 	var cost := 0
 	for id in job.faults:
 		cost += FAULTS[id].cost + (60 if job.diag.has(id) else 0)  # troubleshooting pays too
-	job.reward = int(round((t[1] + cost + years * 150 + (250 if job.annual else 0)) / 50.0)) * 50  # parts at cost: rent eats the rest
+	job.reward = int(round((t[1] + cost + years * 150 + (250 if job.annual else 0)) * (1.0 + rank_raise()) / 50.0)) * 50  # parts at cost: rent eats the rest; a rank's raise on top
 	# Sometimes the cowl comes off for one job and shows you another behind it.
 	if r >= 2 and lesson == 0 and job.faults.any(func(id): return FAULTS[id].zone == "engine") and rng.randf() < 0.35:
 		var pick := HIDDEN_CLUES.keys().filter(func(id): return not job.faults.has(id))
@@ -2182,6 +2184,7 @@ func _sign_off() -> void:
 		earn_badge("sharp_eyes")
 	if logbook[-1].debrief.extra.is_empty():
 		earn_badge("clean_job")
+	_check_promotion()
 	if found_later.is_empty():
 		_say("%s paid $%d%s. \"%s\"" % [job.get("owner", "The owner"), pay, (" (with $%d of supplies)" % supplies) if supplies > 0 else "",
 			THANKS[rng.randi() % THANKS.size()]])
@@ -3318,6 +3321,80 @@ func _pocket(kind: String) -> void:
 	panel_kind = kind
 
 
+# ---------- job status (P19): a career ladder earned from the record ----------
+
+## [id, title, raise on new calls]. The numbers that earn each rank are game rules for this ladder,
+## not real-world requirements (a real IA needs an A&P held three years and a test).
+const RANKS := [["apprentice", "Apprentice", 0.0], ["ap", "A&P Mechanic", 0.0], ["lead", "Lead Mechanic", 0.10],
+	["ia", "Inspection Authorization (IA)", 0.20]]
+const LEAD_NEEDS := {"planes": 5, "clean": 3, "no_comeback_in": 3}
+const IA_NEEDS := {"planes": 8, "badges": 6, "no_comeback_in": 5}
+var rank := ""  # saved; never lost once earned
+
+
+func rank_index(id: String) -> int:
+	for i in RANKS.size():
+		if RANKS[i][0] == id:
+			return i
+	return 0
+
+
+func rank_title(id: String) -> String:
+	return RANKS[rank_index(id)][1]
+
+
+func rank_raise() -> float:
+	return RANKS[rank_index(rank)][2]
+
+
+## What the record shows: delivered planes, clean jobs (nothing extra on the debrief), and whether
+## the last n deliveries came back.
+func _record() -> Dictionary:
+	var clean := logbook.filter(func(e): return e.has("debrief") and e.debrief.extra.is_empty()).size()
+	var came_back := func(n: int) -> bool:
+		return logbook.slice(maxi(0, logbook.size() - n)).any(func(e): return Array(e.get("work", [])).any(func(w): return String(w).begins_with("Comeback")))
+	return {"planes": rescued, "clean": clean, "badges": badges.size(),
+		"clean_last_lead": not came_back.call(LEAD_NEEDS.no_comeback_in), "clean_last_ia": not came_back.call(IA_NEEDS.no_comeback_in)}
+
+
+## The highest rank the record earns now.
+func earned_rank() -> String:
+	if int(tut.get("lesson", 0)) > 0:
+		return "apprentice"
+	var r := _record()
+	if r.planes >= IA_NEEDS.planes and r.badges >= IA_NEEDS.badges and r.clean_last_ia:
+		return "ia"
+	if r.planes >= LEAD_NEEDS.planes and r.clean >= LEAD_NEEDS.clean and r.clean_last_lead:
+		return "lead"
+	return "ap"
+
+
+## The next rank and what it still needs, in figures, for the logbook ("" at the top).
+func rank_next_line() -> String:
+	var r := _record()
+	match rank:
+		"apprentice":
+			return "Next: A&P Mechanic. Finish the three apprentice jobs."
+		"ap":
+			return "Next: Lead Mechanic (calls pay 10%% more). %d planes delivered (you have %d), %d clean jobs (%d), no comeback in your last %d (%s)." \
+				% [LEAD_NEEDS.planes, r.planes, LEAD_NEEDS.clean, r.clean, LEAD_NEEDS.no_comeback_in, "yes" if r.clean_last_lead else "not yet"]
+		"lead":
+			return "Next: Inspection Authorization (calls pay 20%% more, and annual inspections open). %d planes (you have %d), %d badges (%d), no comeback in your last %d (%s)." \
+				% [IA_NEEDS.planes, r.planes, IA_NEEDS.badges, r.badges, IA_NEEDS.no_comeback_in, "yes" if r.clean_last_ia else "not yet"]
+	return "The top of the ladder: you can sign off annual inspections."
+
+
+## Checked on each delivery: a rank earned is a banner, a chime and a play-log line. Never lost.
+func _check_promotion() -> void:
+	var e := earned_rank()
+	if rank_index(e) <= rank_index(rank):
+		return
+	rank = e
+	playlog("promoted: " + rank)
+	sound.chime()
+	_banner("PROMOTED: " + rank_title(rank).to_upper(), rank_next_line())
+
+
 # ---------- achievement badges (P8): one per skill, earned when its standard is met ----------
 
 ## [id, name, the system it belongs to, the standard in words]. In board order, grouped by system.
@@ -3476,6 +3553,7 @@ func _confirm_restart() -> void:
 func _open_logbook() -> void:
 	tutorial.walk("logbook")  # first time here: a walkthrough of this menu (tutorial.gd)
 	var rows := [["Planes back in the air: %d of %d" % [rescued, GOAL]]]
+	rows.append(["Rank: %s\n%s" % [rank_title(rank), rank_next_line()]])  # job status (P19)
 	# The badge board: every badge, earned or not, with its standard (P8).
 	rows.append(["Badges: %d of %d" % [badges.size(), BADGES.size()]])
 	for b in BADGES:

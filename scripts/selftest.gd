@@ -826,6 +826,57 @@ func run(main, args: PackedStringArray) -> void:
 	if not tracker_ok:
 		print("TRACKER: wrong icons, or shown over a sheet")
 	ok = ok and tracker_ok
+	# Job status (P19): the record earns the rank; short of it, held back; the raise lands on new
+	# calls; no annual below IA. All on a copy of the career, put back after.
+	var keep_career := [g.logbook.duplicate(true), g.rescued, g.badges.duplicate(), g.rank, g.jobs.duplicate(true), g.tut.duplicate(true)]
+	g.tut.lesson = 0
+	var clean_e := {"work": ["Fix"], "debrief": {"extra": []}}
+	var messy_e := {"work": ["Fix"], "debrief": {"extra": ["Left mag called bad"]}}
+	g.logbook = [clean_e, clean_e, clean_e, messy_e, messy_e]
+	g.rescued = 5
+	g.badges = {}
+	var ladder_ok: bool = g.earned_rank() == "lead"
+	g.logbook = [clean_e, clean_e, messy_e, messy_e, messy_e]  # only two clean: held back
+	ladder_ok = ladder_ok and g.earned_rank() == "ap"
+	g.logbook = [clean_e, clean_e, clean_e, messy_e, {"work": ["Comeback: Flat main tire"], "debrief": {"extra": []}}]
+	ladder_ok = ladder_ok and g.earned_rank() == "ap"  # a comeback in the last three: held back
+	g.logbook = [clean_e, clean_e, clean_e, clean_e, clean_e, clean_e, clean_e, clean_e]
+	g.rescued = 8
+	for b in g.BADGES.slice(0, 6):
+		g.badges[b[0]] = 1
+	ladder_ok = ladder_ok and g.earned_rank() == "ia"
+	# The raise: the same call spawned at A&P and at Lead pays 10% more (to the nearest $50).
+	g.rescued = 5
+	var pays := []
+	for rk in ["ap", "lead"]:
+		g.rank = rk
+		g.jobs = []
+		g.rng.seed = 4242
+		seed(4242)  # spawning also shuffles with the global generator
+		g._spawn_job()
+		pays.append(g.jobs[0].reward)
+	ladder_ok = ladder_ok and absf(pays[1] - pays[0] * 1.10) <= 50.0 and pays[1] > pays[0]
+	seed(g.test_seed + 1)  # hand the global generator back to this run's seed
+	# Annuals need an IA.
+	var annuals := 0
+	g.rank = "lead"
+	for i in 150:
+		g.jobs = []
+		g._spawn_job()
+		annuals += 1 if g.jobs[0].annual else 0
+	ladder_ok = ladder_ok and annuals == 0
+	if not ladder_ok:
+		print("LADDER: ranks or raise or annuals wrong; pays=", pays, " annuals below IA=", annuals)
+	g.logbook = keep_career[0]
+	g.rescued = keep_career[1]
+	g.badges = keep_career[2]
+	g.rank = keep_career[3]
+	g.jobs = keep_career[4]
+	g.tut = keep_career[5]
+	g._pocket("logbook")
+	await _snap(shot, "rank", 0.3)
+	g._close_panel()
+	ok = ok and ladder_ok
 	var bonus: int = g.tutorial.REWARDS[lesson].cash if lesson > 0 else 0  # a lesson pays a bonus on delivery
 	ok = ok and g.ferry == null and g.rescued == 1 and g.money == before_fly + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) \
 		and g.money < start + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) and g.jobs.size() == g.MAX_JOBS

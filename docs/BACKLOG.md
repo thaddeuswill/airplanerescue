@@ -5,20 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 17 (2026-11-23): the ticket's hierarchy (D4).**
-
-- **Goal**: the ticket reads in order of importance at a glance.
-- **Items**: a type scale with clear steps: the total largest (Courier Prime bold, 36), the
-  registration next (28), line items 18, labels small and quiet (13, tracked caps, brass) so they
-  never read as titles; the station and registration as one block top left; the top right down to
-  one short line ("DEBRIEF"); the rescued tally moves to the career stats (already there as
-  Planes rescued) and the spots checked and faults fixed to the job's logbook entry. No new screen.
-- **Risk gate**: layout: must still fit 720 px (it scales down if not, but shouldn't need to);
-  sizes from `Style` only. Saves: the logbook entry gains `checked` and `fixed` counts, read with
-  defaults. Checks: self-test measures the font sizes (total > registration > line items > labels)
-  and that the top right holds one line; the logbook shows the stats; screenshots at 1280x720 and
-  1920x1080.
-- **Acceptance**: as D4 below.
+(None. Iteration 17 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 

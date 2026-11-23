@@ -811,6 +811,7 @@ func run(main, args: PackedStringArray) -> void:
 	# The tracker (P13): in the world it shows every badge, coloured if earned, greyed if not;
 	# over a sheet it's hidden.
 	await get_tree().process_frame
+	g._update_hud()  # read the HUD as it is now, not as the last frame left it (screenshot runs lag a frame)
 	var row: HBoxContainer = g.tracker
 	var tracker_ok: bool = row.get_parent().visible and row.get_child_count() == g.BADGES.size()
 	for t: TextureRect in row.get_children():
@@ -819,6 +820,7 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "tracker", 0.3)
 	g._pocket("logbook")
 	await get_tree().process_frame
+	g._update_hud()
 	tracker_ok = tracker_ok and not row.get_parent().visible
 	g._close_panel()
 	if not tracker_ok:

@@ -31,6 +31,9 @@ godot --headless --path . -- --self-test --tutorial=2         # play apprentices
   `XDG_DATA_HOME=/tmp/run1 godot --headless --path . -- --self-test` (Linux).
 - The `ERROR: Condition "(uint32_t)buff.size() != len"` line is expected. The test deliberately
   corrupts the save file to check the fallback to `.bak`.
+- Screenshot runs (`--shot`) play the whole rescue like headless ones but slowly (about 15 min; the
+  watchdog allows 30 with a display). The test waits on game time, not the wall clock, so a slow
+  display can't cut a step short.
 - Screenshots need a display: `xvfb-run -a -s "-screen 0 1280x800x24" godot --path . --rendering-driver opengl3 --resolution 1280x720 -- --self-test --shot=prefix`.
 - `--scene-shots=prefix[:scene,scene]` shoots every work scene (or the listed ones) at its start and
   part-way through. Use it to check art placement. Check at **1280x720**, the smallest supported

@@ -63,6 +63,8 @@ var _quit_open := false  # the pause menu offered a way out during an emergency
 func run(main, args: PackedStringArray) -> void:
 	g = main
 	_at("run")
+	if DisplayServer.get_name() != "headless":
+		LIMIT_S = 1800  # a run with a display draws every frame and takes far longer (screenshots)
 	for a in args:  # --hang-test=wait|frozen: hang on purpose, to prove the watchdog fails it
 		if a.begins_with("--hang-test="):
 			LIMIT_S = 8
@@ -877,9 +879,10 @@ func _trouble_tests(shot: String) -> bool:
 	hit.alt = 2.0
 	hit.speed = 35.0
 	hit.trouble = "oil_leak"  # not struck yet: the hill still takes the blame
-	var t0 = Time.get_ticks_msec()
-	while g.ferry and Time.get_ticks_msec() - t0 < 6000:
+	var gt := 0.0  # game seconds, not the wall clock: see _crank
+	while g.ferry and gt < 6.0:
 		await get_tree().process_frame
+		gt += get_process_delta_time()
 	ok = ok and g.ferry == null and g.current_job == null and not g.jobs.has(k) and g.logbook.back().work[0].contains("rising ground")
 	g._close_panel()
 	print("trouble tests ", ok)
@@ -909,11 +912,7 @@ func _start_failures() -> bool:
 	await _crank(2.2)
 	ok = ok and f.state == "off" and f.flood > 0.0  # flooded
 	ok = ok and String(f.card().alert).begins_with("Flooded")  # and the checklist says how to clear it
-	if _shot != "":  # the red band with the fix (set directly: under a display the starter timing differs)
-		var was: float = f.flood
-		f.flood = 3.0
-		await _snap(_shot, "checklist_flooded", 0.2)
-		f.flood = was
+	await _snap(_shot, "checklist_flooded", 0.2)  # the real flooded start, with its fix on the card
 	f.throttle = 1.0
 	await _crank(3.3)
 	ok = ok and f.flood <= 0.0  # cleared with the throttle open
@@ -922,16 +921,18 @@ func _start_failures() -> bool:
 	await _crank(2.2)
 	ok = ok and f.state == "hung"  # no prime: hung start
 	ok = ok and String(f.card().alert).begins_with("Hung")
-	var t0 = Time.get_ticks_msec()
-	while f.state == "hung" and Time.get_ticks_msec() - t0 < 7000:
+	var gt := 0.0
+	while f.state == "hung" and gt < 7.0:
 		await get_tree().process_frame
+		gt += get_process_delta_time()
 	ok = ok and f.state == "off"  # left alone, it dies
 	f.primes = 1
 	await _crank(2.2)
 	f.throttle = 0.2
-	t0 = Time.get_ticks_msec()
-	while f.state == "hung" and Time.get_ticks_msec() - t0 < 3000:
+	gt = 0.0
+	while f.state == "hung" and gt < 3.0:
 		await get_tree().process_frame
+		gt += get_process_delta_time()
 	ok = ok and f.state == "run"  # a touch of throttle saves it
 	ok = ok and f.card().title == "TAKE-OFF" and f.card().alert == ""
 	print("start failures ", ok)
@@ -942,9 +943,13 @@ func _crank(seconds: float) -> void:
 	g.ferry._crank_total = 0.0  # the starter-rest limit has its own check below
 	g.ferry._cool = 0.0
 	Input.action_press("starter")
-	var t0 = Time.get_ticks_msec()
-	while Time.get_ticks_msec() - t0 < seconds * 1000.0 and g.ferry.state == "off":
+	# Held for game time, not wall time: the engine counts cranking frame by frame, and under a
+	# slow display (screenshot runs) game time falls behind the clock, so a wall-clock hold let go
+	# before it could catch. A player holds until it fires; this holds as long as the game needs.
+	var gt := 0.0
+	while gt < seconds and g.ferry.state == "off":
 		await get_tree().process_frame
+		gt += get_process_delta_time()
 	Input.action_release("starter")
 	await get_tree().process_frame
 
@@ -972,7 +977,9 @@ func _fly(well: bool, shot := "") -> void:
 	Input.action_press("throttle_up")
 	var flown := {}
 	var climbed := false
-	while g.ferry and Time.get_ticks_msec() - t0 < 40000:
+	var flight_t := 0.0  # game seconds
+	while g.ferry and flight_t < 40.0:
+		flight_t += get_process_delta_time()
 		var f = g.ferry
 		if f.state == "run" and f.mode == "fly" and not f.struck:
 			f.card()  # the take-off checklist ticks its stages as they're passed

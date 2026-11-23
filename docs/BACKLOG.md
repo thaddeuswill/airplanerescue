@@ -5,7 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 5 is in review; see the log in `docs/PROCESS.md`.)
+(None. Iteration 6 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 
@@ -74,6 +74,14 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   question mark). Extends the apprentice checklist to every job, on demand so it doesn't take the
   screen. Acceptance: each state shows in the right case; self-test covers all four.
 
+- **P4. Performance-proportional difficulty.** After each job, assess how it went (the debrief's
+  record: wrong calls, verdicts, comebacks, days) and pick the next calls' difficulty from it:
+  harder for strong play, easier for weak, so any player can win. Vary the factors that matter for
+  the objectives (faults per plane, troubleshooting, look-alikes, scaffolding such as hints and
+  limits on the card, deadlines). Pay rises with difficulty. Strongest at the start and the end of
+  a career. Acceptance: a scripted strong career gets harder calls than a scripted weak one;
+  success still means fixing the plane right; self-test covers both.
+
 ## Fun (Lazzaro's four types, 2026-11-23)
 
 Hard fun is the core (mastering real procedures) and serious fun comes from the repair ritual.
@@ -94,9 +102,6 @@ Easy fun is weak and social fun barely there; top games have at least three of t
 
 ## Bugs and debts
 
-- **Screenshot-mode starter:** under xvfb with a display, the self-test's engine start never
-  catches, so `start failures` is false in `--shot` runs (headless is fine; it predates iteration 1).
-  Acceptance: `--shot` runs reach the flight.
 - **README controls are out of date** (says M for the manual; it's N). Acceptance: README matches
   the bindings.
 

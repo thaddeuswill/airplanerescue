@@ -9,6 +9,17 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **C1. The cockpit checklist: smaller, in the corner, on glass** (Thad, 2026-11-23: "the run up
+  callouts for how to start the engine should be smaller in the corner and a glassy panel
+  instead"). The before-start, run-up and take-off card (`preflight.gd`) moves from a cream paper
+  card at the top left to a smaller frosted-glass panel in a corner, in the ticket's glass style
+  (the `Style` glass tokens and `shaders/glass.gdshader`): earth glass, cream text, gain green for a
+  ticked step, the current step marked. Smaller type within the HUD minimum (13 px). Keeps every
+  step, its key and its live reading; U6's cut-off foot line fixed with it. Acceptance: the card
+  takes less of the screen than today (area measured), sits in a corner clear of the gauges and
+  the top message band, reads over bright sky and snow (contrast measured over white), every step
+  and key still shown; screenshots at 1280x720 of all three phases.
+
 - **W1. No wallet: cash at the top right** (Thad, 2026-11-23: "remove the wallet menu just show your
   cash at the top right of the screen instead"). The wallet pocket (Tab) and its sheet go; your cash
   shows at the top right of the main screen, in figures (Courier Prime, thousands separators),

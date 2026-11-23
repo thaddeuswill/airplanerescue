@@ -608,7 +608,7 @@ func _spawn_job() -> void:
 	# The career ramps up with every rescue (docs/quick-specs/difficulty-2026-11-12.md): the first
 	# calls are things you can see or hear; troubleshooting, long-sat wrecks, annuals and planes
 	# that can't be saved come later, and so do more faults per plane and owners in a hurry.
-	var r: int = rescued
+	var r: int = maxi(0, rescued + performance_form())  # pitched to how the last jobs went (P4); never below a fresh career
 	var ids := FAULTS.keys().filter(func(id): return not id in NEGLECT_FAULTS and not id in GROUND_FAULTS and id != "fod" \
 		and not id in t[2] and not FAULTS[id].get("ground", false) and (r >= 2 or (FAULTS[id].get("diags", []).is_empty() and not SUSPECTS.has(id))))  # look-alikes start on job 3
 	ids.shuffle()
@@ -2272,6 +2272,7 @@ func _open_debrief() -> void:
 		["%.1f days on site. Paid $%d; fuel $%d, parts $%d, rent $%d. Net $%d." % [d.days, d.pay, d.fuel, d.parts, d.rent, d.net]],
 		["Cost you extra\n" + ("\n".join(d.extra) if d.extra.size() > 0 else "Nothing.")],
 		["Next time\n" + d.next],
+		[form_line()],
 		["", "On to the next call", _open_travel, true]]
 	_open_panel("Debrief", rows)
 
@@ -5220,6 +5221,32 @@ func _open_travel() -> void:
 
 
 const DIFFICULTY_NAMES := ["Routine", "Light", "Moderate", "Heavy", "Expert"]
+
+
+## Form (P4): how the last three jobs went, from their debriefs: +1 a clean job (nothing extra),
+## -1 a rough one (a comeback, a part broken by running it unready, or three or more extra costs),
+## 0 otherwise. The sum, -3 to +3, pitches the next calls. Worked out, never stored.
+func performance_form() -> int:
+	var form := 0
+	for e in logbook.slice(maxi(0, logbook.size() - 3)):
+		if not e.has("debrief"):
+			continue
+		var extra: Array = Array(e.debrief.extra)
+		if extra.is_empty():
+			form += 1
+		elif extra.size() >= 3 or extra.any(func(x): return String(x).begins_with("Comeback") or String(x).contains("running it unready")):
+			form -= 1
+	return form
+
+
+## The debrief's word on what's coming, from the form.
+func form_line() -> String:
+	var f := performance_form()
+	if f >= 2:
+		return "Your next calls: tougher, to match how well your last jobs went."
+	if f <= -2:
+		return "Your next calls: steadier, while you get your feet back under you."
+	return "Your next calls: about the same."
 
 ## The economy that teaches (P7): game balance, not real-world values; tune in playtests.
 ## per_step: dollars added per step of a call's rating above Routine. outgrown: the share of pay

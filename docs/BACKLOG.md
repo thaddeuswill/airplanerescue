@@ -5,7 +5,25 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 12 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 13: difficulty that follows performance (P4).** Goal: the next calls get harder after
+strong work and easier after a struggle, so any player can win and nobody coasts. Started 2026-11-23.
+
+1. **Form, from the record.** After each delivery the last three debriefs set your form: +1 for a
+   clean job (nothing extra), -1 for a rough one (a comeback, a part broken by running it unready,
+   or three or more extra costs), 0 otherwise; the sum, -3 to +3, never stored (worked out from the
+   logbook, so no save change).
+2. **New calls are pitched to it.** The career ramp in `_spawn_job` reads your rescues plus your
+   form: strong play brings more faults per plane, look-alikes and troubleshooting sooner and
+   tighter deadlines; a struggle holds them back. Pay already follows a call's rating (P7), so
+   harder calls pay more.
+3. **Said plainly on the debrief**: "Your next calls: tougher / about the same / steadier, to match
+   how your last jobs went."
+4. Unchanged: the apprenticeship's calls; what success means (the plane fixed right).
+   - Acceptance: from a strong record, the next calls average a higher rating than from a weak one
+     (seeded, many spawns); the debrief line matches the form; definition-of-done set passes.
+   - Risk gate: balance changes on new calls only. A weak player must still be able to win: form
+     never pushes the ramp below a fresh career's. No save change; the self-test's own calls,
+     with an empty logbook, have form 0 and spawn as before.
 
 ## Next
 
@@ -74,7 +92,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   question mark). Extends the apprentice checklist to every job, on demand so it doesn't take the
   screen. Acceptance: each state shows in the right case; self-test covers all four.
 
-- **P4. Performance-proportional difficulty.** After each job, assess how it went (the debrief's
+- ~~**P4. Performance-proportional difficulty.**~~ In iteration 13. After each job, assess how it went (the debrief's
   record: wrong calls, verdicts, comebacks, days) and pick the next calls' difficulty from it:
   harder for strong play, easier for weak, so any player can win. Vary the factors that matter for
   the objectives (faults per plane, troubleshooting, look-alikes, scaffolding such as hints and

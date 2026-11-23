@@ -866,6 +866,33 @@ func run(main, args: PackedStringArray) -> void:
 	g.rescued = 8
 	var late: int = g._pay_for(2000, 1, false)
 	econ_ok = econ_ok and late < early and late >= int(early * g.ECONOMY.floor) - 50 and g._pay_for(2000, 1, true) == early
+	# Form (P4): from a strong record the next calls run harder than from a weak one, same seeds.
+	var strong_e := {"work": ["Fix"], "debrief": {"extra": []}}
+	var weak_e := {"work": ["Fix"], "debrief": {"extra": ["Comeback: flat main tire", "Left mag called bad", "Gasket kit by mail"]}}
+	var mean := {}
+	g.rescued = 3
+	g.rank = "ap"
+	for which in ["strong", "weak"]:
+		var e: Dictionary = strong_e if which == "strong" else weak_e
+		g.logbook = [e, e, e]
+		var total := 0
+		g.rng.seed = 777
+		seed(777)
+		for i in 80:
+			g.jobs = []
+			g._spawn_job()
+			total += g.call_difficulty(g.jobs[0])
+		mean[which] = total / 80.0
+	print("form: next calls' mean rating after strong work %.2f, after a struggle %.2f" % [mean.strong, mean.weak])
+	var form_ok: bool = mean.strong > mean.weak and g.form_line().contains("steadier")
+	g.logbook = [strong_e, strong_e, strong_e]
+	form_ok = form_ok and g.performance_form() == 3 and g.form_line().contains("tougher")
+	g.logbook = []
+	form_ok = form_ok and g.performance_form() == 0
+	seed(g.test_seed + 2)
+	if not form_ok:
+		ladder_ok = false
+		print("FORM: mean rating strong ", mean.get("strong"), " weak ", mean.get("weak"), "; lines or values wrong")
 	if not econ_ok:
 		ladder_ok = false
 		print("ECONOMY: early ", early, " late ", late, " hard ", g._pay_for(2000, 3, false))

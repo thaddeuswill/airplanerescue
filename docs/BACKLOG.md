@@ -30,14 +30,17 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
-- **A2. The apprenticeship sign-off is not a pop-up** (Thad, 2026-11-23: "i dont want that
-  apprenticeship to be a pop up"). Today a lesson's sign-off (job n of 3 done, what you learned,
-  what's next, the gift) opens as a card over the map (D3). Suggested: it becomes the first row of
-  the map's call list itself, a paper strip ("Apprentice checklist: job 2 of 3 signed off. You
-  learned... Gift: compression tester"), no overlay, nothing to dismiss; it stays until the next
-  lesson's call is taken. To confirm with Thad: that place, or the checklist card top left.
-  Acceptance: no overlay after a lesson; the sign-off and gift read on the map; self-test checks;
-  screenshot.
+- **A2. The apprenticeship as a side-panel quest, not a pop-up** (Thad, 2026-11-23: "i dont want
+  that apprenticeship to be a pop up"; "it should be more of a sidepanel quest type behavior").
+  The apprenticeship lives in a quest panel at the side of the screen, like a quest tracker: the
+  quest ("Apprenticeship, 3 jobs"), each job as an objective with its state (done, in progress,
+  locked), the current job's steps ticking as you do them (today's checklist card folds into it),
+  and each job's reward shown on it (the gift). Finishing a job ticks it off there, the panel
+  says what was learned and what comes next, and the next job's objective opens; nothing pops up
+  or needs dismissing. The bonus money stays on the ticket. Collapsible, and hidden over sheets
+  and the cockpit like the tracker. Acceptance: no overlay after a lesson; the panel shows the
+  quest, the three jobs' states, the steps and the rewards; it survives a save and load;
+  self-test checks; screenshots at 1280x720 (it must not cover the work scenes' tool roll).
 
 - **R1. Registration numbers instead of plane descriptions everywhere** (Thad, 2026-11-23: "the
   red plane or this other plane kinda looks sloppy, it doesn't really look like something that

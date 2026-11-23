@@ -231,6 +231,14 @@ Wrong manipulations have natural consequences: an over-torque backs the fastener
 unready breaks a part you pay for, the wrong suspect swapped costs its part. Caution kept: no
 interaction is added that the learning objectives don't need.
 
+### Equipment-based action (pattern check, 2026-11-23)
+
+Done: capabilities follow the equipment you carry. A part only offers the jobs your tool roll can do
+(`bay.gd actions`); a test only appears with its instrument in hand from the red toolbox
+(`main.INSTRUMENTS`, `held`); the tool roll is on screen in every job (`work.gd`). Capability
+grows by buying tools (parts counter, mail order), and the apprenticeship gives the compression
+tester as a reward. The story: a traveling mechanic with what fits in the truck.
+
 ## Gaps (all in `docs/BACKLOG.md`)
 
 | Gap | What's missing | Backlog |

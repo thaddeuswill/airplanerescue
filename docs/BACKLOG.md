@@ -9,6 +9,17 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **E6. The "all planes rescued" ending as a ticket** (Thad, 2026-11-23: "have the planes rescued
+  look like the finished mission screen no added stuff on the panel that doesnt pertain to the
+  game or help in any way"). The ending sheet (all 10 planes rescued) becomes a centred glass card
+  in the end-of-mission ticket's style and hierarchy: the career's figures large (planes rescued,
+  earned, cash in hand) with small labels, the badges and rank as achievements, one primary
+  button (Keep flying) and the others quiet. Anything that doesn't serve the game or help goes: to
+  settle at planning, item by item (today: the closing lines of prose, "Longest neglected").
+  Covers U4's ending finding. Acceptance: same card, tokens and type scale as the ticket; every
+  row on it named as serving play; self-test opens it and checks the figures and the one primary;
+  screenshots at 1280x720 and 1920x1080.
+
 - **C1. The cockpit checklist: smaller, in the corner, on glass** (Thad, 2026-11-23: "the run up
   callouts for how to start the engine should be smaller in the corner and a glassy panel
   instead"). The before-start, run-up and take-off card (`preflight.gd`) moves from a cream paper

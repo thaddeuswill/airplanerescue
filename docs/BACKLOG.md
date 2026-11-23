@@ -5,26 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 12: an economy that teaches (P7).** Goal: what a call pays says what the work is worth
-to your learning: harder objectives pay more, and work you've outgrown pays less. Planned
-2026-11-23; building starts once iteration 11's verification is in.
-
-1. **Pay follows the objective, not just the parts.**
-   - A difficulty premium: each step of a call's rating (`call_difficulty`, 1 Routine to 5
-     Expert) adds a fixed amount to its pay, on top of the parts at cost, the plane type, the years
-     it sat and the rank's raise.
-   - Outgrown work pays less: as the career moves on, a call rated below where you are pays a
-     little less per step below (never less than 70%), so the easy jobs of your first week stop
-     being the best money.
-   - The map already shows each call's rating and what it would clear, so the player sees the
-     trade-off before choosing.
-   - The amounts are game balance (`ECONOMY` in `main.gd`), not real-world values, and are marked
-     for playtest tuning.
-   - Acceptance: the self-test spawns the same call at two ratings and the harder one pays more;
-     the same easy call pays less later in a career than early; definition-of-done set passes;
-     screenshot of the map.
-   - Risk gate: pay only, on new calls only; existing calls keep their pay. The apprenticeship's
-     lesson calls are exempt from the discount so the first jobs aren't penalised. No save change.
+(None. Iteration 12 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 

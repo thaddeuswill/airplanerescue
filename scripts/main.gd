@@ -3067,6 +3067,31 @@ func _unhandled_input(e: InputEvent) -> void:
 
 ## The gameplay cursor, in the same style as the repair crosshair: quiet ticks around a dot, and
 ## a green ring whenever E will do something.
+## A progress ring for a sheet's header: the arc filled for what's done, the count small in the
+## middle so the ring never carries the meaning on shape alone.
+class ProgressRing extends Control:
+	var done := 0
+	var total := 1
+	var ink := Color.BLACK
+	var track := Color.GRAY
+	var fill := Color.RED
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(44, 44)
+		mouse_filter = Control.MOUSE_FILTER_PASS
+
+	func _draw() -> void:
+		var c := size / 2.0
+		var r := minf(size.x, size.y) / 2.0 - 4.0
+		draw_arc(c, r, 0.0, TAU, 48, track, 3.0, true)
+		if done > 0:
+			draw_arc(c, r, -PI / 2.0, -PI / 2.0 + TAU * clampf(float(done) / total, 0.0, 1.0), 48, fill, 5.0, true)
+		var f := Style.figures(true)
+		var t := "%d/%d" % [done, total]
+		var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_XS).x
+		draw_string(f, c + Vector2(-w / 2.0, 4.5), t, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_XS, ink)
+
+
 class Reticle extends Control:
 	var live := false
 
@@ -3854,6 +3879,22 @@ func _confirm_restart() -> void:
 		["", "Yes, start over", _restart, true], ["", "Keep playing", _close_panel, true]])
 
 
+## Puts a progress ring at the right of the open sheet's title, with its count as a tooltip.
+func _header_ring(done: int, total: int) -> void:
+	if panel == null:
+		return
+	var top: HBoxContainer = panel.get_child(0).get_child(0)
+	var ring := ProgressRing.new()
+	ring.name = "Ring"
+	ring.done = done
+	ring.total = total
+	ring.ink = Style.COLOR_TEXT_PAPER
+	ring.track = Color(Style.COLOR_TEXT_PAPER_MUTED, 0.35)
+	ring.fill = Style.COLOR_TEXT_PAPER_ACCENT
+	ring.tooltip_text = "%d of %d planes rescued" % [done, total]
+	top.add_child(ring)
+
+
 ## The logbook, by importance (LB1, Thad): what the next rank needs first (it's what to do next),
 ## then one short entry per job, newest first, then the badges as a grid. The money breakdown of
 ## each job stays on its ticket; the logbook is the record.
@@ -3865,7 +3906,8 @@ func _open_logbook() -> void:
 	if logbook.is_empty():
 		rows.append(["No entries yet. Your first rescue goes here."])
 	rows.append(["Badges: %d of %d" % [badges.size(), BADGES.size()], "", null, false, "", {"grid": BADGES.map(func(b): return [b[0], b[1], b[3], badges.has(b[0])]), "name": "Badges"}])
-	_open_panel("Logbook   %d of %d rescued" % [rescued, GOAL], rows)
+	_open_panel("Logbook", rows)
+	_header_ring(rescued, GOAL)  # planes rescued as a progress ring, not words (Thad)
 
 
 ## One job in the logbook: registration and station, what was done, what it cleared; the newest

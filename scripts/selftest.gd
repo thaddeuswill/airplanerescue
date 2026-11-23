@@ -1842,6 +1842,8 @@ func _no_days_ok() -> bool:
 func _logbook_ok() -> bool:
 	g._close_panel()
 	g._open_logbook()
+	var rings: Array = g.panel.find_children("Ring", "Control", true, false)
+	var ring_ok: bool = g._list_title == "Logbook" and rings.size() == 1 and rings[0].done == g.rescued and rings[0].total == g.GOAL
 	var first: Array = g._pages[0]
 	var last: Array = g._pages[-1]
 	var name_of := func(r: Array) -> String: return String(r[5].get("name", "")) if r.size() > 5 and r[5] is Dictionary else ""
@@ -1875,6 +1877,6 @@ func _logbook_ok() -> bool:
 	var pages_new: int = g._paginate(new_rows, room).size()
 	var pages_old: int = g._paginate(old_rows, room).size()
 	g._close_panel()
-	var ok: bool = order_ok and money_ok and shown_ok and pages_new < pages_old
-	print("logbook: rank first and large %s, entries without money %s, badge grid %s, ten jobs on %d pages (was %d)" % [order_ok and rank_size == Style.SIZE_XL, money_ok, grid_ok, pages_new, pages_old])
+	var ok: bool = ring_ok and order_ok and money_ok and shown_ok and pages_new < pages_old
+	print("logbook: progress ring %s, rank first and large %s, entries without money %s, badge grid %s, ten jobs on %d pages (was %d)" % [ring_ok, order_ok and rank_size == Style.SIZE_XL, money_ok, grid_ok, pages_new, pages_old])
 	return ok

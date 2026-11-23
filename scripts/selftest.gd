@@ -797,6 +797,17 @@ func run(main, args: PackedStringArray) -> void:
 		print("DEBRIEF: missing, or without the wrong mag call: ", deb)
 	ok = ok and deb_ok
 	await _snap(shot, "debrief", 0.3)
+	# Badges (P8): earned only when the standard was met. This run checked every spot and missed
+	# nothing (Sharp Eyes) and the scene tests torqued to spec (To Spec); it also called a mag wrong,
+	# had an entry sent back and looped on purpose, so those badges must be withheld.
+	var bad: Array = ["reads_the_drop", "by_the_book", "clean_job", "straight_and_true"].filter(func(b): return g.badges.has(b))
+	var good: Array = ["sharp_eyes", "to_spec"].filter(func(b): return not g.badges.has(b))
+	if not bad.is_empty() or not good.is_empty():
+		print("BADGES: earned without the skill ", bad, "; missing though earned ", good, " (have ", g.badges.keys(), ")")
+		ok = false
+	g._pocket("logbook")
+	await _snap(shot, "badges", 0.3)
+	g._close_panel()
 	var bonus: int = g.tutorial.REWARDS[lesson].cash if lesson > 0 else 0  # a lesson pays a bonus on delivery
 	ok = ok and g.ferry == null and g.rescued == 1 and g.money == before_fly + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) \
 		and g.money < start + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) and g.jobs.size() == g.MAX_JOBS

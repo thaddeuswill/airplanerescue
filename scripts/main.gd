@@ -490,7 +490,7 @@ func _install_update() -> void:
 
 var save_path := "user://airplane_rescue.save"
 var test_seed := 0  # printed with every self-test result
-const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held", "tut"]
+const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held", "tut", "badges"]
 const SAVE_VERSION := 2  # bump when the layout changes, and teach _migrate the step
 var _greeting := ""  # the first message of this session
 var had_save := false  # a career was loaded at launch (so the title screen offers Continue)
@@ -1662,6 +1662,8 @@ func _call(id: String, key: String) -> void:
 		job.found[id] = true
 		_say("That's it: %s." % FAULTS[id].name)
 		sound.pen()
+		if job.get("misses", {}).get(id, 0) == 0:
+			earn_badge("detective")
 	else:
 		var why := "Its plugs are wet with oil" if t == "reading_plugs" else "It runs cold"
 		job.get_or_add("dnote", {})[id] = "%s: cylinder %d. Next, a %s on it." % [why, job.get("cyl", 0) + 1, TESTS[job.diag[id][step]].name.to_lower()]
@@ -2086,6 +2088,8 @@ func _entry_pick(step: int, wrong: String) -> void:
 
 func _sign_logbook() -> void:
 	current_job.signed = true
+	if not current_job.get("lost", []).any(func(l): return l.kind == "entry"):
+		earn_badge("by_the_book")
 	sound.pen()
 	_save_game()
 	_open_inspection()
@@ -2173,6 +2177,10 @@ func _sign_off() -> void:
 		found_later.append("the engine cowling not screwed down")
 	logbook[-1]["debrief"] = job_debrief(job, pay, missed, open_cowl)
 	_pending_debrief = logbook[-1]
+	if job.get("checked", {}).size() >= ZONES.size() and missed.is_empty():
+		earn_badge("sharp_eyes")
+	if logbook[-1].debrief.extra.is_empty():
+		earn_badge("clean_job")
 	if found_later.is_empty():
 		_say("%s paid $%d%s. \"%s\"" % [job.get("owner", "The owner"), pay, (" (with $%d of supplies)" % supplies) if supplies > 0 else "",
 			THANKS[rng.randi() % THANKS.size()]])
@@ -3241,6 +3249,45 @@ func _pocket(kind: String) -> void:
 	panel_kind = kind
 
 
+# ---------- achievement badges (P8): one per skill, earned when its standard is met ----------
+
+## [id, name, the system it belongs to, the standard in words]. In board order, grouped by system.
+const BADGES := [
+	["sharp_eyes", "Sharp Eyes", "Walk-around", "Deliver a plane with all 8 spots checked and nothing coming back."],
+	["to_spec", "To Spec", "Repair", "Finish a job with torqued fasteners and no over-torque."],
+	["reads_the_drop", "Reads the Drop", "Run-up", "Call both mags right on a run-up, with no wrong call."],
+	["detective", "Detective", "Troubleshooting", "Follow a trail to its cause with no wrong call."],
+	["by_the_book", "By the Book", "Paperwork", "Sign the logbook with no entry sent back."],
+	["clean_start", "Clean Start", "Flight", "Start the engine with no failed attempt."],
+	["straight_and_true", "Straight and True", "Flight", "Take off with no ground loop."],
+	["clean_job", "Clean Job", "Career", "Deliver a plane with nothing extra on the debrief."],
+]
+var badges := {}  # id -> the day it was earned (saved)
+
+
+func badge_name(id: String) -> String:
+	for b in BADGES:
+		if b[0] == id:
+			return b[1]
+	return id
+
+
+## Earns a badge the moment its standard is met, once per career: a banner and a play-log line.
+func earn_badge(id: String) -> void:
+	if badges.has(id):
+		return
+	badges[id] = floori(day)
+	playlog("badge: " + id)
+	sound.chime()
+	_banner("BADGE: " + badge_name(id).to_upper(), "%d of %d earned. See them in your logbook (%s)." % [badges.size(), BADGES.size(), key_name("logbook")])
+	_save_game()
+
+
+## The unearned badge an activity can earn, for the task list and the cockpit card ("" if none).
+func badge_on_offer(id: String) -> String:
+	return "" if badges.has(id) else badge_name(id)
+
+
 # ---------- the task list (P3): what's done, failed, to try again, not tried yet ----------
 
 ## The four states, each with its symbol and its word (never color alone).
@@ -3288,8 +3335,13 @@ func task_list(job: Dictionary) -> Array:
 	add.call("done" if job.get("fuel", 1.0) >= 0.5 else "todo", "Fuel it: half tanks at least")
 	var sent_back: bool = job.get("lost", []).any(func(l): return l.kind == "entry")
 	add.call("done" if job.get("signed", false) else ("retry" if sent_back else "todo"), "Sign the logbook",
-		"An entry was sent back: write what you worked to." if sent_back and not job.get("signed", false) else "")
-	add.call("todo", "Fly it out to the owner")
+		"An entry was sent back: write what you worked to." if sent_back and not job.get("signed", false)
+		else (("Can earn: " + badge_on_offer("by_the_book")) if badge_on_offer("by_the_book") != "" and not job.get("signed", false) else ""))
+	var offer: PackedStringArray = []
+	for b in ["clean_start", "straight_and_true", "clean_job", "sharp_eyes"]:
+		if badge_on_offer(b) != "":
+			offer.append(badge_on_offer(b))
+	add.call("todo", "Fly it out to the owner", ("Can earn: " + ", ".join(offer)) if offer.size() > 0 else "")
 	return out
 
 
@@ -3354,6 +3406,12 @@ func _confirm_restart() -> void:
 func _open_logbook() -> void:
 	tutorial.walk("logbook")  # first time here: a walkthrough of this menu (tutorial.gd)
 	var rows := [["Planes back in the air: %d of %d" % [rescued, GOAL]]]
+	# The badge board: every badge, earned or not, with its standard (P8).
+	rows.append(["Badges: %d of %d" % [badges.size(), BADGES.size()]])
+	for b in BADGES:
+		var got: bool = badges.has(b[0])
+		rows.append(["%s  (%s)%s\n%s" % [b[1], b[2], ("  earned day %d" % badges[b[0]]) if got else "", b[3]], "", null, false,
+			"hud/badge.svg" if got else "hud/badge_none.svg"])
 	for i in range(logbook.size() - 1, -1, -1):
 		var e: Dictionary = logbook[i]
 		var net: int = e.pay - e.get("fuel", 0) - e.get("parts", 0)

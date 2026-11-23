@@ -529,6 +529,8 @@ func perform(e: Dictionary, v: String) -> bool:
 		if st.get("_fod", false) and st.get("fod", "") != "done":
 			job["fod"] = true  # closed up with the socket still in there: it rattles on the run-up
 			st._fod = false
+		if els.any(func(x): return x.has("range")) and not st.get("_over", false):
+			main.earn_badge("to_spec")  # torqued to spec, no over-torque (P8)
 		finished.emit()
 	queue_redraw()
 	return true
@@ -570,6 +572,7 @@ func _pull(e: Dictionary, a: Dictionary) -> void:
 		main.sound.sfx("deny")
 		if e.type == "fastener":
 			st[e.id] = "loose"
+		st["_over"] = true  # an over-torque on this job: no To Spec badge for it
 		main._work_time(DAYS.torque)
 	queue_redraw()
 

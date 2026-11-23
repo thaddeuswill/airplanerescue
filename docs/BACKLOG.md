@@ -5,7 +5,27 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 8 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 9: achievement badges (P8).** Goal: a badge for each skill, earned the moment the player
+meets its standard, with a board that shows what's earned and what's left. Started 2026-11-23.
+
+1. **Eight badges, grouped by system**, each earned once, at the moment it's shown:
+   - Walk-around: **Sharp Eyes**, a delivery with all 8 spots checked and nothing coming back.
+   - Repair: **To Spec**, a job with torqued fasteners finished with no over-torque.
+   - Run-up: **Reads the Drop**, both mags called right with no wrong call that run-up.
+   - Troubleshooting: **Detective**, a trail followed to its cause with no wrong call.
+   - Paperwork: **By the Book**, the logbook signed with no entry sent back.
+   - Flight: **Clean Start**, the engine started with no failed attempt; **Straight and True**, a
+     take-off with no ground loop.
+   - The career: **Clean Job**, a delivery whose debrief has nothing extra.
+   - Earning one shows a banner and writes a play-log line.
+   - The board is at the top of the logbook (L): earned (with the day) and not yet earned, each
+     with its standard in words.
+   - Where a badge can be earned, the task list and the cockpit card name it while it's unearned.
+   - Acceptance: the self-test earns a badge when its standard is met and withholds one when it
+     isn't; the board shows both; definition-of-done set passes; screenshot of the board.
+   - Risk gate: badges only add; no money, time or rule changes. Saves: a new `badges` key read
+     with a default, no version bump. A badge must not be earnable without the skill: each is
+     checked against the mistake records it depends on.
 
 ## Next
 
@@ -108,7 +128,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   build agency and fit the story. Every action in the game against each, with fixes as backlog
   items. Acceptance: a table in `docs/LEARNING_DESIGN.md`; every "no" a backlog item.
 
-- **P8. Achievement badges.** A badge per skill, earned by meeting the standard for that learning
+- ~~**P8. Achievement badges.**~~ In iteration 9. A badge per skill, earned by meeting the standard for that learning
   objective (`docs/LEARNING_DESIGN.md`, "mastered by the end"): torque to spec first try, both mags
   called right, a troubleshooting chain with no wrong calls, a clean walk-around (nothing missed),
   a correct logbook entry first time, a clean start, a debrief with nothing extra. Grouped by
@@ -134,6 +154,33 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   ATA chapter for the jobs done. Acceptance: the review exports from the logbook to a file; the
   reading list shows on the call; quiz questions come from the manual data, never invented
   values; self-test checks the export.
+
+- **P12. Exploration constraints in early jobs.** The map already locks other calls during the
+  lessons, with a clear "Locked" and why. Decide whether early jobs should also fence off parts of
+  the field (the hangar's catalog, the radio) with easy-to-read signs, to cut load. Acceptance: a
+  decision recorded; if yes, each constraint has a visible reason and lifts on schedule.
+- **P13. Achievement tracker on the main screen.** The eight badges as a row of small greyed icons
+  on the HUD that colour in, with a sound, when earned; ordered by the process (walk-around to
+  flight). Acceptance: shown at a field, out of the way of the squawk and next-step icon; colours in
+  on earning; screenshot.
+- **P14. Unlock by demonstrated objectives.** New kinds of call open when the player has shown the
+  skills they need (e.g. Detective opens troubleshooting-heavy calls, Reads the Drop opens
+  ignition work), instead of only by rescue count; transitions make sense in the story.
+  Acceptance: each kind of call names its prerequisites; self-test unlocks one by earning its badge.
+- **P15. Natural information sources.** The game uses the squawk sheet, the service manual, the
+  logbook and the owner on the radio. Add a hangar bulletin board with notices (an airworthiness
+  alert, parts on special, a regular's thanks) that point at what to look at next. Acceptance:
+  a notice can lead to a finding; nothing on it is invented data.
+- **P16. Instructional affordances in the spot views.** The work scenes turn the cursor into the
+  tool in your hand; the spot views and the walk-around don't. A magnifier over a part you can
+  look closer at, the tool when the part offers a job with it. Acceptance: the cursor changes
+  over parts; playtest note on how players read it.
+
+- **P17. A challenge bonus.** The game has player-chosen difficulty both ways: Easy, Medium, Hard for
+  the career (guidance falling), and each call's rating, 1 to 5, chosen on the map. Missing: pay
+  that rises with the call's rating (a challenge multiplier) and a bonus for a job done with no aid
+  switched on (E4) and no guidance needed. Pairs with P7. Acceptance: pay shown per call follows its
+  rating; the bonus shows on the debrief when earned; self-test covers both.
 
 ## Fun (Lazzaro's four types, 2026-11-23)
 

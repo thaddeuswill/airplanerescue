@@ -216,6 +216,12 @@ code; every name was checked against the source. Gaps are backlog items E2-E5 or
 
 ---
 
+### Pause and continue (pattern check, iteration 9)
+
+Done: Esc pauses and hides the world (no exploring while paused); the game saves after every step
+and Continue picks up where you left off; pausing changes no score or pay; quitting is blocked
+during an emergency in flight (`_can_quit`), the one place timing is the lesson.
+
 ## Gaps (all in `docs/BACKLOG.md`)
 
 | Gap | What's missing | Backlog |

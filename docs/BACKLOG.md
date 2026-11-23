@@ -50,15 +50,15 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   the career save unchanged; self-test checks it.
 - **E3. Open a walkthrough again.** A "?" on each menu (or F1) shows its walkthrough any time.
   Acceptance: every menu with a walkthrough has the way back in; self-test opens one a second time.
-- **E4. More help after repeated misses.** Two wrong mag calls, verdicts or logbook picks in a row
-  bring a hint (Easy and Medium), and point at the manual page (all difficulties). Acceptance:
-  the hint shows on the second miss; self-test covers it.
-- ~~**E5. A job debrief.**~~ In iteration 5. On delivery: the time and money a job took, and what cost extra (wrong
-  calls, mail order, comebacks, a part broken by running it unready), with one line on what to do
-  next time. Acceptance: shows on delivery and in the logbook entry; self-test checks the items.
-
-## Instructional design patterns (2026-11-23)
-
+- **E4. Error-activated guidance** (the pattern, 2026-11-23). A specific error, or a pattern of them,
+  switches on help aimed at that error, for a limited time so nobody leans on it; better players
+  never see it. Each error type gets its own aid: a wrong mag call puts the 75 rpm limit and the
+  three cases on the cockpit card (even on Hard) for that run-up; a wrong verdict opens the
+  manual's page for that test; a logbook entry sent back shows the approved-data wording beside
+  the choices; running it unready lights the "don't run it yet" items on the work order; a ground
+  loop shows the rudder cue on the next take-off. Each aid lasts one attempt or a minute, then
+  goes; the next error brings it back. Acceptance: each trigger shows its aid, the aid expires,
+  and a player who makes no errors never sees one; self-test covers each.
 - **P1. Missions.** Each rescue call as a mission with a clear start and end state, the next set
   of learning objectives (and earlier ones mixed in), changing contexts so learning generalizes, a
   thread of story across calls, and a choice between several calls. The game has the shape (a call

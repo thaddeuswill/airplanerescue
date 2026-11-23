@@ -808,6 +808,22 @@ func run(main, args: PackedStringArray) -> void:
 	g._pocket("logbook")
 	await _snap(shot, "badges", 0.3)
 	g._close_panel()
+	# The tracker (P13): in the world it shows every badge, coloured if earned, greyed if not;
+	# over a sheet it's hidden.
+	await get_tree().process_frame
+	var row: HBoxContainer = g.tracker
+	var tracker_ok: bool = row.get_parent().visible and row.get_child_count() == g.BADGES.size()
+	for t: TextureRect in row.get_children():
+		var want := "badge.svg" if g.badges.has(String(t.name)) else "badge_none.svg"
+		tracker_ok = tracker_ok and t.texture.resource_path.ends_with(want)
+	await _snap(shot, "tracker", 0.3)
+	g._pocket("logbook")
+	await get_tree().process_frame
+	tracker_ok = tracker_ok and not row.get_parent().visible
+	g._close_panel()
+	if not tracker_ok:
+		print("TRACKER: wrong icons, or shown over a sheet")
+	ok = ok and tracker_ok
 	var bonus: int = g.tutorial.REWARDS[lesson].cash if lesson > 0 else 0  # a lesson pays a bonus on delivery
 	ok = ok and g.ferry == null and g.rescued == 1 and g.money == before_fly + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) \
 		and g.money < start + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) and g.jobs.size() == g.MAX_JOBS

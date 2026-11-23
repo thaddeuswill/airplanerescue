@@ -402,6 +402,7 @@ func _ready() -> void:
 			monkey.name = "Monkey"
 			get_tree().root.add_child.call_deferred(monkey)
 	had_save = _load_game()
+	_refresh_tracker()  # the HUD was built before the save loaded: show its badges
 	if keep_difficulty != "":
 		difficulty = keep_difficulty
 		keep_difficulty = ""
@@ -2825,6 +2826,7 @@ func _setup_ui() -> void:
 	prompt = _chip(17, 0.72, 0.8)
 	_setup_act()
 	_setup_quest()
+	_setup_tracker()
 	_setup_log()
 	msg = _chip(16, 0.03, 0.2)
 	_setup_squawk()
@@ -2943,6 +2945,68 @@ func _setup_act() -> void:
 	ui.add_child(box_)
 	act = box_
 	act.visible = false
+
+
+## The achievement tracker (P13): the eight badges as small icons, bottom centre, in process order,
+## greyed until earned. Earning one colours it in with a pulse and shows its name for a moment.
+var tracker: HBoxContainer
+var _tracker_name: Label
+var _tracker_name_t := 0.0
+
+
+func _setup_tracker() -> void:
+	var box := VBoxContainer.new()
+	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	box.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	box.offset_bottom = -12
+	box.alignment = BoxContainer.ALIGNMENT_END
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_theme_constant_override("separation", 2)
+	_tracker_name = Style.label("", "hud", Style.SIZE_SM, 800)
+	_tracker_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tracker_name.add_theme_constant_override("outline_size", 6)
+	_tracker_name.add_theme_color_override("font_outline_color", Style.COLOR_SURFACE_HUD)
+	box.add_child(_tracker_name)
+	tracker = HBoxContainer.new()
+	tracker.alignment = BoxContainer.ALIGNMENT_CENTER
+	tracker.add_theme_constant_override("separation", 6)
+	tracker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for b in BADGES:
+		var t := TextureRect.new()
+		t.name = b[0]
+		t.custom_minimum_size = Vector2(26, 26)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.tooltip_text = "%s: %s" % [b[1], b[3]]
+		tracker.add_child(t)
+	box.add_child(tracker)
+	ui.add_child(box)
+	_refresh_tracker()
+
+
+func _refresh_tracker() -> void:
+	if tracker == null:
+		return
+	for t: TextureRect in tracker.get_children():
+		var got: bool = badges.has(String(t.name))
+		t.texture = load("res://textures/hud/badge.svg" if got else "res://textures/hud/badge_none.svg")
+		t.modulate.a = 1.0 if got else 0.55
+
+
+## The moment a badge is earned: its icon colours in with a pulse, and its name shows above the row.
+func _tracker_pulse(id: String) -> void:
+	_refresh_tracker()
+	var t: TextureRect = tracker.get_node_or_null(id) if tracker else null
+	if t == null:
+		return
+	t.pivot_offset = t.custom_minimum_size / 2
+	var tw := t.create_tween()
+	tw.tween_property(t, "scale", Vector2(1.6, 1.6), 0.18).set_ease(Tween.EASE_OUT)
+	tw.tween_property(t, "scale", Vector2.ONE, 0.3).set_ease(Tween.EASE_IN_OUT)
+	_tracker_name.text = badge_name(id).to_upper()
+	_tracker_name_t = 4.0
 
 
 func _setup_quest() -> void:
@@ -3095,6 +3159,11 @@ func _update_hud() -> void:
 	var has_lines: bool = _log_list.get_child_count() > 0 or _log_now.visible
 	_log.visible = has_lines and (checking or Time.get_ticks_msec() < _log_until)
 	quest.visible = hud.visible
+	tracker.get_parent().visible = hud.visible  # the badge row: in the world only, never over a sheet, job or cockpit
+	if _tracker_name_t > 0.0:
+		_tracker_name_t -= get_process_delta_time()
+		if _tracker_name_t <= 0.0:
+			_tracker_name.text = ""
 	_update_squawk()
 	held_label.text = ("IN HAND: " + SUPPLIES[held].name.to_upper()) if held != "" else ""
 	if quest.visible:
@@ -3278,6 +3347,7 @@ func earn_badge(id: String) -> void:
 		return
 	badges[id] = floori(day)
 	playlog("badge: " + id)
+	_tracker_pulse(id)
 	sound.chime()
 	_banner("BADGE: " + badge_name(id).to_upper(), "%d of %d earned. See them in your logbook (%s)." % [badges.size(), BADGES.size(), key_name("logbook")])
 	_save_game()

@@ -31,6 +31,17 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **D4. The ticket's hierarchy** (Thad, 2026-11-23: "theres no hierarchy in the ticket window why
+  is all the title text the same size and there is to much in the top right corner consolidate
+  that or move that info to another screen dont [invent] other screens tho"). One clear order of
+  importance: the total largest, then the registration, then the line items; the small caps
+  labels (STATION, REGISTRATION, COST YOU EXTRA, ACHIEVEMENTS) quieter than the values they label,
+  not the same size as titles. Top right cut down to one line or moved: the rescued tally and the
+  spots and faults stats go to an existing screen (the logbook entry for the job already lists the
+  work; the career stats hold the tally), no new screen. Acceptance: a type scale with at least
+  three clear steps on the ticket; the top right holds at most one short line; the moved stats
+  readable where they went; screenshots at 1280x720 and 1920x1080.
+
 - **A2. The apprenticeship as a side-panel quest, not a pop-up** (Thad, 2026-11-23: "i dont want
   that apprenticeship to be a pop up"; "it should be more of a sidepanel quest type behavior").
   The apprenticeship lives in a quest panel at the side of the screen, like a quest tracker: the

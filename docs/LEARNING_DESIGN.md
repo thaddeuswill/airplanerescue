@@ -222,6 +222,15 @@ Done: Esc pauses and hides the world (no exploring while paused); the game saves
 and Continue picks up where you left off; pausing changes no score or pay; quitting is blocked
 during an emergency in flight (`_can_quit`), the one place timing is the lesson.
 
+### Interact physically (pattern check, 2026-11-23)
+
+Done: the work scenes are physical manipulation tied to the objectives (hold to turn a fastener,
+lift panels to the bench, screws to the magnetic tray, fit the new part, torque against the
+needle); the field too (jack the wheel, push the plane in and out of the hangar, fuel at the truck).
+Wrong manipulations have natural consequences: an over-torque backs the fastener off, running it
+unready breaks a part you pay for, the wrong suspect swapped costs its part. Caution kept: no
+interaction is added that the learning objectives don't need.
+
 ## Gaps (all in `docs/BACKLOG.md`)
 
 | Gap | What's missing | Backlog |

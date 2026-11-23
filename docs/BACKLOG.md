@@ -22,6 +22,19 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **M1. The rescue calls read at a glance, and accepting shows the plane's papers** (Thad,
+  2026-11-23: "differential the text so you can easyly find out what you need thats important,
+  where, how difficult and, how much i am getting paid the accept screen should have the logbook
+  and the pilot discrepancy on there before you fix the plane").
+  - The call list: each call's where (station and city), difficulty and pay set apart by size,
+    weight and position, so each is found without reading the sentence; the rest (parts, fuel, fee,
+    distance) smaller and quieter.
+  - Accepting a call: a step before you fly where you see the plane's logbook (its past entries)
+    and the pilot's discrepancy (the squawk, as written up), then accept or go back.
+  - Acceptance: on the call list the three facts are the most prominent text in each row; the
+    accept step shows the logbook and the discrepancy before anything is spent; self-test checks
+    both; screenshots at 1280x720.
+
 - ~~**D4. The ticket's hierarchy** (Thad, 2026-11-23: "theres no hierarchy in the ticket window why
   is all the title text the same size and there is to much in the top right corner consolidate
   that or move that info to another screen dont [invent] other screens tho").~~ In iteration 17. One clear order of

@@ -5,27 +5,22 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 9: achievement badges (P8).** Goal: a badge for each skill, earned the moment the player
-meets its standard, with a board that shows what's earned and what's left. Started 2026-11-23.
+**Iteration 10: an achievement tracker on the main screen (P13).** Goal: the badges are always in
+view at a field, greyed until earned, and colour in with a sound when one is. Planned 2026-11-23;
+starts once iteration 9's verification is in.
 
-1. **Eight badges, grouped by system**, each earned once, at the moment it's shown:
-   - Walk-around: **Sharp Eyes**, a delivery with all 8 spots checked and nothing coming back.
-   - Repair: **To Spec**, a job with torqued fasteners finished with no over-torque.
-   - Run-up: **Reads the Drop**, both mags called right with no wrong call that run-up.
-   - Troubleshooting: **Detective**, a trail followed to its cause with no wrong call.
-   - Paperwork: **By the Book**, the logbook signed with no entry sent back.
-   - Flight: **Clean Start**, the engine started with no failed attempt; **Straight and True**, a
-     take-off with no ground loop.
-   - The career: **Clean Job**, a delivery whose debrief has nothing extra.
-   - Earning one shows a banner and writes a play-log line.
-   - The board is at the top of the logbook (L): earned (with the day) and not yet earned, each
-     with its standard in words.
-   - Where a badge can be earned, the task list and the cockpit card name it while it's unearned.
-   - Acceptance: the self-test earns a badge when its standard is met and withholds one when it
-     isn't; the board shows both; definition-of-done set passes; screenshot of the board.
-   - Risk gate: badges only add; no money, time or rule changes. Saves: a new `badges` key read
-     with a default, no version bump. A badge must not be earnable without the skill: each is
-     checked against the mistake records it depends on.
+1. **The tracker.**
+   - A row of eight small badge icons on the HUD at a field, in process order (walk-around to
+     flight), greyed until earned; hovering is not needed: the name shows beside a newly earned
+     one for a few seconds.
+   - Earning one: the icon colours in with a brief pulse and the chime (with the banner already
+     there).
+   - Placed out of the way of the squawk (top right), the next-step icon (top left) and the
+     pockets (bottom left); hidden in sheets, jobs and the cockpit.
+   - Acceptance: shown at a field, hidden elsewhere; an earned badge draws coloured, an unearned
+     one grey; screenshot at 1280x720; definition-of-done set passes.
+   - Risk gate: HUD only; reads `badges`, changes nothing. Screen space: checked at the smallest
+     window against the squawk, icon and pockets.
 
 ## Next
 
@@ -159,7 +154,7 @@ meets its standard, with a board that shows what's earned and what's left. Start
   lessons, with a clear "Locked" and why. Decide whether early jobs should also fence off parts of
   the field (the hangar's catalog, the radio) with easy-to-read signs, to cut load. Acceptance: a
   decision recorded; if yes, each constraint has a visible reason and lifts on schedule.
-- **P13. Achievement tracker on the main screen.** The eight badges as a row of small greyed icons
+- ~~**P13. Achievement tracker on the main screen.**~~ In iteration 10. The eight badges as a row of small greyed icons
   on the HUD that colour in, with a sound, when earned; ordered by the process (walk-around to
   flight). Acceptance: shown at a field, out of the way of the squawk and next-step icon; colours in
   on earning; screenshot.
@@ -181,6 +176,13 @@ meets its standard, with a board that shows what's earned and what's left. Start
   that rises with the call's rating (a challenge multiplier) and a bonus for a job done with no aid
   switched on (E4) and no guidance needed. Pairs with P7. Acceptance: pay shown per call follows its
   rating; the bonus shows on the debrief when earned; self-test covers both.
+
+- **P18. A planning exercise before each call.** Taking a call asks for a short plan, in the game's
+  terms: which parts and tools to bring (they ride in the truck), which spots to check first, and
+  a guess at what's wrong from the squawk. The plan shapes what's at hand on site; the debrief
+  compares it with what happened. Natural, not a form: picking from the parts shed and a few
+  checkboxes on the call sheet. Acceptance: the plan is optional on Easy; the debrief shows plan
+  against outcome; self-test covers a plan that matched and one that didn't.
 
 ## Fun (Lazzaro's four types, 2026-11-23)
 

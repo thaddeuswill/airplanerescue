@@ -104,12 +104,15 @@ starts once iteration 9's verification is in.
   in the source page; its description fits a familiarization or orientation exercise.)
   Acceptance: offered once after job 3; every task touches a place not yet used; no money or
   deadline; self-test plays it.
-- **P6. Every fault as a problem-solving exercise.** Check each fault against the pattern: a
-  specific problem, the tools to solve it, and solving it means applying the learning objective
-  through natural actions (no menu answer standing in for the skill). Acceptance: a table in
-  `docs/LEARNING_DESIGN.md` of every fault, its objective and the action that demonstrates it; any
-  fault where a menu stands in for the skill becomes a backlog item.
-
+- **P6. Every fault as a problem-solving exercise, applied directly** (with the apply-method-directly
+  pattern, 2026-11-23). Check each fault against both patterns: a specific problem, the tools to
+  solve it, and solving it means doing the real action in a realistic setting (hold the fastener,
+  read the needle or the tach, trace the lead), with little abstraction and room to do it wrong in
+  a natural way. Known gaps: troubleshooting verdicts and the logbook entry are picked from lists,
+  so a menu stands in for the skill (e.g. the verdict could become pointing at the cylinder or
+  the part the reading implicates; the entry could be assembled from the job's own record).
+  Acceptance: a table in `docs/LEARNING_DESIGN.md` of every fault, its objective and the action
+  that shows it; every place a menu stands in for the skill becomes a backlog item.
 - **P7. An economy that teaches.** Transactions should reflect the trade-offs the objectives teach.
   Today money and time are two currencies and tools buy capability. Missing: pay that rises with the
   difficulty of the objective a job exercises (not just its parts), easier, earlier kinds of job

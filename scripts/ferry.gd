@@ -169,6 +169,7 @@ func call_mag(good: bool) -> void:
 	else:
 		main.sound.sfx("deny")
 		main.log_line("Not quite. %s mag: %s Call it again." % [side, mag_reason(drop)])
+		main.note_cost("mag_call", WRONG_CALL_DAYS, 0, "%s mag called %s" % [side, "good" if good else "bad"])
 		main._advance(WRONG_CALL_DAYS)
 
 

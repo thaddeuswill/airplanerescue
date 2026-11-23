@@ -212,7 +212,7 @@ code; every name was checked against the source. Gaps are backlog items E2-E5 or
 | Convey performance | Ticks and slips; the mag call's right or wrong with the reason; test readings and verdicts; the "!" clearing; the logbook's pay, costs and net | done |
 | Give rewards | Pay; lesson bonuses and the compression tester; the owner's thanks; reward cards | done |
 | Impose consequences | Running it unready breaks a part you pay for (`RUNUP_DAMAGE`); comebacks cost pay (`_sign_off`); wrong calls and verdicts cost time; owners give up; a crash costs $1,500 (`CRASH_BILL`); game over | done |
-| Facilitate reflection | The why line when a job's fixed (`WHY`, `_work_done`); the reward card's "You learned..."; the logbook | partly: **gap E5**, no debrief of what a job cost you and why |
+| Facilitate reflection | The why line when a job's fixed (`WHY`, `_work_done`); the reward card's "You learned..."; the logbook | done: the debrief on delivery, what cost extra and the advice for next time (`job_debrief`, iteration 5) |
 
 ---
 
@@ -230,4 +230,4 @@ code; every name was checked against the source. Gaps are backlog items E2-E5 or
 | E2 | Support replay: no way to replay a lesson or a job | E2 |
 | E3 | Access guidance: a walkthrough can't be opened again | E3 |
 | E4 | Determine need: repeated wrong answers don't bring more help | E4 |
-| E5 | Facilitate reflection: no debrief of what a job cost you and why | E5 |
+| E5 | ~~Facilitate reflection: no debrief~~ closed in iteration 5 | done |

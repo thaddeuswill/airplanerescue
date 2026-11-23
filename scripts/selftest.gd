@@ -137,6 +137,15 @@ func run(main, args: PackedStringArray) -> void:
 			g._inspect_zone("prop")
 			g._close_panel()
 			await _snap(pre, "field_card", 0.6)
+			# The debrief sheet, from this job's own record of what cost extra (E5).
+			g.note_cost("mag_call", 0.05, 0, "Left mag called bad")
+			g.note_cost("mail", 1.0, 30, "Gasket kit by mail")
+			g.logbook.append({"day": floori(g.day), "city": tj.city, "type": tj.type, "pay": tj.reward, "work": []})
+			g.logbook[-1]["debrief"] = g.job_debrief(tj, tj.reward, [], false)
+			g._pending_debrief = g.logbook[-1]
+			g._open_debrief()
+			await _snap(pre, "debrief", 0.5)
+			g._close_panel()
 			g.tut["reward"] = 2
 			await _snap(pre, "reward", 0.8)
 			get_tree().quit(0)
@@ -717,6 +726,14 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "engine_log", 0.1)
 	var before_fly: int = g.money  # rent has come out day by day since the start; the pay lands on top
 	await _fly(true, shot)
+	# The debrief (E5): up after the delivery, with the wrong mag call this test made and advice.
+	var deb: Dictionary = g.logbook[-1].get("debrief", {}) if g.logbook.size() > 0 else {}
+	var deb_ok: bool = g._list_title == "Debrief" and not deb.is_empty() and deb.next != "" \
+		and Array(deb.extra).any(func(x): return x.begins_with("Left mag called bad"))
+	if not deb_ok:
+		print("DEBRIEF: missing, or without the wrong mag call: ", deb)
+	ok = ok and deb_ok
+	await _snap(shot, "debrief", 0.3)
 	var bonus: int = g.tutorial.REWARDS[lesson].cash if lesson > 0 else 0  # a lesson pays a bonus on delivery
 	ok = ok and g.ferry == null and g.rescued == 1 and g.money == before_fly + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) \
 		and g.money < start + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) and g.jobs.size() == g.MAX_JOBS
@@ -1394,6 +1411,7 @@ func _scene_tests() -> bool:
 	var r0: int = g.rescued
 	g._sign_off()
 	ok = ok and g.money - cash == 1000 - (g.FAULTS.tire.cost * 2 + 200) and g.logbook[-1].work[0].begins_with("Comeback")
+	ok = ok and Array(g.logbook[-1].debrief.extra).any(func(x): return x.begins_with("Comeback")) and g.logbook[-1].debrief.next == g.DEBRIEF_ADVICE.comeback
 	g.rescued = r0
 	g.logbook.pop_back()
 	# Supplies: the owner pays for what the job used; what you used on a good part is yours.

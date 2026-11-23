@@ -5,7 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 4 is in review; see the log in `docs/PROCESS.md`.)
+(None. Iteration 5 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 
@@ -53,9 +53,26 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 - **E4. More help after repeated misses.** Two wrong mag calls, verdicts or logbook picks in a row
   bring a hint (Easy and Medium), and point at the manual page (all difficulties). Acceptance:
   the hint shows on the second miss; self-test covers it.
-- **E5. A job debrief.** On delivery: the time and money a job took, and what cost extra (wrong
+- ~~**E5. A job debrief.**~~ In iteration 5. On delivery: the time and money a job took, and what cost extra (wrong
   calls, mail order, comebacks, a part broken by running it unready), with one line on what to do
   next time. Acceptance: shows on delivery and in the logbook entry; self-test checks the items.
+
+## Instructional design patterns (2026-11-23)
+
+- **P1. Missions.** Each rescue call as a mission with a clear start and end state, the next set
+  of learning objectives (and earlier ones mixed in), changing contexts so learning generalizes, a
+  thread of story across calls, and a choice between several calls. The game has the shape (a call
+  to delivery, three calls to choose from) but not the targeting or the story. Acceptance: after
+  the apprenticeship each call names what it practises; calls tie into a running story (with F2);
+  the ramp in `_spawn_job` picks faults for the next objectives.
+- **P2. On-demand objectives list.** A key (and an icon) opens this job's objectives in the game's
+  terms without giving away the answer ("Find out why it runs rough", not "Replace the plugs"),
+  updated as the job changes. Acceptance: available any time at a field after the apprenticeship;
+  never names a fault you haven't found; self-test checks it.
+- **P3. Task completion list with states.** For the job in hand: done (green check), failed and
+  can't be retried (red cross), tried and can be retried (yellow flag), not tried yet (grey
+  question mark). Extends the apprentice checklist to every job, on demand so it doesn't take the
+  screen. Acceptance: each state shows in the right case; self-test covers all four.
 
 ## Fun (Lazzaro's four types, 2026-11-23)
 

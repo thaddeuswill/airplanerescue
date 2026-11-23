@@ -815,6 +815,14 @@ func _advance(days: float) -> void:
 
 
 ## What a job cost you, itemized for the logbook (like the end of a Rebuild Rescue episode).
+## Records something that cost extra on this job, as it happens, for the debrief on delivery
+## (E5): what kind (DEBRIEF_ADVICE keys), the days and money it cost, and what it was.
+func note_cost(kind: String, days: float, cash: int, what: String) -> void:
+	if current_job == null:
+		return
+	current_job.get_or_add("lost", []).append({"kind": kind, "days": days, "money": cash, "what": what})
+
+
 func _spend(job: Dictionary, what: String, amount: int) -> void:
 	if not job.has("spent"):
 		job.spent = {"fuel": 0, "parts": 0, "mail": 0}
@@ -1236,6 +1244,8 @@ func _run_damage(job: Dictionary, cause: String) -> String:
 	job.fixed.erase(hit)
 	job.work.erase(hit)  # a fresh repair, from the start
 	job.get_or_add("caused", {})[hit] = true  # its supplies are on you
+	if job == current_job:
+		note_cost("runup_damage", 0.0, FAULTS[hit].cost, "%s, from running it unready" % FAULTS[hit].name)
 	job.found[hit] = true
 	if visuals.has(hit):
 		visuals[hit].queue_free()
@@ -1507,6 +1517,7 @@ func _work_time(days: float) -> bool:
 func _work_done(id: String) -> void:
 	playlog(("repair done " if current_job.faults.has(id) else "wrong guess, swapped ") + id)
 	if not current_job.faults.has(id):  # a suspect that wasn't the trouble: the part and the time are spent
+		note_cost("suspect", 0.0, FAULTS[id].cost, "A %s that wasn't the trouble" % FAULTS[id].part.to_lower())
 		current_job.tried[id] = false
 		current_job.runup = ""
 		sound.pen()
@@ -1607,6 +1618,7 @@ func _call(id: String, key: String) -> void:
 	var job: Dictionary = current_job
 	var t := _test_for(job, id)
 	if key != _answer(id, t):
+		note_cost("verdict", 0.05, 0, "A wrong call on the %s" % TESTS[t].name.to_lower())
 		_advance(0.05)
 		if not current_job:
 			return
@@ -1906,6 +1918,7 @@ func _buy(part: String, cost: int, mail := false) -> void:
 	if current_job:
 		_spend(current_job, "parts", cost)
 	if mail:
+		note_cost("mail", 1.0, cost - roundi(cost / 1.25), "%s by mail" % part)
 		_advance(1.0)
 		_say("The %s came on the morning mail truck." % part)
 	_refresh_parts_table()
@@ -2018,6 +2031,7 @@ func _open_signoff(step := 0) -> void:
 
 func _entry_pick(step: int, wrong: String) -> void:
 	if wrong != "":
+		note_cost("entry", 0.0, 0, "A logbook entry sent back")
 		sound.sfx("deny")
 		_say("An inspector would hand that back. " + wrong)
 		_open_signoff(step)
@@ -2113,6 +2127,8 @@ func _sign_off() -> void:
 	var found_later: Array = missed.map(func(id): return FAULTS[id].name.to_lower())
 	if open_cowl:
 		found_later.append("the engine cowling not screwed down")
+	logbook[-1]["debrief"] = job_debrief(job, pay, missed, open_cowl)
+	_pending_debrief = logbook[-1]
 	if found_later.is_empty():
 		_say("%s paid $%d%s. \"%s\"" % [job.get("owner", "The owner"), pay, (" (with $%d of supplies)" % supplies) if supplies > 0 else "",
 			THANKS[rng.randi() % THANKS.size()]])
@@ -2133,9 +2149,75 @@ func _sign_off() -> void:
 
 func _after_flight() -> void:
 	if rescued == GOAL:
-		_open_ending()
+		_open_ending()  # the tenth plane's debrief is in the logbook
+	elif not _pending_debrief.is_empty():
+		_open_debrief()
 	else:
 		_open_travel()
+
+
+# ---------- the debrief (E5): what a job took, what cost extra, and what to do next time ----------
+
+var _pending_debrief := {}  # the logbook entry just made, shown once after the flight
+
+## One line for next time, for the kind of thing that cost the most.
+const DEBRIEF_ADVICE := {
+	"mag_call": "Read each drop against the limit: more than 75 rpm is bad, and no drop at all is bad too.",
+	"verdict": "Let the test decide: read the result against the manual page before you make the call.",
+	"entry": "Write what you worked to: AC 43.13-1B and the manufacturer's data. Not memory, not the owner's say-so.",
+	"mail": "Check the town's shed before you fly out, and carry the parts every plane seems to need.",
+	"suspect": "Two suspects? Run the test that tells them apart before you buy the part.",
+	"runup_damage": "Finish the don't-run-it-yet work before the engine turns a single time.",
+	"wasted": "Use supplies where something's wrong: on a sound part they come out of your pocket.",
+	"comeback": "Check every spot before you sign. What you don't look at comes back.",
+	"open_cowl": "Close the cowl and screw it down before you sign the logbook.",
+}
+
+
+## The debrief for a delivered job: days, pay, costs and net (rent included), what cost extra with
+## its time or money, and the advice for whatever cost the most. Kept in the logbook entry.
+func job_debrief(job: Dictionary, pay: int, missed: Array, open_cowl: bool) -> Dictionary:
+	var spent: Dictionary = job.get("spent", {})
+	var days: float = day - job.get("arrived", day)
+	var lost: Array = job.get("lost", []).duplicate(true)
+	var wasted: int = roundi(job.get("supplies", {}).get("mine", 0.0))
+	if wasted > 0:
+		lost.append({"kind": "wasted", "days": 0.0, "money": wasted, "what": "Supplies used where nothing was wrong"})
+	for id in missed:
+		lost.append({"kind": "comeback", "days": 0.0, "money": FAULTS[id].cost * 2 + 200, "what": "Comeback: %s" % FAULTS[id].name.to_lower()})
+	if open_cowl:
+		lost.append({"kind": "open_cowl", "days": 0.0, "money": 200, "what": "Flew off with the cowl loose"})
+	var extra: PackedStringArray = []
+	var weight := {}
+	for l in lost:
+		var cost: PackedStringArray = []
+		if l.days > 0.0:
+			cost.append("%.1f day%s" % [l.days, "" if is_equal_approx(l.days, 1.0) else "s"] if l.days >= 0.1 else "%d h" % roundi(l.days * 24.0))
+		if l.money > 0:
+			cost.append("$%d" % l.money)
+		extra.append("%s  (%s)" % [l.what, ", ".join(cost) if cost.size() > 0 else "a do-over"])
+		weight[l.kind] = weight.get(l.kind, 0.0) + l.money + l.days * DAILY_COST + 1.0  # a do-over still counts
+	var worst := ""
+	for k in weight:
+		if worst == "" or weight[k] > weight[worst]:
+			worst = k
+	var rent := roundi(days * DAILY_COST)
+	return {"days": days, "pay": pay, "fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "rent": rent,
+		"net": pay - spent.get("fuel", 0) - spent.get("parts", 0) - rent, "extra": extra,
+		"next": DEBRIEF_ADVICE.get(worst, "") if worst != "" else "Clean job: nothing cost you extra. Do it like that again."}
+
+
+func _open_debrief() -> void:
+	var e: Dictionary = _pending_debrief
+	_pending_debrief = {}
+	var d: Dictionary = e.debrief
+	var rows := [
+		["%s at %s, day %d" % [e.type, e.city, e.day]],
+		["%.1f days on site. Paid $%d; fuel $%d, parts $%d, rent $%d. Net $%d." % [d.days, d.pay, d.fuel, d.parts, d.rent, d.net]],
+		["Cost you extra\n" + ("\n".join(d.extra) if d.extra.size() > 0 else "Nothing.")],
+		["Next time\n" + d.next],
+		["", "On to the next call", _open_travel, true]]
+	_open_panel("Debrief", rows)
 
 
 func _career_stats() -> Array:
@@ -3169,6 +3251,9 @@ func _open_logbook() -> void:
 			"  (GROUNDED)" if e.get("grounded", false) else "",
 			(", sat %d yrs" % e.years) if e.get("years", 0) > 0 else "", ", ".join(e.work), e.pay, e.get("fuel", 0), e.get("parts", 0),
 			"" if net >= 0 else "-", absi(net), e.get("days", 0.0)]])
+		var d: Dictionary = e.get("debrief", {})  # entries from before the debrief (E5) have none
+		if not d.is_empty():
+			rows.append([("Cost extra: " + "; ".join(d.extra) if d.extra.size() > 0 else "Nothing cost extra.") + "\nNext time: " + d.next])
 	if logbook.is_empty():
 		rows.append(["No entries yet. Your first rescue goes here."])
 	_open_panel("Logbook", rows)
@@ -3195,7 +3280,7 @@ var _side: Control  # something shown beside the sheet, like the chart: goes whe
 ## The paperwork sheets: what a mechanic writes on or carries in a pocket goes on cream stock with
 ## ink (the design system's paper surface), like the catalog and the manual. Menus stay on the
 ## dark hangar surface.
-const PAPER_SHEETS := ["Work order", "Clipboard", "Logbook", "Aircraft logbook", "Wallet", "Toolbox", "Parts on hand", "Weight and balance", "Fuel truck"]
+const PAPER_SHEETS := ["Work order", "Clipboard", "Logbook", "Aircraft logbook", "Wallet", "Toolbox", "Parts on hand", "Weight and balance", "Fuel truck", "Debrief"]
 var _paper_sheet := false
 
 
@@ -4560,6 +4645,7 @@ func _buy_supply(key: String, cost: int, mail: bool) -> void:
 		_spend(current_job, "parts", cost)
 	_refresh_parts_table()
 	if mail:
+		note_cost("mail", 1.0, cost - roundi(cost / 1.25), "%s by mail" % s.name)
 		_advance(1.0)
 		_say("The %s came on the morning mail truck." % s.name)
 	_save_game()

@@ -22,29 +22,20 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
-- **M1. The rescue calls read at a glance, and accepting shows the plane's papers** (Thad,
-  2026-11-23: "differential the text so you can easyly find out what you need thats important,
-  where, how difficult and, how much i am getting paid the accept screen should have the logbook
-  and the pilot discrepancy on there before you fix the plane").
-  - The call list: each call's where (station and city), difficulty and pay set apart by size,
-    weight and position, so each is found without reading the sentence; the rest (parts, fuel, fee,
-    distance) smaller and quieter.
-  - Accepting a call: a step before you fly where you see the plane's logbook (its past entries)
-    and the pilot's discrepancy (the squawk, as written up), then accept or go back.
-  - Acceptance: on the call list the three facts are the most prominent text in each row; the
-    accept step shows the logbook and the discrepancy before anything is spent; self-test checks
+- **M1. Difficulty first on the calls; the plane's papers when you arrive** (Thad, 2026-11-23:
+  "differential the text so you can easyly find out what you need thats important, where, how
+  difficult and, how much i am getting paid the accept screen should have the logbook and the pilot
+  discrepancy on there before you fix the plane"; corrected: "no it shows you the logs and
+  everything after you accept not before the only thing that matters is difficulty of the job").
+  - The call list: difficulty is the most prominent thing in each row; where and pay set apart
+    next; the rest (parts, fuel, fee, distance, the squawk) smaller and quieter.
+  - After you accept and arrive, before any work: a screen with the plane's logbook (its past
+    entries) and the pilot's discrepancy (the squawk as written up). Then on to the walk-around.
+  - Needs: the planes have no past logbook entries today; M1 makes a few per plane (from its
+    years sat and type), plain and short.
+  - Acceptance: on the call list difficulty is the largest text in each row; on arrival the
+    logbook and discrepancy screen comes before the first spot can be worked; self-test checks
     both; screenshots at 1280x720.
-
-- ~~**D4. The ticket's hierarchy** (Thad, 2026-11-23: "theres no hierarchy in the ticket window why
-  is all the title text the same size and there is to much in the top right corner consolidate
-  that or move that info to another screen dont [invent] other screens tho").~~ In iteration 17. One clear order of
-  importance: the total largest, then the registration, then the line items; the small caps
-  labels (STATION, REGISTRATION, COST YOU EXTRA, ACHIEVEMENTS) quieter than the values they label,
-  not the same size as titles. Top right cut down to one line or moved: the rescued tally and the
-  spots and faults stats go to an existing screen (the logbook entry for the job already lists the
-  work; the career stats hold the tally), no new screen. Acceptance: a type scale with at least
-  three clear steps on the ticket; the top right holds at most one short line; the moved stats
-  readable where they went; screenshots at 1280x720 and 1920x1080.
 
 - **A2. The apprenticeship as a side-panel quest, not a pop-up** (Thad, 2026-11-23: "i dont want
   that apprenticeship to be a pop up"; "it should be more of a sidepanel quest type behavior").

@@ -28,7 +28,8 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   discrepancy on there before you fix the plane"; corrected: "no it shows you the logs and
   everything after you accept not before the only thing that matters is difficulty of the job").
   - The call list: difficulty is the most prominent thing in each row; where and pay set apart
-    next; the rest (parts, fuel, fee, distance, the squawk) smaller and quieter.
+    next; parts, fuel, fee and distance smaller and quieter. The owner's story of what happened
+    stays on each call, readable (Thad: "you can keep the story of what happened").
   - After you accept and arrive, before any work: a screen with the plane's logbook (its past
     entries) and the pilot's discrepancy (the squawk as written up). Then on to the walk-around.
   - Needs: the planes have no past logbook entries today; M1 makes a few per plane (from its

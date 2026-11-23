@@ -36,27 +36,24 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   figure coloured by its sign; badges earned on the job listed, none when none; the "Next time"
   advice and form line kept; self-test checks the colours and the badge list; screenshots.
 
-- **D2. No clock time unless it bears on your score or achievements** (Thad, 2026-11-23: "i dont
-  want any clock time unless it has anything to do with your score or achievements"; refined the
-  same day: "rent days can stay but anything maintenance wise with days should go").
-  - **Goes (display only, changes nothing you earn):** the HUD's "DAY n"; the "Welcome back. Day n"
-    greeting; "Day n" atop the work scene, the wallet, the job sheet, the pause menu's Continue line
-    and each logbook entry; the logbook's "(x days on site)"; the career's "Days on the road";
-    "earned day n" on the badge board; the flight card's "about x days on the road and in the air".
-  - **Goes (maintenance in days):** mail order's "arrives in 1 day" and "a day's wait" (the catalog,
-    the TOOLS box, the lesson notes and walkthroughs); "half a day lost" to a prop kickback; "a day
-    lost" after a forced landing.
-  - **Stays:** rent per day ("$40 a day", the net estimate's days of rent); how long the owner waits
-    (missing it loses the plane, which is the end-of-game tally); dialogue ("flew 40 hours this
-    season").
-  - **To confirm with Thad:** does the time itself go, or only the words? "Guessing costs time only"
-    is a settled decision (CLAUDE.md): a wrong verdict, a wrong mag call and mail order all cost
-    time, which turns into rent and the owner's wait. Taking the time away makes a wrong guess free.
-    Taking only the words away keeps the cost but hides it. And the odd jobs' "3 days": money, or
-    maintenance?
-  - Acceptance: self-test reads the HUD, logbook, wallet, badge board, career, catalog and flight
-    card and finds no day count; the rent and owner's-wait lines are still shown; screenshots at
-    1280x720.
+- **D2. No days counted, no job timed** (Thad, 2026-11-23, in three steps: "i dont want any clock
+  time unless it has anything to do with your score or achievements"; "rent days can stay but
+  anything maintenance wise with days should go"; then "i dont want days to be counted or how long a
+  job takes").
+  - **What it means:** the game stops keeping a day count (`day`, `_advance`) and stops timing jobs.
+    Every day figure and every "a day's wait", "half a day lost", "x days on site" goes.
+  - **What runs on days today, each needing a replacement (Thad to choose):**
+    - Rent is charged per day. Option: a flat hangar fee per job, shown as money.
+    - Calls expire when the owner's wait runs out. Option: calls don't expire.
+    - Guessing costs time (settled in CLAUDE.md: a wrong verdict, a wrong mag call). Option: a
+      wrong guess costs money instead (a small charge), or costs nothing but the try.
+    - Mail order arrives "in a day". Option: it arrives at once for its 25% markup.
+    - Odd jobs take 3 days. Option: they just pay.
+    - Difficulty ratings use the deadline's tightness; the economy pays for it. Option: drop that
+      term from the rating.
+  - **Saves:** `day` and job deadlines are saved; a `SAVE_VERSION` bump and a `_migrate` step.
+  - Acceptance: no day figure anywhere the player looks (self-test reads every sheet, the HUD and
+    the cards); the replacements above work as chosen; old saves load.
 
 - **T1. A parse error must fail the self-test, not hang it** (found in iteration 14, proposed by
   Claude). The watchdog lives in `selftest.gd`, so a script that doesn't parse leaves Godot idle

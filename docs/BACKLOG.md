@@ -9,6 +9,16 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **LB1. The logbook, by importance** (Thad, 2026-11-23: asked what matters most in the log, agreed
+  to Claude's order). From the top: (1) rank and what the next rank needs, the most prominent;
+  (2) one compact entry per job, newest first: registration, what was fixed, what it cleared (the
+  last job may keep its "Next time" line); (3) badges as a compact grid of eight on one page;
+  (4) planes rescued as a figure in the header, not a row. Dropped: each entry's pay, fuel and
+  parts breakdown and its "Cost extra" list (the ticket showed them once). Covers U4's badge board
+  finding; the job stats moved here in D4 stay as part of the entry. Acceptance: the four in that
+  order and size; no money breakdown in the entries; fits fewer pages than today for the same
+  career (measured); self-test checks the order; screenshots at 1280x720.
+
 - **E6. The "all planes rescued" ending as a ticket** (Thad, 2026-11-23: "have the planes rescued
   look like the finished mission screen no added stuff on the panel that doesnt pertain to the
   game or help in any way"). The ending sheet (all 10 planes rescued) becomes a centred glass card

@@ -1770,7 +1770,8 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	var total_ok: bool = tot_txt.replace(",", "") == "%s$%d" % ["+" if want_total > 0 else "-" if want_total < 0 else "", absi(want_total)]
 	var fit_ok: bool = card.get_global_rect().size.y <= card.get_viewport_rect().size.y
 	# A lesson's sign-off is on the ticket, and its own card doesn't open over it.
-	var lesson_ok: bool = not is_instance_valid(g.tutorial._reward)  # the sign-off card waits for the map
+	# The sign-off card waits for the map, and the checklist's tick slips are held, not drawn over it.
+	var lesson_ok: bool = not is_instance_valid(g.tutorial._reward) and g.ticket_open()
 	print("ticket: no lesson card over it %s" % lesson_ok)
 	var ticket_ok: bool = lesson_ok and reg_ok and station_ok and total_ok and fit_ok
 	print("ticket: registration %s %s, station %s, total %s %s, fits %s" % [reg_ok, reg_txt, station_ok, total_ok, tot_txt, fit_ok])

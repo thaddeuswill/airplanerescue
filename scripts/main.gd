@@ -2471,6 +2471,11 @@ func _open_mission_card(e: Dictionary) -> void:
 	player.frozen = true
 
 
+## True while the end-of-mission ticket is up: the apprentice checklist's slips wait until it closes.
+func ticket_open() -> bool:
+	return panel != null and is_instance_valid(panel) and panel.name == "MissionCard"
+
+
 ## True while the map of rescue calls is up: the apprentice checklist's sign-off opens there (Thad),
 ## after the ticket, never over it.
 func map_open() -> bool:

@@ -191,8 +191,10 @@ func _process(delta: float) -> void:
 	_t += delta
 	for k in _flash.keys():
 		_flash[k] += delta
+	var held: bool = main.ticket_open()  # checklist slips wait for the map, never over the ticket (Thad)
 	for s in _slips:
-		s[1] += delta
+		if not held:
+			s[1] += delta
 	_slips = _slips.filter(func(s): return s[1] < 4.0)
 	if not active() or main.current_job == null or main.ferry != null:
 		_at_field = 0.0
@@ -356,6 +358,8 @@ static func draw_check(c: CanvasItem, box: Rect2, t: float) -> void:
 ## job, so a tick is seen even mid-job. A few seconds each, then they fade.
 func _draw() -> void:
 	if not main.settings.get("checklist", true):
+		return
+	if main.ticket_open():
 		return
 	var f := Style.display(700)
 	var y := size.y * 0.2 + 12.0  # under the message band (main.msg sits in the top fifth), never on it

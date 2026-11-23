@@ -796,6 +796,7 @@ func run(main, args: PackedStringArray) -> void:
 	if not deb_ok:
 		print("DEBRIEF: missing, or without the wrong mag call: ", deb)
 	ok = ok and deb_ok
+	ok = _debrief_no_time(deb) and ok
 	await _snap(shot, "debrief", 0.3)
 	# Badges (P8): earned only when the standard was met. This run checked every spot and missed
 	# nothing (Sharp Eyes) and the scene tests torqued to spec (To Spec); it also called a mag wrong,
@@ -1695,3 +1696,23 @@ func _scene_shots(prefix: String, only := []) -> void:
 		g._open_manual(job)
 		await _snap(prefix, "manual_" + (job if job != "" else "contents"), 0.6)
 		g._close_panel()
+
+
+## D1: the debrief shows money and mistakes, never a day or hour figure; lines saved before D1 are
+## cleaned when shown, keeping their dollars, and a part's own brackets survive.
+func _debrief_no_time(deb: Dictionary) -> bool:
+	var rx := RegEx.create_from_string("[0-9.]+ (h|days?)\\b|days on site|, day [0-9]")
+	var sheet: String = g._list_title
+	var texts: PackedStringArray = []
+	var stack: Array = [g.panel] if g.panel != null else []
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is Label or n is RichTextLabel or n is Button:
+			texts.append(n.text)
+		stack.append_array(n.get_children())
+	var shown := "\n".join(g.debrief_lines(deb)) + "\n" + "\n".join(texts)
+	var old: PackedStringArray = g.debrief_lines({"extra": ["Left mag called bad  (1 h)", "Gasket assortment (10) by mail  (1.0 day, $6)", "A wrong call on the compression  (a do-over)"]})
+	var ok: bool = sheet == "Debrief" and rx.search(shown) == null \
+		and Array(old) == ["Left mag called bad", "Gasket assortment (10) by mail  ($6)", "A wrong call on the compression"]
+	print("debrief without time: %s %s" % [ok, old])
+	return ok

@@ -2230,8 +2230,9 @@ const DEBRIEF_ADVICE := {
 }
 
 
-## The debrief for a delivered job: days, pay, costs and net (rent included), what cost extra with
-## its time or money, and the advice for whatever cost the most. Kept in the logbook entry.
+## The debrief for a delivered job: pay, costs and net (rent included), what cost extra with its
+## money, and the advice for whatever cost the most. Time is weighed for the advice but never shown:
+## Thad found the day and hour figures added nothing (D1). Kept in the logbook entry.
 func job_debrief(job: Dictionary, pay: int, missed: Array, open_cowl: bool) -> Dictionary:
 	var spent: Dictionary = job.get("spent", {})
 	var days: float = day - job.get("arrived", day)
@@ -2246,12 +2247,7 @@ func job_debrief(job: Dictionary, pay: int, missed: Array, open_cowl: bool) -> D
 	var extra: PackedStringArray = []
 	var weight := {}
 	for l in lost:
-		var cost: PackedStringArray = []
-		if l.days > 0.0:
-			cost.append("%.1f day%s" % [l.days, "" if is_equal_approx(l.days, 1.0) else "s"] if l.days >= 0.1 else "%d h" % roundi(l.days * 24.0))
-		if l.money > 0:
-			cost.append("$%d" % l.money)
-		extra.append("%s  (%s)" % [l.what, ", ".join(cost) if cost.size() > 0 else "a do-over"])
+		extra.append("%s  ($%d)" % [l.what, l.money] if l.money > 0 else String(l.what))  # time isn't shown (D1)
 		weight[l.kind] = weight.get(l.kind, 0.0) + l.money + l.days * DAILY_COST + 1.0  # a do-over still counts
 	var worst := ""
 	for k in weight:
@@ -2263,14 +2259,39 @@ func job_debrief(job: Dictionary, pay: int, missed: Array, open_cowl: bool) -> D
 		"next": DEBRIEF_ADVICE.get(worst, "") if worst != "" else "Clean job: nothing cost you extra. Do it like that again."}
 
 
+## The debrief's extra-cost lines as shown, with any time figure taken out: entries saved before D1
+## carry "(0.4 days, $120)" or "(3 h)"; the money stays, a time-only cost shows bare.
+func debrief_lines(d: Dictionary) -> PackedStringArray:
+	var out: PackedStringArray = []
+	var rx := RegEx.create_from_string("\\s*\\(([^()]*)\\)$")
+	for line in d.get("extra", []):
+		var s := String(line)
+		var m := rx.search(s)
+		if m and Array(m.get_string(1).split(",")).all(func(x: String) -> bool: return _cost_word(x.strip_edges())):
+			var keep: PackedStringArray = []
+			for part in m.get_string(1).split(","):
+				var p := part.strip_edges()
+				if p.begins_with("$"):
+					keep.append(p)
+			s = s.substr(0, m.get_start()) + ("  (%s)" % ", ".join(keep) if keep.size() > 0 else "")
+		out.append(s)
+	return out
+
+
+## Whether a word in a debrief line's brackets is a cost this code wrote ("$120", "0.4 days", "3 h",
+## "a do-over"), so a part's own brackets ("Gasket assortment (10)") are never touched.
+func _cost_word(w: String) -> bool:
+	return w.begins_with("$") or w == "a do-over" or RegEx.create_from_string("^[0-9.]+ (h|days?)$").search(w) != null
+
+
 func _open_debrief() -> void:
 	var e: Dictionary = _pending_debrief
 	_pending_debrief = {}
 	var d: Dictionary = e.debrief
 	var rows := [
-		["%s at %s, day %d" % [e.type, e.city, e.day]],
-		["%.1f days on site. Paid $%d; fuel $%d, parts $%d, rent $%d. Net $%d." % [d.days, d.pay, d.fuel, d.parts, d.rent, d.net]],
-		["Cost you extra\n" + ("\n".join(d.extra) if d.extra.size() > 0 else "Nothing.")],
+		["%s at %s" % [e.type, e.city]],
+		["Paid $%d; fuel $%d, parts $%d, rent $%d. Net $%d." % [d.pay, d.fuel, d.parts, d.rent, d.net]],
+		["Cost you extra\n" + ("\n".join(debrief_lines(d)) if d.extra.size() > 0 else "Nothing.")],
 		["Next time\n" + d.next],
 		[form_line()],
 		["", "On to the next call", _open_travel, true]]
@@ -3570,7 +3591,7 @@ func _open_logbook() -> void:
 			"" if net >= 0 else "-", absi(net), e.get("days", 0.0)]])
 		var d: Dictionary = e.get("debrief", {})  # entries from before the debrief (E5) have none
 		if not d.is_empty():
-			rows.append([("Cost extra: " + "; ".join(d.extra) if d.extra.size() > 0 else "Nothing cost extra.") + "\nNext time: " + d.next])
+			rows.append([("Cost extra: " + "; ".join(debrief_lines(d)) if d.extra.size() > 0 else "Nothing cost extra.") + "\nNext time: " + d.next])
 	if logbook.is_empty():
 		rows.append(["No entries yet. Your first rescue goes here."])
 	_open_panel("Logbook", rows)

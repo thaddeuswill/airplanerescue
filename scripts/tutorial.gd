@@ -218,7 +218,7 @@ func _process(delta: float) -> void:
 	_card.queue_redraw()
 	queue_redraw()
 	if main.tut.has("reward") and not is_instance_valid(_reward) and main.ferry == null and not is_instance_valid(main._loader) \
-			and main.panel_kind != "menu":
+			and main.panel_kind != "menu" and not main.ticket_open():  # the ticket carries it (D3)
 		_show_reward(int(main.tut.reward))
 
 
@@ -725,6 +725,14 @@ func _show_reward(l: int) -> void:
 	main.sound.chime()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	b.grab_focus.call_deferred()
+
+
+## The lesson's sign-off, for the end-of-mission ticket (D3): one screen ends the job, lesson or not.
+func reward_summary(l: int) -> Dictionary:
+	var r: Dictionary = REWARDS[l]
+	return {"title": ("Signed off: " + LESSONS[l].title) if l < 3 else "Apprenticeship done",
+		"learned": "You learned " + LESSONS[l].teaches + ".", "line": r.line,
+		"gift": "Compression tester" if r.gift == "tester" else ""}
 
 
 func _close_reward() -> void:

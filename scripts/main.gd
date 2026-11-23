@@ -2406,6 +2406,15 @@ func _open_mission_card(e: Dictionary) -> void:
 		said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		said.custom_minimum_size.x = 536
 		vb.add_child(said)
+	var lesson: Dictionary = tutorial.reward_summary(int(tut.reward)) if tut.has("reward") else {}
+	if not lesson.is_empty():  # a lesson's sign-off lives on the ticket too, not on a card of its own
+		var lt := Style.label(lesson.title.to_upper(), "gain", Style.SIZE_LG, 800)
+		lt.name = "Lesson"
+		vb.add_child(lt)
+		var ll := Style.label("%s %s" % [lesson.learned, lesson.line], "hud", Style.SIZE_SM)
+		ll.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		ll.custom_minimum_size.x = 536
+		vb.add_child(ll)
 	vb.add_child(_glass_rule())
 	# The line items, signed. The total below is these added up, nothing else.
 	var bonus := int(d.get("bonus", 0))
@@ -2441,7 +2450,11 @@ func _open_mission_card(e: Dictionary) -> void:
 		ach.add_child(_card_award("hud/badge.svg", "Promoted: " + rank_title(r)))
 	for id in got:
 		ach.add_child(_card_award("hud/badge.svg", badge_name(id)))
-	if got.is_empty() and d.get("promoted", []).is_empty():
+	if lesson.get("gift", "") != "":
+		var gift := _card_award("hud/badge.svg", "Gift: " + lesson.gift)
+		gift.name = "Gift"  # not an earned badge: the badge count leaves it out
+		ach.add_child(gift)
+	if got.is_empty() and d.get("promoted", []).is_empty() and lesson.get("gift", "") == "":
 		ach.add_child(Style.label("No new badges on this job. %d of %d earned." % [badges.size(), BADGES.size()], "hud_muted", Style.SIZE_SM))
 	# The total, like the foot of a ticket: a double rule, then the sum.
 	vb.add_child(_glass_rule())
@@ -2464,11 +2477,18 @@ func _open_mission_card(e: Dictionary) -> void:
 	go.pressed.connect(_open_travel)
 	vb.add_child(go)
 	ui.add_child(card)
+	if not lesson.is_empty():  # seen on the ticket, however it closes: the lesson's own card is done with
+		card.tree_exiting.connect(tutorial._close_reward)
 	go.grab_focus.call_deferred()
 	card.modulate.a = 0.0
 	_fit_card.call_deferred(card)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	player.frozen = true
+
+
+## True while the end-of-mission ticket is up (the lesson's own sign-off card waits for it).
+func ticket_open() -> bool:
+	return panel != null and is_instance_valid(panel) and panel.name == "MissionCard"
 
 
 ## Size, centre and fit the card: its own size, centred in the window, scaled down about its centre

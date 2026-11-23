@@ -82,6 +82,19 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   a career. Acceptance: a scripted strong career gets harder calls than a scripted weak one;
   success still means fixing the plane right; self-test covers both.
 
+- **P5. A familiarization exercise after the apprenticeship.** Low-stress tasks in the real setting
+  that walk the player through parts of the hangar and field they haven't needed yet (the parts
+  table, the radio, the TOOLS box, the hangar doors, pushing the plane in and out, the fuel truck),
+  with nothing at stake, to cut later overload and help transfer. (The pattern's name was cut off
+  in the source page; its description fits a familiarization or orientation exercise.)
+  Acceptance: offered once after job 3; every task touches a place not yet used; no money or
+  deadline; self-test plays it.
+- **P6. Every fault as a problem-solving exercise.** Check each fault against the pattern: a
+  specific problem, the tools to solve it, and solving it means applying the learning objective
+  through natural actions (no menu answer standing in for the skill). Acceptance: a table in
+  `docs/LEARNING_DESIGN.md` of every fault, its objective and the action that demonstrates it; any
+  fault where a menu stands in for the skill becomes a backlog item.
+
 ## Fun (Lazzaro's four types, 2026-11-23)
 
 Hard fun is the core (mastering real procedures) and serious fun comes from the repair ritual.

@@ -30,6 +30,15 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **A2. The apprenticeship sign-off is not a pop-up** (Thad, 2026-11-23: "i dont want that
+  apprenticeship to be a pop up"). Today a lesson's sign-off (job n of 3 done, what you learned,
+  what's next, the gift) opens as a card over the map (D3). Suggested: it becomes the first row of
+  the map's call list itself, a paper strip ("Apprentice checklist: job 2 of 3 signed off. You
+  learned... Gift: compression tester"), no overlay, nothing to dismiss; it stays until the next
+  lesson's call is taken. To confirm with Thad: that place, or the checklist card top left.
+  Acceptance: no overlay after a lesson; the sign-off and gift read on the map; self-test checks;
+  screenshot.
+
 - **R1. Registration numbers instead of plane descriptions everywhere** (Thad, 2026-11-23: "the
   red plane or this other plane kinda looks sloppy, it doesn't really look like something that
   you would see in the real world"). The map, job sheets, work orders, logbook, radio and owner

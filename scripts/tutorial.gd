@@ -160,11 +160,11 @@ func steps() -> Array:
 				call, squawk, walk, writeup, fix, runup, sign, fuel, fly]
 		2:
 			var tools_step := {"id": "tools", "text": "Get the tools for the job",
-				"how": "This one needs %s. The PARTS shed by the apron sells them; the hangar TOOLS box mail-orders (a day, 25%% more)." \
+				"how": "This one needs %s. The PARTS shed by the apron sells them; the hangar TOOLS box mail-orders (25%% more)." \
 					% (", ".join(_missing_tools(j).map(func(t): return Work.TOOLS[t].to_lower())) if j and _missing_tools(j).size() > 0 else "tools you have"),
 				"ok": func(): return j != null and _found_all(j) and _missing_tools(j).is_empty()}
 			var part_step := {"id": "part", "text": "Get the part",
-				"how": "PARTS shed. Not on the shelf? Mail-order it: a day's wait and 25% more. That's the trade.",
+				"how": "PARTS shed. Not on the shelf? Mail-order it for 25% more. That's the trade.",
 				"ok": func(): return j != null and _found_all(j) and j.faults.all(func(id): return j.fixed.has(id) or main.FAULTS[id].part == "" or main.inventory.get(main.FAULTS[id].part, 0) > 0)}
 			walk.how = "Same as last time, on your own: every ? on the plane. %d of 8." % (j.checked.size() if j else 0)
 			return [call, squawk, walk, writeup, tools_step, part_step, fix, runup, sign, fuel, fly]
@@ -846,7 +846,6 @@ func walk_pages(id: String) -> Array:
 			return [
 				["sheet_top", "THE WORK ORDER", "This plane, on one sheet (%s)." % k.call("clipboard"), [
 					["SQUAWK", "What the pilot reported."],
-					["DEADLINE", "Days the owner will wait."],
 					["SPOTS", "How many of the 8 you've checked."]]],
 				["sheet_rows", "WRITE-UPS", "Every fault you've found, ready to work.", [
 					["FOUND", "What it is and where."],
@@ -861,8 +860,7 @@ func walk_pages(id: String) -> Array:
 			return [
 				["sheet_rows", "RESCUE CALLS", "Pick a plane to rescue. The best pay is first.", [
 					["DIFFICULTY", "1 Routine to 5 Expert."],
-					["CLEARS", "About what you keep after parts, fuel and rent."],
-					["WAITS", "Days before the owner gives up."]]],
+					["CLEARS", "About what you keep after parts, fuel and the hangar fee."]]],
 				["sheet_rows", "WHICH ONE?", "Not sure? Take the one marked (closest you can afford).", [
 					["LOCKED", "Calls that open after your apprenticeship."]]],
 				["chart", "THE CHART", "Your field and every call.", [
@@ -872,7 +870,7 @@ func walk_pages(id: String) -> Array:
 			return [["sheet", "YOUR WALLET", "Everything you own (%s)." % k.call("wallet"), [
 				["CASH", "What you have to spend."],
 				["TRUCK", "Parts, tools and materials you carry."],
-				["RENT", "$40 a day: time is money."]]]]
+				["HANGAR FEE", "$60 a job, back home."]]]]
 		"logbook":
 			return [["sheet", "YOUR LOGBOOK", "Every plane you've put back in the air (%s)." % k.call("logbook"), [
 				["EACH ENTRY", "Where, what you did, what it paid and cost."],
@@ -889,7 +887,7 @@ func walk_pages(id: String) -> Array:
 			return [
 				["book_mast", "THE PARTS COUNTER", "This town's shed: it stocks only some parts.", [
 					["IN STOCK", "Buy it now."],
-					["MAIL ORDER", "A day's wait and 25% more."]]],
+					["MAIL ORDER", "25% more than the shelf."]]],
 				["book_tabs", "THREE SECTIONS", "Tab turns the section.", [
 					["PARTS", "For the job."],
 					["TOOLS", "Hand tools for your roll."],
@@ -903,7 +901,7 @@ func walk_pages(id: String) -> Array:
 		"mailorder":
 			return [
 				["book_mast", "MAIL ORDER", "Anything in the book, from the hangar.", [
-					["ARRIVES", "In a day."],
+					["ARRIVES", "When you need it."],
 					["COSTS", "25% over shelf price."],
 					["USE IT", "When the town's shed doesn't have it."]]],
 				["book_card", "BUY WHAT'S STAMPED", "NEEDED marks what your job needs.", [

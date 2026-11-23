@@ -142,7 +142,10 @@ const TROUBLE := {
 	"propeller": {"roll": false, "text": "A violent shake through the whole airframe. You pull the power before the bent prop tears the engine off!"},
 }
 const CRASH_BILL := 1500  # your insurance excess
-const DAILY_COST := 40  # hangar rent back home and insurance, every day you're in business
+## No day count, no clock (D2, Thad 2026-11-23): rent is a flat fee per job, and a wrong guess costs
+## a small charge instead of time. Both are game balance, placeholders until logistics is designed.
+const HANGAR_FEE := 60   # hangar rent back home and insurance, charged once per job
+const WRONG_GUESS := 25  # a wrong verdict, mag call or test: what the guess cost you
 const OWNERS := ["Earl", "Dale", "Marge", "Rosa", "Hank", "June", "Walt", "Bev", "Gus", "Lorraine",
 	"Vern", "Dot", "Cal", "Inez", "Roy", "Pearl", "Abe", "Nell", "Otis", "Fern"]
 const THANKS := ["She hasn't sounded that good since my dad flew her.", "I'd about given up on her. Thank you.",
@@ -327,13 +330,12 @@ var money := 3000:
 			_money_pop(v - money)
 		money = v
 var _quiet_money := false  # the delivery's pay goes on the end-of-mission card, not a pop (D3)
-var day := 1.0  # travel, inspections and repairs take time; calls have deadlines
 var rescued := 0
 var location := START_CITY
 var inventory := {}
 var jobs: Array = []
 var current_job = null  # Dictionary of the plane at this field, or null
-var logbook: Array = []  # one entry per rescue: {day, city, type, pay, faults}
+var logbook: Array = []  # one entry per rescue: {city, type, reg, pay, faults} (older ones carry a day)
 ## How much the game tells you (docs/quick-specs/difficulty-2026-11-12.md). Old saves: medium.
 const DIFFICULTIES := {
 	"easy": "Points at the work, says why a step can't happen yet, and won't let you run an engine that isn't ready.",
@@ -411,7 +413,7 @@ func _ready() -> void:
 		keep_difficulty = ""
 	if had_save:
 		_load_field(location, current_job)
-		_greeting = "Welcome back. Day %d in %s." % [floori(day), location]
+		_greeting = "Welcome back. You're at %s." % location
 	elif save_locked:
 		while jobs.size() < MAX_JOBS:
 			_spawn_job()
@@ -439,7 +441,7 @@ func _ready() -> void:
 		test.run(self, args)
 	elif not "--monkey" in args:
 		_playlog = PLAYLOG_PATH
-		playlog("session start, day %.1f, $%d, %d rescued" % [day, money, rescued])
+		playlog("session start, $%d, %d rescued" % [money, rescued])
 		updater = Updater.new()
 		add_child(updater)
 		updater.available.connect(_offer_update)
@@ -462,7 +464,7 @@ func playlog(what: String) -> void:
 		return
 	var now := Time.get_ticks_msec()
 	f.seek_end()
-	f.store_line("%s  day %.2f  +%ds  %s" % [Time.get_datetime_string_from_system(), day, (now - _play_t) / 1000, what])
+	f.store_line("%s  +%ds  %s" % [Time.get_datetime_string_from_system(), (now - _play_t) / 1000, what])
 	_play_t = now
 
 
@@ -494,8 +496,8 @@ func _install_update() -> void:
 
 var save_path := "user://airplane_rescue.save"
 var test_seed := 0  # printed with every self-test result
-const SAVE_KEYS := ["money", "day", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held", "tut", "badges", "rank"]
-const SAVE_VERSION := 2  # bump when the layout changes, and teach _migrate the step
+const SAVE_KEYS := ["money", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held", "tut", "badges", "rank"]
+const SAVE_VERSION := 3  # bump when the layout changes, and teach _migrate the step
 var _greeting := ""  # the first message of this session
 var had_save := false  # a career was loaded at launch (so the title screen offers Continue)
 var save_locked := false  # a save we couldn't read is never overwritten (it might be newer, or fixable)
@@ -577,6 +579,11 @@ func _migrate(data: Dictionary) -> void:
 				j[key] = {"years": 0, "washed": true, "spent": {"fuel": 0, "parts": 0, "mail": 0}, "work": {}, "fuel": 0.2, "parked": "apron"}[key]
 	if int(data.get("version", 0)) < 2:  # 2: the apprenticeship. A career already under way skips it.
 		data["tut"] = {"lesson": 0, "tour": true, "done": {}, "base": int(data.get("rescued", 0))}
+	if int(data.get("version", 0)) < 3:  # 3: no day count (D2). Deadlines and the clock go.
+		data.erase("day")
+		for j in data.get("jobs", []):
+			j.erase("deadline")
+			j.erase("arrived")
 	data.version = SAVE_VERSION
 
 
@@ -647,8 +654,7 @@ func _spawn_job() -> void:
 	var job := {"city": options[rng.randi() % options.size()], "type": t[0], "years": years, "washed": years == 0, "lesson": lesson > 0,
 		"fixed": {}, "found": {}, "checked": {}, "work": {}, "annual": rank == "ia" and lesson == 0 and rng.randf() < 0.15,  # an annual needs an IA
 		"spent": {"fuel": 0, "parts": 0, "mail": 0}, "fuel": rng.randf_range(0.03, 0.3), "parked": "apron",
-		"owner": OWNERS[rng.randi() % OWNERS.size()], "tried": {}, "hidden": "",
-		"deadline": day + 5 - mini(1, r / 4) + rng.randi() % 5}  # each spot takes two hours: skipping one is a real gamble
+		"owner": OWNERS[rng.randi() % OWNERS.size()], "tried": {}, "hidden": ""}
 	job["reg"] = make_registration(rng)  # its N-number, for the ticket (D3)
 	_assign_faults(job, picks)
 	var cost := 0
@@ -800,32 +806,24 @@ func _symptoms(job: Dictionary) -> String:
 	return "\"" + " ".join(s) + "\"" + sat
 
 
-func _advance(days: float) -> void:
-	day += days
-	var bill := (floori(day) - floori(day - days)) * DAILY_COST  # charged as each new day starts
-	if bill > 0:
-		money = maxi(0, money - bill)
-	for j in jobs.duplicate():
-		if day > j.deadline:
-			jobs.erase(j)
-			_say("The owner in %s gave up waiting and scrapped the %s." % [j.city, j.type])
-			if j == current_job:  # the plane you're standing next to is gone
-				current_job = null
-				if plane:
-					plane.queue_free()
-					plane = null
-	while jobs.size() < MAX_JOBS:
-		_spawn_job()
-	_save_game()
-
-
 ## What a job cost you, itemized for the logbook (like the end of a Rebuild Rescue episode).
 ## Records something that cost extra on this job, as it happens, for the debrief on delivery
-## (E5): what kind (DEBRIEF_ADVICE keys), the days and money it cost, and what it was.
-func note_cost(kind: String, days: float, cash: int, what: String) -> void:
+## (E5): what kind (DEBRIEF_ADVICE keys), the money it cost (0: a do-over), and what it was.
+func note_cost(kind: String, cash: int, what: String) -> void:
 	if current_job == null:
 		return
-	current_job.get_or_add("lost", []).append({"kind": kind, "days": days, "money": cash, "what": what})
+	current_job.get_or_add("lost", []).append({"kind": kind, "money": cash, "what": what})
+
+
+## A wrong guess (a verdict, a mag call, a test where the trouble wasn't): it costs a small charge,
+## not time (D2). Paid now, on the job's ticket as its own line, and noted for the debrief.
+func _wrong_guess(what: String, kind := "guess") -> void:
+	var charge := mini(money, WRONG_GUESS)
+	money -= charge
+	if current_job != null:
+		_spend(current_job, "guesses", charge)
+	note_cost(kind, charge, what)
+	_save_game()
 
 
 func _spend(job: Dictionary, what: String, amount: int) -> void:
@@ -848,15 +846,13 @@ func _travel(job: Dictionary, cost: int) -> void:
 	_spend(job, "fuel", cost)
 	_close_panel()
 	var nm := roundi(miles(location, job.city) * 0.869)
-	var days := miles(location, job.city) / 700.0
-	_show_loading("Flying to %s" % job.city, "%d NM, about %.1f days on the road and in the air.\nThe owner: %s" % [nm, days, _symptoms(job)], location, job.city)
+	_show_loading("Flying to %s" % job.city, "%d NM.\nThe owner: %s" % [nm, _symptoms(job)], location, job.city)
 	sound.cruise(true)
 	get_viewport().disable_3d = true  # the card hides the world, and drawing it cost more than building it
 	await _load_step(100, FLIGHT_SECONDS)
-	location = job.city  # before _advance saves: closing the game mid-trip must not lose the fare
+	location = job.city  # before the save: closing the game mid-trip must not lose the fare
 	current_job = job
-	_advance(days)
-	job.arrived = day
+	_save_game()
 	var alive := jobs.has(job)  # false: ran out of time on the way
 	_arrival_card(job.city)
 	await get_tree().process_frame  # two frames: the card is on screen before the freeze begins
@@ -1010,15 +1006,14 @@ func _inspect_zone(zone: String) -> void:
 		return
 	current_job.checked[zone] = true
 	playlog("inspect " + zone)
-	if zone != "engine" and not _work_time(0.08):  # the owner gave up while you were looking
-		return
+	_save_game()
 	_open_bay(zone)
 
 
 ## Bucket, brush and a hose: an afternoon's work, and then you can see what you bought.
 func _wash() -> void:
 	playlog("wash")
-	_advance(0.2)
+	_save_game()
 	if not current_job:
 		return
 	current_job.washed = true
@@ -1070,7 +1065,7 @@ func _run_up() -> void:
 
 func _run_up_result() -> void:
 	var job: Dictionary = current_job
-	_advance(0.04)
+	_save_game()
 	if not current_job:
 		return
 	var heard: PackedStringArray = []
@@ -1251,7 +1246,7 @@ func _run_damage(job: Dictionary, cause: String) -> String:
 	job.work.erase(hit)  # a fresh repair, from the start
 	job.get_or_add("caused", {})[hit] = true  # its supplies are on you
 	if job == current_job:
-		note_cost("runup_damage", 0.0, FAULTS[hit].cost, "%s, from running it unready" % FAULTS[hit].name)
+		note_cost("runup_damage", FAULTS[hit].cost, "%s, from running it unready" % FAULTS[hit].name)
 		_aid_on("runup", true)  # the work order marks what else mustn't be run, until the next run-up
 	job.found[hit] = true
 	if visuals.has(hit):
@@ -1263,11 +1258,11 @@ func _run_damage(job: Dictionary, cause: String) -> String:
 
 ## Below 20 F the whole engine needs warming, not just enough to fire (M-0 7-4.1).
 func _preheat() -> void:
-	_advance(0.15)
+	_save_game()
 	if not current_job:
 		return
 	current_job.preheated = true
-	_say("Engine cover on, the heater ducted in under it for a couple of hours. The oil's thin again.")
+	_say("Engine cover on, the heater ducted in under it. The oil's thin again.")
 	_open_inspection(standing_at)
 
 
@@ -1360,7 +1355,7 @@ func _open_bay(zone := "engine") -> void:
 ## Look closer at one part: a visible fault whose tell is there gets written up.
 func bay_look(part: Dictionary) -> void:
 	var job: Dictionary = current_job
-	_advance(0.005)
+	_save_game()
 	if not current_job:
 		return
 	var seen: PackedStringArray = []
@@ -1378,7 +1373,7 @@ func bay_open_cowl() -> bool:
 	if not tools.has("screwdriver"):
 		_say("The cowl's on Camloc fasteners: you need a screwdriver.")
 		return false
-	_advance(0.02)
+	_save_game()
 	if not current_job:
 		return false
 	var c: Dictionary = current_job.work.get_or_add("_cowl", {})
@@ -1396,7 +1391,7 @@ func bay_close_cowl() -> String:
 	var apart: Array = c.get("apart", {}).keys().filter(func(k): return c.apart[k])
 	if apart.size() > 0:
 		return "Finish up at %s first: it's still apart under there." % PLACES.get(apart[0], apart[0]).to_lower()
-	_advance(0.02)
+	_save_game()
 	if not current_job:
 		return "The owner gave up waiting."
 	c["cowl"] = "on"
@@ -1512,19 +1507,15 @@ func _open_work(scene: String, on_done: Callable) -> void:
 	player.frozen = true
 
 
-## Time spent on one step of a job. False if the owner gave up meanwhile (the scene closes).
-func _work_time(days: float) -> bool:
-	_advance(days)
-	if current_job:
-		return true
-	_close_panel()
-	return false
+## One step of a job done: saved. Steps take no time (D2); kept as one place to save after a step.
+func _work_step() -> void:
+	_save_game()
 
 
 func _work_done(id: String) -> void:
 	playlog(("repair done " if current_job.faults.has(id) else "wrong guess, swapped ") + id)
 	if not current_job.faults.has(id):  # a suspect that wasn't the trouble: the part and the time are spent
-		note_cost("suspect", 0.0, FAULTS[id].cost, "A %s that wasn't the trouble" % FAULTS[id].part.to_lower())
+		note_cost("suspect", FAULTS[id].cost, "A %s that wasn't the trouble" % FAULTS[id].part.to_lower())
 		current_job.tried[id] = false
 		current_job.runup = ""
 		sound.pen()
@@ -1597,10 +1588,9 @@ func _run_test(t: String) -> void:
 		return
 	_open_work(t, func():
 		current_job.work.erase(t)  # nothing to keep: run it fresh next time
-		_advance(0.05)
-		if current_job:
-			_say("Everything reads normal. That's not where the trouble is.")
-			_back(standing_at))
+		_wrong_guess("A test where the trouble wasn't (%s)" % TESTS[t].name.to_lower())
+		_say("Everything reads normal. That's not where the trouble is.")
+		_back(standing_at))
 
 
 ## Hard: try to start it if it's never run; otherwise it's your signature on the logbook.
@@ -1650,12 +1640,9 @@ func _call(id: String, key: String) -> void:
 	_aid_off("verdict")  # one try with the aid; a wrong call brings it back
 	if key != _answer(id, t):
 		_aid_on("verdict", id)
-		note_cost("verdict", 0.05, 0, "A wrong call on the %s" % TESTS[t].name.to_lower())
+		_wrong_guess("A wrong call on the %s" % TESTS[t].name.to_lower(), "verdict")
 		var misses: Dictionary = job.get_or_add("misses", {})
 		misses[id] = misses.get(id, 0) + 1
-		_advance(0.05)
-		if not current_job:
-			return
 		_say("That doesn't square with what you saw. Look again.")
 		_verdict(id)
 		return
@@ -1685,8 +1672,8 @@ func turn_prop() -> Array:
 		return ["", 0.0]
 	var first: bool = not job.found.has("hot_mag")
 	job.found["hot_mag"] = true
-	return ["It KICKED! The engine fired%s. The blade cracked your knuckles: half a day lost to a bandaged hand." %
-		(" with the switch OFF: the mag is hot, its P-lead isn't grounding it" if first else " on the hot mag again"), 0.5]
+	return ["It KICKED! The engine fired%s. The blade cracked your knuckles." %
+		(" with the switch OFF: the mag is hot, its P-lead isn't grounding it" if first else " on the hot mag again"), 0.0]
 
 
 ## The test readings and painted states a work scene shows, worked out from this job.
@@ -1919,10 +1906,9 @@ func _quiz(id: String) -> void:
 				sound.pen()
 				_open_inspection(FAULTS[id].zone)
 			else:
-				_advance(0.05)
-				if current_job:
-					_say("That doesn't balance. Moment is weight times arm; divide by the total.")
-					_quiz(id), true])
+				_wrong_guess("A weight and balance that didn't balance")
+				_say("That doesn't balance. Moment is weight times arm; divide by the total.")
+				_quiz(id), true])
 	_open_panel("Weight and balance", rows, true)
 
 
@@ -1931,10 +1917,11 @@ func _ground_job() -> void:
 	var job: Dictionary = current_job
 	var fee := int(round((80 + job.reward * 0.15) / 10.0)) * 10
 	money += fee
+	money = maxi(0, money - HANGAR_FEE)  # the job's hangar fee (D2)
 	var why: Array = job.faults.filter(func(id): return FAULTS[id].get("ground", false) and job.found.has(id))
-	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": fee, "grounded": true,
+	logbook.append({"city": job.city, "type": job.type, "pay": fee, "grounded": true,
 		"work": why.map(func(id): return "Grounded: " + FAULTS[id].name), "years": job.get("years", 0),
-		"fuel": job.spent.get("fuel", 0), "parts": job.spent.get("parts", 0), "days": day - job.get("arrived", day)})
+		"fuel": job.spent.get("fuel", 0), "parts": job.spent.get("parts", 0)})
 	jobs.erase(job)
 	current_job = null
 	if plane:
@@ -1954,9 +1941,8 @@ func _buy(part: String, cost: int, mail := false) -> void:
 	if current_job:
 		_spend(current_job, "parts", cost)
 	if mail:
-		note_cost("mail", 1.0, cost - roundi(cost / 1.25), "%s by mail" % part)
-		_advance(1.0)
-		_say("The %s came on the morning mail truck." % part)
+		note_cost("mail", cost - roundi(cost / 1.25), "%s by mail" % part)
+		_say("The %s came on the mail truck." % part)
 	_refresh_parts_table()
 	_save_game()
 	_open_shop()
@@ -2052,7 +2038,7 @@ func _open_signoff(step := 0) -> void:
 	for id in job.faults:
 		if job.fixed.has(id):
 			work.append(FAULTS[id].name)
-	var rows := [["%s, at %s, day %d" % [job.type, job.city, floori(day)]],
+	var rows := [["%s, at %s" % [job.type, job.city]],
 		["Work performed\n" + (", ".join(work) if work.size() > 0 else "Inspection only, no defects found.") + ". Ground run-up satisfactory."]]
 	if step < ENTRY_STEPS.size():
 		var s: Array = ENTRY_STEPS[step]
@@ -2083,7 +2069,7 @@ func _entry_pick(step: int, wrong: String) -> void:
 	_aid_off("entry")
 	if wrong != "":
 		_aid_on("entry", step)
-		note_cost("entry", 0.0, 0, "A logbook entry sent back")
+		note_cost("entry", 0, "A logbook entry sent back")
 		sound.sfx("deny")
 		_say("An inspector would hand that back. " + wrong)
 		_open_signoff(step)
@@ -2122,11 +2108,11 @@ func _flight_failed(result: String) -> void:
 		else "What you missed\n%s, at the %s. %s" % [what, ZONES[FAULTS[id].zone].name,
 			"You looked there, and looked right past it." if job.checked.has(FAULTS[id].zone) else "You never looked there."]
 	if result == "crash":
-		var bill := mini(money, CRASH_BILL)
+		var bill := mini(money, CRASH_BILL + HANGAR_FEE)  # the damage, and the job's hangar fee (D2)
 		money -= bill
 		var spent: Dictionary = job.get("spent", {})
-		logbook.append({"day": floori(day), "city": job.city, "type": job.type, "pay": 0, "work": ["Crashed on the ferry flight: " + what],
-			"years": job.get("years", 0), "fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "days": day - job.get("arrived", day)})
+		logbook.append({"city": job.city, "type": job.type, "pay": 0, "work": ["Crashed on the ferry flight: " + what],
+			"years": job.get("years", 0), "fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0)})
 		jobs.erase(job)
 		_load_field(location, null)
 		while jobs.size() < MAX_JOBS:
@@ -2144,11 +2130,8 @@ func _flight_failed(result: String) -> void:
 	job.checked[FAULTS[id].zone] = true
 	job.signed = false
 	_load_field(location, job)
-	_advance(1.0)  # towing it back and explaining yourself to the owner
-	if not current_job:  # that day was the last of the owner's patience
-		return
 	_save_game()
-	_open_panel("Aborted take-off" if result == "abort" else "Forced landing", [["You got it down safely, and it's back at the field.\nA day lost getting it home."], [missed],
+	_open_panel("Aborted take-off" if result == "abort" else "Forced landing", [["You got it down safely, and it's back at the field."], [missed],
 		["What it cost\nThe owner knocked the pay from $%d to $%d." % [was, job.reward]],
 		["Next\nFix it, then sign the logbook again."]])
 
@@ -2172,14 +2155,15 @@ func _sign_off() -> void:
 	pay += supplies
 	_quiet_money = true
 	money += pay
+	money = maxi(0, money - HANGAR_FEE)  # the job's hangar fee (D2), on the ticket
 	_quiet_money = false
 	rescued += 1
 	jobs.erase(job)
 	current_job = null
 	var spent: Dictionary = job.get("spent", {})
-	logbook.append({"day": floori(day), "city": job.city, "type": job.type, "reg": registration(job), "pay": pay, "supplies": supplies, "owner": job.get("owner", "The owner"),
+	logbook.append({"city": job.city, "type": job.type, "reg": registration(job), "pay": pay, "supplies": supplies, "owner": job.get("owner", "The owner"),
 		"work": job.faults.map(func(id): return ("Comeback: " if id in missed else "") + FAULTS[id].name), "years": job.get("years", 0),
-		"fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "days": day - job.get("arrived", day)})
+		"fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0)})
 	var found_later: Array = missed.map(func(id): return FAULTS[id].name.to_lower())
 	if open_cowl:
 		found_later.append("the engine cowling not screwed down")
@@ -2226,6 +2210,7 @@ var _pending_debrief := {}  # the logbook entry just made, shown once after the 
 const DEBRIEF_ADVICE := {
 	"mag_call": "Read each drop against the limit: more than 75 rpm is bad, and no drop at all is bad too.",
 	"verdict": "Let the test decide: read the result against the manual page before you make the call.",
+	"guess": "Let what you've seen and heard point to the trouble before you run a test or work the numbers.",
 	"entry": "Write what you worked to: AC 43.13-1B and the manufacturer's data. Not memory, not the owner's say-so.",
 	"mail": "Check the town's shed before you fly out, and carry the parts every plane seems to need.",
 	"suspect": "Two suspects? Run the test that tells them apart before you buy the part.",
@@ -2241,27 +2226,27 @@ const DEBRIEF_ADVICE := {
 ## Thad found the day and hour figures added nothing (D1). Kept in the logbook entry.
 func job_debrief(job: Dictionary, pay: int, missed: Array, open_cowl: bool) -> Dictionary:
 	var spent: Dictionary = job.get("spent", {})
-	var days: float = day - job.get("arrived", day)
 	var lost: Array = job.get("lost", []).duplicate(true)
 	var wasted: int = roundi(job.get("supplies", {}).get("mine", 0.0))
 	if wasted > 0:
-		lost.append({"kind": "wasted", "days": 0.0, "money": wasted, "what": "Supplies used where nothing was wrong"})
+		lost.append({"kind": "wasted", "money": wasted, "what": "Supplies used where nothing was wrong"})
 	for id in missed:
-		lost.append({"kind": "comeback", "days": 0.0, "money": FAULTS[id].cost * 2 + 200, "what": "Comeback: %s" % FAULTS[id].name.to_lower()})
+		lost.append({"kind": "comeback", "money": FAULTS[id].cost * 2 + 200, "what": "Comeback: %s" % FAULTS[id].name.to_lower()})
 	if open_cowl:
-		lost.append({"kind": "open_cowl", "days": 0.0, "money": 200, "what": "Flew off with the cowl loose"})
+		lost.append({"kind": "open_cowl", "money": 200, "what": "Flew off with the cowl loose"})
 	var extra: PackedStringArray = []
 	var weight := {}
 	for l in lost:
 		extra.append("%s  ($%d)" % [l.what, l.money] if l.money > 0 else String(l.what))  # time isn't shown (D1)
-		weight[l.kind] = weight.get(l.kind, 0.0) + l.money + l.days * DAILY_COST + 1.0  # a do-over still counts
+		weight[l.kind] = weight.get(l.kind, 0.0) + l.money + 1.0  # a do-over still counts
 	var worst := ""
 	for k in weight:
 		if worst == "" or weight[k] > weight[worst]:
 			worst = k
-	var rent := roundi(days * DAILY_COST)
-	return {"days": days, "pay": pay, "fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "rent": rent,
-		"net": pay - spent.get("fuel", 0) - spent.get("parts", 0) - rent, "extra": extra,
+	var rent := HANGAR_FEE
+	var guesses: int = spent.get("guesses", 0)
+	return {"pay": pay, "fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0), "rent": rent, "guesses": guesses,
+		"net": pay - spent.get("fuel", 0) - spent.get("parts", 0) - rent - guesses, "extra": extra,
 		"badges": job.get("earned_badges", []).duplicate(), "promoted": job.get("earned_promoted", []).duplicate(),
 		"checked": job.get("checked", {}).size(), "fixed": job.get("fixed", {}).size(), "faults": job.faults.size(),
 		"next": DEBRIEF_ADVICE.get(worst, "") if worst != "" else "Clean job: nothing cost you extra. Do it like that again."}
@@ -2322,7 +2307,7 @@ func registration(job: Dictionary) -> String:
 	if job.has("reg"):
 		return job.reg
 	var r := RandomNumberGenerator.new()
-	r.seed = hash("%s|%s|%s" % [job.get("city", ""), job.get("type", ""), job.get("day", job.get("deadline", 0))])
+	r.seed = hash("%s|%s|%s|%s" % [job.get("city", ""), job.get("type", ""), job.get("day", 0), job.get("pay", job.get("reward", 0))])
 	return make_registration(r)
 
 
@@ -2414,7 +2399,9 @@ func _open_mission_card(e: Dictionary) -> void:
 		_card_figure(vb, "Apprenticeship bonus", bonus)
 	_card_figure(vb, "Fuel", -int(d.fuel))
 	_card_figure(vb, "Parts", -int(d.parts))
-	_card_figure(vb, "Hangar rent", -int(d.rent))
+	_card_figure(vb, "Hangar fee", -int(d.rent))
+	if int(d.get("guesses", 0)) > 0:
+		_card_figure(vb, "Wrong guesses", -int(d.guesses))
 	# What cost extra is already in the figures above (a comeback cut the pay, a mail order raised
 	# the parts): listed so you can see why, not added again.
 	var lines := debrief_lines(d)
@@ -2579,7 +2566,7 @@ func _career_stats() -> Array:
 		paid += e.pay
 		costs += e.get("fuel", 0) + e.get("parts", 0)
 		longest = maxi(longest, e.get("years", 0))
-	var rows := [["Days on the road\n%d" % floori(day)], ["Earned\n$%d, with $%d spent on fuel and parts" % [paid, costs]], ["Cash in hand\n$%d" % money]]
+	var rows := [["Planes rescued\n%d of %d" % [rescued, GOAL]], ["Earned\n$%d, with $%d spent on fuel and parts" % [paid, costs]], ["Cash in hand\n$%d" % money]]
 	if longest > 0:
 		rows.append(["Longest neglected\nA plane that sat %d years" % longest])
 	return rows
@@ -2596,21 +2583,19 @@ func _open_game_over(cheapest: int) -> void:
 	_open_panel("Out of money and grounded", [["You rescued %d of %d planes\nThat work still counts: every one is in your logbook." % [rescued, GOAL]],
 		["What happened\nYou have $%d. The cheapest flight to a call costs $%d, and you can't afford to finish the job here." % [money, cheapest]],
 		["Next time\nKeep enough cash back to fly to the next call, and check the parts bill before you take a job."]]
-		+ _career_stats() + [["Odd jobs at the field here: %d days, +$%d" % [ODD_JOB_DAYS, ODD_JOB_PAY], "Take it", _odd_jobs, true],
+		+ _career_stats() + [["Odd jobs at the field here: +$%d" % ODD_JOB_PAY, "Take it", _odd_jobs, true],
 		["", "Start over", _restart, true], ["", "Main menu", _quit_to_title, true]], false)
 
 
-const ODD_JOB_DAYS := 3
 const ODD_JOB_PAY := 900  # covers the nearest call (under $600) with some left for parts
 
 
-## Broke is a setback, not the end: fuel planes and mow the strip for a few days. Calls may expire meanwhile.
+## Broke is a setback, not the end: fuel planes and mow the strip, and it pays (D2: no days pass).
 func _odd_jobs() -> void:
 	_close_panel()
 	money += ODD_JOB_PAY
-	_money_pop(ODD_JOB_PAY)
-	_advance(ODD_JOB_DAYS)
-	_say("%d days fueling planes and mowing the strip at %s. It pays the bills." % [ODD_JOB_DAYS, location])
+	_save_game()
+	_say("Fueling planes and mowing the strip at %s. It pays the bills." % location)
 	playlog("broke: took odd jobs")
 
 
@@ -2734,7 +2719,7 @@ func _open_menu() -> void:
 			["BACK", "", _menu_back]]
 	else:
 		if has_save:
-			items.append(["CONTINUE", "Day %d  -  %s  -  $%d  -  %d of %d rescued" % [floori(day), location.to_upper(), money, rescued, GOAL], _close_menu])
+			items.append(["CONTINUE", "%s  -  $%d  -  %d of %d rescued" % [location.to_upper(), money, rescued, GOAL], _close_menu])
 			items.append(["NEW CAREER", "", _menu_confirm])
 		else:
 			items.append(["START", "Home base: %s" % START_CITY.to_upper(), _close_menu])
@@ -3706,7 +3691,7 @@ const BADGES := [
 	["straight_and_true", "Straight and True", "Flight", "Take off with no ground loop."],
 	["clean_job", "Clean Job", "Career", "Deliver a plane with nothing extra on the debrief."],
 ]
-var badges := {}  # id -> the day it was earned (saved)
+var badges := {}  # id -> planes rescued when it was earned (saved; older saves hold a day)
 
 
 func badge_name(id: String) -> String:
@@ -3720,7 +3705,7 @@ func badge_name(id: String) -> String:
 func earn_badge(id: String) -> void:
 	if badges.has(id):
 		return
-	badges[id] = floori(day)
+	badges[id] = rescued
 	_job_record("badges", id)
 	playlog("badge: " + id)
 	_tracker_pulse(id)
@@ -3823,7 +3808,7 @@ func _open_tasks() -> void:
 
 func _open_wallet() -> void:
 	tutorial.walk("wallet")  # first time here: a walkthrough of this menu (tutorial.gd)
-	var rows := [["Cash: $%d" % money], ["Day %d, at %s" % [floori(day), location]]]
+	var rows := [["Cash: $%d" % money], ["At %s" % location]]
 	var inv: PackedStringArray = []
 	for k in inventory:
 		if inventory[k] > 0 and not SUPPLIES.has(k):  # materials are listed on their own line
@@ -3834,7 +3819,7 @@ func _open_wallet() -> void:
 		have.append(Work.TOOLS[t])
 	rows.append(["Tool roll: " + (", ".join(have) if have.size() > 0 else "empty")])
 	rows.append(["Materials: " + ", ".join(SUPPLIES.keys().filter(func(k): return SUPPLIES[k].has("qty")).map(func(k): return "%s %d" % [k, inventory.get(k, 0)]))])
-	rows.append(["Hangar rent and insurance: $%d a day" % DAILY_COST])
+	rows.append(["Hangar rent and insurance: $%d a job" % HANGAR_FEE])
 	_open_panel("Wallet", rows)
 
 
@@ -3874,15 +3859,15 @@ func _open_logbook() -> void:
 	rows.append(["Badges: %d of %d" % [badges.size(), BADGES.size()]])
 	for b in BADGES:
 		var got: bool = badges.has(b[0])
-		rows.append(["%s  (%s)%s\n%s" % [b[1], b[2], ("  earned day %d" % badges[b[0]]) if got else "", b[3]], "", null, false,
+		rows.append(["%s  (%s)%s\n%s" % [b[1], b[2], "  earned" if got else "", b[3]], "", null, false,
 			"hud/badge.svg" if got else "hud/badge_none.svg"])
 	for i in range(logbook.size() - 1, -1, -1):
 		var e: Dictionary = logbook[i]
 		var net: int = e.pay - e.get("fuel", 0) - e.get("parts", 0)
-		rows.append(["Day %d  %s  -  %s%s%s\n%s\nPaid $%d - fuel $%d - parts $%d = %s$%d   (%.1f days on site)" % [e.day, e.city, e.type,
+		rows.append(["%s  -  %s%s%s\n%s\nPaid $%d - fuel $%d - parts $%d = %s$%d" % [e.city, e.type,
 			"  (GROUNDED)" if e.get("grounded", false) else "",
 			(", sat %d yrs" % e.years) if e.get("years", 0) > 0 else "", ", ".join(e.work), e.pay, e.get("fuel", 0), e.get("parts", 0),
-			"" if net >= 0 else "-", absi(net), e.get("days", 0.0)]])
+			"" if net >= 0 else "-", absi(net)]])
 		var d: Dictionary = e.get("debrief", {})  # entries from before the debrief (E5) have none
 		if not d.is_empty():
 			rows.append([("Cost extra: " + "; ".join(debrief_lines(d)) if d.extra.size() > 0 else "Nothing cost extra.") + "\nNext time: " + d.next])
@@ -4567,9 +4552,9 @@ func _open_pause() -> void:
 	var title := Style.label("PAUSED", "hud", Style.SIZE_3XL, 900)
 	title.add_theme_font_override("font", Style.caps(900, Style.SIZE_3XL))
 	col.add_child(title)
-	# Where you stand, in figures: the day, the town, the money (the paused game, at a glance).
+	# Where you stand, in figures: the town and the money (the paused game, at a glance).
 	var at := Label.new()
-	at.text = "DAY %d   %s   $%s" % [floori(day), location.to_upper(), _thousands(money)]
+	at.text = "%s   $%s" % [location.to_upper(), _thousands(money)]
 	at.add_theme_font_override("font", Style.figures(true))
 	at.add_theme_font_size_override("font_size", Style.SIZE_SM)
 	at.add_theme_color_override("font_color", Style.COLOR_TEXT_HUD_MUTED)
@@ -4746,7 +4731,7 @@ func _toggle_parked() -> void:
 ## Push the plane into the hangar or roll it back out (by hand: a quarter hour of work).
 func _move_plane(to: String) -> void:
 	current_job.parked = to
-	_advance(0.01)
+	_save_game()
 	if not current_job:
 		return
 	plane.queue_free()
@@ -4774,7 +4759,7 @@ func _fuel_plane() -> int:
 	money -= cost
 	_spend(job, "fuel", cost)
 	job.fuel = 1.0
-	_advance(0.01)
+	_save_game()
 	_say("Pumped %d gal of 100LL into the %s ($%d)." % [gal, job.type, cost])
 	_save_game()
 	return cost
@@ -5017,7 +5002,6 @@ func _open_inspection(at := standing_at) -> void:
 	station_zone = ""
 	var job: Dictionary = current_job
 	var rows := [["Owner reports: " + _symptoms(job)],
-		["Owner waits %d more day(s)" % maxi(0, ceili(job.deadline - day))],
 		["Walk-around: %d of %d spots checked" % [job.checked.size(), ZONES.size()]]]
 	var tried: Dictionary = job.get("tried", {})
 	var shown := {}
@@ -5264,7 +5248,7 @@ func _supply_row(key: String, mail: bool) -> Array:
 	if owned:
 		return ["%s  -  owned" % s.name, "", null, false, icon]
 	return ["%s  (%s)%s" % [s.name, _supply_have(key), "
-Mail order: arrives in 1 day" if mail else ""],
+Mail order: 25% over shelf price" if mail else ""],
 		("Order $%d" if mail else "$%d") % price, func(): _buy_supply(key, price, mail), money >= price, icon]
 
 
@@ -5279,9 +5263,8 @@ func _buy_supply(key: String, cost: int, mail: bool) -> void:
 		_spend(current_job, "parts", cost)
 	_refresh_parts_table()
 	if mail:
-		note_cost("mail", 1.0, cost - roundi(cost / 1.25), "%s by mail" % s.name)
-		_advance(1.0)
-		_say("The %s came on the morning mail truck." % s.name)
+		note_cost("mail", cost - roundi(cost / 1.25), "%s by mail" % s.name)
+		_say("The %s came on the mail truck." % s.name)
 	_save_game()
 	if mail:
 		_open_toolbox()
@@ -5439,7 +5422,7 @@ func _roll_note() -> String:
 
 func _open_toolbox() -> void:
 	tutorial.walk("mailorder")  # first time here: a walkthrough of this menu (tutorial.gd)
-	_open_catalog("Mail-order catalog", "Mail order from the hangar: arrives in 1 day, 25% over shelf price",
+	_open_catalog("Mail-order catalog", "Mail order from the hangar: 25% over shelf price, here when you need it",
 		_supply_sections(SUPPLIES.keys(), true), _roll_note())
 
 
@@ -5497,9 +5480,9 @@ func _open_travel() -> void:
 				int(tut.lesson) - 1, _symptoms(job)], "Locked", Callable(), false])
 			continue
 		can_fly = can_fly or money >= cost
-		rows.append(["%s: %s%s\n%s. Pays $%d, clears about $%d after parts $%d, fuel $%d and %.1f days' rent. %d NM, waits %d days.\n%s" % [
+		rows.append(["%s: %s%s\n%s. Pays $%d, clears about $%d after parts $%d, fuel $%d and the $%d hangar fee. %d NM.\n%s" % [
 			job.city, job.type, "   (closest you can afford)" if job == closest else "", rating, job.reward, est.net, est.parts, est.fare + est.plane_fuel,
-			est.days, roundi(miles(location, job.city) * 0.869), maxi(0, ceili(job.deadline - day)), _symptoms(job)],
+			HANGAR_FEE, roundi(miles(location, job.city) * 0.869), _symptoms(job)],
 			"Fly ($%d)" % cost, func(): _travel(job, cost), money >= cost])
 	if not can_fly and not _can_finish_here():
 		var fares := jobs.filter(func(j): return j != current_job and not call_locked(j)).map(func(j): return int(miles(location, j.city) * FUEL_PER_MILE))
@@ -5622,10 +5605,9 @@ func call_estimate(job: Dictionary) -> Dictionary:
 	var parts := 0
 	for id in job.faults:
 		parts += FAULTS[id].cost
-	var days: float = miles(location, job.city) / 700.0 + ZONES.size() * 0.08 + job.faults.size() * 0.5
 	var plane_fuel := _fuel_bill(job)
-	return {"fare": fare, "parts": parts, "plane_fuel": plane_fuel, "days": days,
-		"net": job.reward - parts - fare - plane_fuel - roundi(days * DAILY_COST)}
+	return {"fare": fare, "parts": parts, "plane_fuel": plane_fuel,
+		"net": job.reward - parts - fare - plane_fuel - HANGAR_FEE}
 
 
 # ---------- 3D world ----------

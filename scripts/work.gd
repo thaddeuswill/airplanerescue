@@ -42,8 +42,6 @@ const GREEN := 1.0  # seconds the needle has to stay in the band before the wren
 const TOOL_SHORT := {"hand": "Hands", "screwdriver": "Screwdriver", "ratchet": "Ratchet", "torque": "Torque",
 	"pliers": "Pliers", "rag": "Rag", "tester": "Tester", "timing": "Timing light", "punch": "Fabric tester"}
 const FOD_CHANCE := 0.12  # chance a scene with a cowling has a socket you drop behind a baffle
-const DAYS := {"loosen": 0.003, "tighten": 0.003, "torque": 0.004, "out": 0.001, "insert": 0.001,
-	"off": 0.003, "on": 0.004, "remove": 0.008, "install": 0.012, "do": 0.012, "soak": 0.02, "look": 0.0}  # a look is paid for when you start it (main._look)
 const SKIN := Color(0.93, 0.74, 0.22)
 const METAL := Color(0.62, 0.63, 0.66)
 const ENGINE := Color(0.3, 0.3, 0.32)
@@ -495,12 +493,11 @@ func perform(e: Dictionary, v: String) -> bool:
 			if not els.any(func(x): return x.type == "part" and not x.get("free", false) and st[x.id] != "new"):
 				holding = false  # nothing left to fit (a set like 4 plugs stays in hand until all are in)
 		"do":
-			if e.has("trap"):  # the wrong move: it costs a little time and teaches why
+			if e.has("trap"):  # the wrong move: it costs the try and teaches why
 				note = e.trap
 				main.sound.sfx("deny")
-				var ok: bool = main._work_time(0.03)
 				queue_redraw()
-				return ok
+				return true
 			st[e.id] = "done"
 			st["_last"] = e.id
 			if e.get("hook", false):
@@ -508,22 +505,19 @@ func perform(e: Dictionary, v: String) -> bool:
 		"soak":
 			st["_seized"] = ""
 			main.inventory["Penetrant"] -= 1
-	var extra := 0.0
 	if v == "do":
 		note = main.reading(fault, e.id) if e.get("note", false) else ""
 		if e.get("turns_prop", false):  # a hot magneto can fire it while you turn it by hand
 			var kick: Array = main.turn_prop()
 			if kick[0] != "":
 				note = kick[0]
-				extra = kick[1]
 	if v in ["on", "do"] and e.get("uses", "") != "":
 		main.inventory[e.uses] -= 1  # a fresh length of safety wire, a new cotter pin, a squirt of penetrant
 		main.used_supply(fault, e.uses, healthy)
 	_feel(e, v)
 	_idle = 0.0
 	_sync_shared()
-	if not main._work_time(DAYS[v] + extra):
-		return false
+	main._work_step()
 	hover = _hit(_to_scene(get_local_mouse_position()))  # what was under the cursor may have moved
 	if done() and not healthy:
 		if st.get("_fod", false) and st.get("fod", "") != "done":
@@ -573,7 +567,7 @@ func _pull(e: Dictionary, a: Dictionary) -> void:
 		if e.type == "fastener":
 			st[e.id] = "loose"
 		st["_over"] = true  # an over-torque on this job: no To Spec badge for it
-		main._work_time(DAYS.torque)
+		main._work_step()
 	queue_redraw()
 
 
@@ -922,7 +916,7 @@ func _draw() -> void:
 		draw_string(font, Vector2(size.x - 264 - 520, 41), need[0], HORIZONTAL_ALIGNMENT_RIGHT, 520, 13,
 			Style.COLOR_TEXT_HUD_BLOCKED if need[1] else main.C_BRASS)
 	var ok := els.filter(func(e): return _complete(e)).size()
-	draw_string(Style.figures(), Vector2(size.x - 244, 22), "Day %d   %d of %d steps in place" % [floori(main.day), ok, els.size()], HORIZONTAL_ALIGNMENT_RIGHT, 220, Style.SIZE_XS, main.C_BRASS)  # a counter: one-width digits
+	draw_string(Style.figures(), Vector2(size.x - 244, 22), "%d of %d steps in place" % [ok, els.size()], HORIZONTAL_ALIGNMENT_RIGHT, 220, Style.SIZE_XS, main.C_BRASS)  # a counter: one-width digits
 	draw_rect(Rect2(size.x - 244, 31, 220, 4), Color(main.C_BRASS, 0.2))
 	draw_rect(Rect2(size.x - 244, 31, 220.0 * float(ok) / els.size(), 4), main.C_BRASS)
 	# The tool roll.

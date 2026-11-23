@@ -164,7 +164,7 @@ func _process(delta: float) -> void:
 ## A soft-lock: nothing the player can affect has changed for a minute, despite constant input.
 func _watch_stuck(g, delta: float, screen: String) -> void:
 	var pos: Vector3 = g.player.global_position
-	var state := "%s %d %d %d %.3f %d" % [screen, roundi(pos.x), roundi(pos.z), g.money, g.day, g.rescued]
+	var state := "%s %d %d %d %d" % [screen, roundi(pos.x), roundi(pos.z), g.money, g.rescued]
 	if g.ferry:
 		state += " %s %d" % [g.ferry.state, g.ferry.speed]
 	stuck_t = 0.0 if state != last_state else stuck_t + delta

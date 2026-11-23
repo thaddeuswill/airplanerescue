@@ -93,7 +93,6 @@ func run(main, args: PackedStringArray) -> void:
 		if a.begins_with("--walk-shot="):  # every menu's first-time walkthrough, page by page
 			var pre := a.trim_prefix("--walk-shot=")
 			var wj: Dictionary = g.jobs[0]
-			wj.deadline = g.day + 30
 			await g._travel(wj, 0)
 			for id in wj.faults:
 				wj.found[id] = true
@@ -133,7 +132,6 @@ func run(main, args: PackedStringArray) -> void:
 				g.tutorial._tour_next()
 			await _snap(pre, "home_card", 0.4)
 			var tj: Dictionary = g.jobs[0]
-			tj.deadline = g.day + 30
 			await g._travel(tj, 0)
 			g.tutorial._show_notes(tj)
 			await _snap(pre, "notes", 0.4)
@@ -142,9 +140,9 @@ func run(main, args: PackedStringArray) -> void:
 			g._close_panel()
 			await _snap(pre, "field_card", 0.6)
 			# The debrief sheet, from this job's own record of what cost extra (E5).
-			g.note_cost("mag_call", 0.05, 0, "Left mag called bad")
-			g.note_cost("mail", 1.0, 30, "Gasket kit by mail")
-			g.logbook.append({"day": floori(g.day), "city": tj.city, "type": tj.type, "pay": tj.reward, "work": []})
+			g.note_cost("mag_call", 0, "Left mag called bad")
+			g.note_cost("mail", 30, "Gasket kit by mail")
+			g.logbook.append({"city": tj.city, "type": tj.type, "pay": tj.reward, "work": []})
 			g.logbook[-1]["debrief"] = g.job_debrief(tj, tj.reward, [], false)
 			g._pending_debrief = g.logbook[-1]
 			g._open_debrief()
@@ -219,7 +217,6 @@ func run(main, args: PackedStringArray) -> void:
 		if a.begins_with("--city="):  # pick the field, e.g. a plains town to see trees
 			job.city = a.trim_prefix("--city=")
 	var start = g.money
-	job.deadline = g.day + 30  # don't let a long test trip expire the job
 	while not g._warming.is_empty():  # a player spends this on the title screen
 		await get_tree().process_frame
 	var trip_start := Time.get_ticks_msec()
@@ -276,7 +273,7 @@ func run(main, args: PackedStringArray) -> void:
 		g._open_menu()
 		await _snap(shot, "menu")
 		g._close_menu()
-		g._show_loading("Flying to Omaha", "264 NM, about 0.4 days on the road and in the air.\nThe owner: " + g._symptoms(job), "Dallas", "Omaha")
+		g._show_loading("Flying to Omaha", "264 NM.\nThe owner: " + g._symptoms(job), "Dallas", "Omaha")
 		g._bar.value = 60
 		await _snap(shot, "loading")
 		g._arrival_card("Omaha")
@@ -477,20 +474,20 @@ func run(main, args: PackedStringArray) -> void:
 		_chk(ok, 75)
 	# Save, scramble, load: everything comes back and the job here is still the one you're on.
 	g._save_game()
-	var before = [g.money, g.day, g.jobs.size(), g.current_job.city, g.current_job.checked.size()]
+	var before = [g.money, g.rescued, g.jobs.size(), g.current_job.city, g.current_job.checked.size()]
 	g.money = -999
 	g.current_job = null
 	g.jobs = []
 	var loaded = g._load_game()
-	ok = ok and loaded and [g.money, g.day, g.jobs.size(), g.current_job.city, g.current_job.checked.size()] == before \
+	ok = ok and loaded and [g.money, g.rescued, g.jobs.size(), g.current_job.city, g.current_job.checked.size()] == before \
 		and g.jobs.has(g.current_job)
 	job = g.current_job  # the loaded copy is the live one now
 	# A write that failed partway (full disk) never replaces the good save.
 	var bad_tmp = FileAccess.open(g.save_path + ".tmp", FileAccess.WRITE)
 	bad_tmp.store_string("not a save")
 	bad_tmp.close()
-	var good_day = g._read_save(g.save_path).day
-	ok = ok and not g._commit_save(g.save_path + ".tmp") and g._read_save(g.save_path).day == good_day \
+	var good_day = g._read_save(g.save_path).money
+	ok = ok and not g._commit_save(g.save_path + ".tmp") and g._read_save(g.save_path).money == good_day \
 		and not FileAccess.file_exists(g.save_path + ".tmp")
 	# A torn write (garbage in the main file) falls back to the .bak copy.
 	g._save_game()  # main = this state, .bak = the one before
@@ -643,11 +640,11 @@ func run(main, args: PackedStringArray) -> void:
 				await _snap(shot, "runup_call", 0.2)
 				calls_ok = calls_ok and Ferry.mag_reason(0).ends_with("Bad.") and Ferry.mag_reason(Ferry.MAG_LIMIT + 1).ends_with("Bad.") \
 					and Ferry.mag_reason(Ferry.MAG_LIMIT).ends_with("Good.") and Ferry.mag_reason(1).ends_with("Good.")
-				var day0: float = g.day
+				var m0: int = g.money  # a wrong call costs a small charge, not time (D2)
 				calls_ok = calls_ok and not rf._aid_mag  # no mistake yet, no aid
 				rf.call_mag(false)  # a fixed plane's mag is good: "bad" is wrong
 				calls_ok = calls_ok and rf._aid_mag and String(rf.card().foot).begins_with("Good:")  # E4: the rule on the card
-				var wrong_ok: bool = rf._calls[0] == -1 and g.day > day0 and g._log_list.get_children().any(func(l): return l.text.begins_with("Not quite. Left mag"))
+				var wrong_ok: bool = rf._calls[0] == -1 and g.money == m0 - mini(m0, g.WRONG_GUESS) and g._log_list.get_children().any(func(l): return l.text.begins_with("Not quite. Left mag"))
 				calls_ok = calls_ok and wrong_ok
 				rf.call_mag(true)
 				calls_ok = calls_ok and rf._calls[0] == 1
@@ -787,7 +784,7 @@ func run(main, args: PackedStringArray) -> void:
 	_shot = shot
 	ok = await _start_failures() and ok
 	await _snap(shot, "engine_log", 0.1)
-	var before_fly: int = g.money  # rent has come out day by day since the start; the pay lands on top
+	var before_fly: int = g.money  # the pay lands on top, less the job's hangar fee (D2)
 	await _fly(true, shot)
 	# The debrief (E5): up after the delivery, with the wrong mag call this test made and advice.
 	var deb: Dictionary = g.logbook[-1].get("debrief", {}) if g.logbook.size() > 0 else {}
@@ -799,6 +796,7 @@ func run(main, args: PackedStringArray) -> void:
 	ok = _debrief_no_time(deb) and ok
 	await _snap(shot, "debrief", 0.3)
 	ok = await _mission_card_ok(deb) and ok
+	ok = _no_days_ok() and ok
 	# Badges (P8): earned only when the standard was met. This run checked every spot and missed
 	# nothing (Sharp Eyes) and the scene tests torqued to spec (To Spec); it also called a mag wrong,
 	# had an entry sent back and looped on purpose, so those badges must be withheld.
@@ -919,7 +917,7 @@ func run(main, args: PackedStringArray) -> void:
 	g._close_panel()
 	ok = ok and ladder_ok
 	var bonus: int = g.tutorial.REWARDS[lesson].cash if lesson > 0 else 0  # a lesson pays a bonus on delivery
-	ok = ok and g.ferry == null and g.rescued == 1 and g.money == before_fly + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) \
+	ok = ok and g.ferry == null and g.rescued == 1 and g.money == before_fly + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) - g.HANGAR_FEE \
 		and g.money < start + job.reward + bonus + roundi(job.get("supplies", {}).get("billed", 0.0)) and g.jobs.size() == g.MAX_JOBS
 	# The ending and game-over screens both leave a way out and can't be closed by accident.
 	var rescued_now = g.rescued
@@ -929,12 +927,11 @@ func run(main, args: PackedStringArray) -> void:
 	ok = ok and g.panel != null and not g.panel_closable
 	g.rescued = rescued_now
 	g._open_game_over(500)
-	var was := [g.money, g.day, g.jobs.duplicate(true)]
-	g._odd_jobs()  # broke is a setback: a few days' odd jobs pay for the next flight
-	ok = ok and g.money > was[0] and g.panel == null
+	var was := [g.money, g.jobs.duplicate(true)]
+	g._odd_jobs()  # broke is a setback: odd jobs pay for the next flight, and no time passes (D2)
+	ok = ok and g.money == was[0] + g.ODD_JOB_PAY and g.panel == null and g.jobs.size() == was[1].size()
 	g.money = was[0]
-	g.day = was[1]
-	g.jobs = was[2]
+	g.jobs = was[1]
 	g._open_game_over(500)
 	await _snap(shot, "game_over")
 	ok = ok and g.panel != null and not g.panel_closable
@@ -970,7 +967,7 @@ func run(main, args: PackedStringArray) -> void:
 		if lesson == 3 and g.jobs.any(func(jj): return g.call_locked(jj)):
 			print("TUTORIAL: after the apprenticeship no call should be locked")
 			ok = false
-	print("SELF-TEST ", "PASS" if ok and edges_ok and scenes_ok else "FAIL", " edges=", edges_ok, " scenes=", scenes_ok, " city=", job.city, " seed=", g.test_seed, " faults=", job.faults, " day=%.1f" % g.day)
+	print("SELF-TEST ", "PASS" if ok and edges_ok and scenes_ok else "FAIL", " edges=", edges_ok, " scenes=", scenes_ok, " city=", job.city, " seed=", g.test_seed, " faults=", job.faults)
 	get_tree().quit(0 if ok and edges_ok and scenes_ok else 1)
 
 
@@ -1004,7 +1001,7 @@ func _all_fields() -> bool:
 	for city in g.CITIES:
 		var j: Dictionary = g.jobs[0]
 		j.merge({"faults": ["oil_leak"], "fixed": {}, "found": {}, "checked": {}, "work": {}, "runup": "ran", "fuel": 1.0, "washed": true,
-			"signed": true, "parked": "apron", "reward": 4000, "deadline": g.day + 30}, true)
+			"signed": true, "parked": "apron", "reward": 4000}, true)
 		g._load_field(city, j)
 		await _fly(true)
 		var landed: bool = g.ferry == null and g.current_job == j and j.found.has("oil_leak")
@@ -1012,7 +1009,7 @@ func _all_fields() -> bool:
 		# And nothing wrong at all: a clean take-off has to clear the land around every strip.
 		j = g.jobs[0]
 		j.merge({"faults": [], "fixed": {}, "found": {}, "checked": {}, "work": {}, "runup": "ran", "fuel": 1.0, "washed": true,
-			"signed": true, "parked": "apron", "reward": 4000, "deadline": g.day + 30}, true)
+			"signed": true, "parked": "apron", "reward": 4000}, true)
 		g.rescued = 0
 		g._load_field(city, j)
 		await _fly(false)
@@ -1029,7 +1026,7 @@ func _trouble_tests(shot: String) -> bool:
 	g._close_panel()
 	var j: Dictionary = g.jobs[0]
 	j.merge({"faults": ["oil_leak"], "fixed": {}, "found": {}, "checked": {}, "work": {}, "runup": "ran", "fuel": 1.0, "washed": true,
-		"signed": true, "parked": "apron", "reward": 4000, "deadline": g.day + 30}, true)
+		"signed": true, "parked": "apron", "reward": 4000}, true)
 	g._load_field(g.location, j)
 	g._open_inspection("cabin")
 	var ok: bool = g.panel != null  # nothing found, run-up done: signing is open even with spots unchecked
@@ -1055,7 +1052,7 @@ func _trouble_tests(shot: String) -> bool:
 	# A tire goes on the runway, before there's anything to land.
 	var k: Dictionary = g.jobs[0]
 	k.merge({"faults": ["tire"], "fixed": {}, "found": {}, "checked": {}, "work": {}, "runup": "ran", "fuel": 1.0, "washed": true,
-		"signed": true, "parked": "apron", "reward": 4000, "deadline": g.day + 30}, true)
+		"signed": true, "parked": "apron", "reward": 4000}, true)
 	g._load_field(g.location, k)
 	await _fly(false)
 	ok = ok and g.ferry == null and g.current_job == k and k.found.has("tire") and not k.signed
@@ -1230,9 +1227,9 @@ func _fly(well: bool, shot := "") -> void:
 
 ## Money and deadline edges, run at home before the main test; restores what it touches.
 func _edge_tests() -> bool:
-	var saved = [g.money, g.jobs, g.current_job, g.day]
-	var fake = func(id: String, deadline: float) -> Dictionary:
-		return {"city": g.location, "type": "Test", "faults": [id], "fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": 0, "deadline": deadline}
+	var saved = [g.money, g.jobs, g.current_job]
+	var fake = func(id: String) -> Dictionary:
+		return {"city": g.location, "type": "Test", "faults": [id], "fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": 0}
 	# 0. Update version compare: numeric per part, missing parts are 0.
 	var ok: bool = Updater.newer("1.10.0", "1.9.3") and Updater.newer("0.9.1", "0.9") \
 		and not Updater.newer("0.9.0", "0.9.0") and not Updater.newer("0.8.9", "0.9.0")
@@ -1257,7 +1254,7 @@ func _edge_tests() -> bool:
 	if mail_only.size() > 0:
 		var id: String = mail_only[0]
 		g.jobs = []
-		g.current_job = fake.call(id, g.day + 30)
+		g.current_job = fake.call(id)
 		g.money = g.FAULTS[id].cost
 		g._open_travel()
 		ok = ok and g.panel != null and not g.panel_closable  # the game-over panel can't be closed
@@ -1267,7 +1264,7 @@ func _edge_tests() -> bool:
 	var saved_tools = g.tools
 	var saved_inv = g.inventory
 	g.jobs = []
-	g.current_job = fake.call("propeller", g.day + 30)
+	g.current_job = fake.call("propeller")
 	g.inventory = {"Propeller": 1}
 	g.tools = g.STARTER_TOOLS.duplicate()
 	g.money = 0
@@ -1291,14 +1288,18 @@ func _edge_tests() -> bool:
 	while g.jobs.size() < g.MAX_JOBS:
 		g._spawn_job()
 	ok = ok and g.jobs.any(func(j): return g.miles(g.location, j.city) < g.NEAR_MILES)
-	# 2. The owner's deadline passes during an inspection: the job is dropped cleanly.
-	g.jobs = [fake.call("tire", g.day + 0.01)]
+	# 2. No clock (D2): a call never expires, however long you take; a new call has no deadline.
+	g.jobs = [fake.call("tire")]
 	g.current_job = g.jobs[0]
 	g._inspect_zone("gear_l")
-	ok = ok and g.current_job == null and g.panel == null  # before the fix this line ran after a script error
+	ok = ok and g.current_job != null and g.jobs.size() >= 1 and not "day" in g
+	g._close_panel()
+	g.jobs = []
+	g._spawn_job()
+	ok = ok and not g.jobs[0].has("deadline")
 	# 3. Look-alikes: a bad magneto reads like fouled plugs. Swapping the plugs is spent, the next
 	#    run-up shows no change, and the magneto is left as the one answer.
-	g.current_job = fake.call("magneto", g.day + 30)
+	g.current_job = fake.call("magneto")
 	g.current_job.merge({"tried": {}, "washed": true}, true)
 	g.jobs = [g.current_job]
 	g._run_up()
@@ -1309,7 +1310,7 @@ func _edge_tests() -> bool:
 	g._run_up()
 	ok = ok and mj.tried == {"spark_plugs": true} and g.mag_drops(mj).x > 175
 	# 4. Hot mag and dead carb heat show only as zero drops on the run-up.
-	g.current_job = fake.call("hot_mag", g.day + 30)
+	g.current_job = fake.call("hot_mag")
 	g.current_job.faults.append("carb_heat")
 	g.current_job.merge({"tried": {}, "washed": true}, true)
 	g.jobs = [g.current_job]
@@ -1328,7 +1329,6 @@ func _edge_tests() -> bool:
 	g.money = saved[0]
 	g.jobs = saved[1]
 	g.current_job = saved[2]
-	g.day = saved[3]
 	return ok
 
 
@@ -1368,7 +1368,7 @@ func _faults_test() -> bool:
 ## and tapping to keep the needle in the green for a second clicks it tight.
 func _torque_test() -> bool:
 	var saved = [g.current_job, g.tools]
-	g.current_job = {"city": g.location, "type": "Test", "faults": ["propeller"], "fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": 0, "deadline": g.day + 30}
+	g.current_job = {"city": g.location, "type": "Test", "faults": ["propeller"], "fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": 0}
 	g.tools = {"ratchet": true, "torque": true}
 	g._repair("propeller")
 	var w = g.panel
@@ -1468,7 +1468,7 @@ func _answer_quiz(id: String) -> bool:
 ## don't count, each test's readings lead to the right call for every fault it can find,
 ## grounding a plane pays and ends the job, and a cold engine needs preheating.
 func _scene_tests() -> bool:
-	var saved = [g.money, g.jobs, g.current_job, g.day, g.tools, g.inventory]
+	var saved = [g.money, g.jobs, g.current_job, null, g.tools, g.inventory]
 	var ok := true
 	g.tools = {}
 	for t in Work.TOOLS:
@@ -1483,7 +1483,7 @@ func _scene_tests() -> bool:
 			g.inventory[g.FAULTS[id].part] = 5
 	var fake = func(faults: Array, type := "Test") -> Dictionary:
 		var j := {"city": g.location, "type": type, "faults": [], "fixed": {}, "found": {}, "checked": {}, "work": {},
-			"reward": 1000, "deadline": g.day + 60, "spent": {"fuel": 0, "parts": 0, "mail": 0}}
+			"reward": 1000, "spent": {"fuel": 0, "parts": 0, "mail": 0}}
 		g._assign_faults(j, faults)
 		g.jobs = [j]
 		g.current_job = j
@@ -1510,8 +1510,8 @@ func _scene_tests() -> bool:
 		if w is Work:
 			var traps: Array = w.els.filter(func(e): return e.has("trap"))
 			if traps.size() > 0:  # a trap costs time, never completes
-				var d0: float = g.day
-				ok = ok and w.perform(traps[0], "do") and w.st[traps[0].id] == "todo" and g.day > d0
+				var m0: int = g.money  # the wrong move costs the try and teaches why; no charge, no time
+				ok = ok and w.perform(traps[0], "do") and w.st[traps[0].id] == "todo" and g.money == m0 and w.note != ""
 		g._close_panel()
 	# Every test chain, for every fault that uses it.
 	for id in g.FAULTS:
@@ -1621,14 +1621,13 @@ func _scene_tests() -> bool:
 	g.difficulty = "hard"
 	ok = ok and not g.guide("medium") and g.clue("pre_oil") != g.CLUES["pre_oil"] and g.clue("tire") == g.CLUES["tire"]
 	var hj: Dictionary = fake.call(["tire"])
-	var t0: float = g.day
 	g._run_test("compression")
-	ok = ok and g.panel is Work and g.panel.solve() and g.day > t0 and hj.get("dready", {}).is_empty()
+	ok = ok and g.panel is Work and g.panel.solve() and hj.get("dready", {}).is_empty()
 	g._close_panel()
 	var cash: int = g.money
 	var r0: int = g.rescued
 	g._sign_off()
-	ok = ok and g.money - cash == 1000 - (g.FAULTS.tire.cost * 2 + 200) and g.logbook[-1].work[0].begins_with("Comeback")
+	ok = ok and g.money - cash == 1000 - (g.FAULTS.tire.cost * 2 + 200) - g.HANGAR_FEE and g.logbook[-1].work[0].begins_with("Comeback")
 	ok = ok and Array(g.logbook[-1].debrief.extra).any(func(x): return x.begins_with("Comeback")) and g.logbook[-1].debrief.next == g.DEBRIEF_ADVICE.comeback
 	g.rescued = r0
 	g.logbook.pop_back()
@@ -1641,14 +1640,13 @@ func _scene_tests() -> bool:
 	g.used_supply("magneto", "Gasket", true)
 	cash = g.money
 	g._sign_off()
-	ok = ok and g.money - cash == 1000 + 15 and g.logbook[-1].supplies == 15
+	ok = ok and g.money - cash == 1000 + 15 - g.HANGAR_FEE and g.logbook[-1].supplies == 15  # less the job's hangar fee (D2)
 	g.rescued = r0
 	g.logbook.pop_back()
 	g.difficulty = diff
 	g.money = saved[0]
 	g.jobs = saved[1]
 	g.current_job = saved[2]
-	g.day = saved[3]
 	g.tools = saved[4]
 	g.inventory = saved[5]
 	if not ok:
@@ -1682,7 +1680,7 @@ func _scene_shots(prefix: String, only := []) -> void:
 		if only.size() > 0 and not scene in only:
 			continue
 		var j := {"city": g.location, "type": "Test", "faults": [], "fixed": {}, "found": {}, "checked": {}, "work": {},
-			"reward": 1000, "deadline": g.day + 60, "spent": {"fuel": 0, "parts": 0, "mail": 0}}
+			"reward": 1000, "spent": {"fuel": 0, "parts": 0, "mail": 0}}
 		var cause: String = scene
 		if scene in g.TESTS:
 			cause = g.TEST_KEY[scene].keys()[0]
@@ -1765,7 +1763,7 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	var station_ok: bool = st_l.size() == 1 and st_l[0].text.begins_with(g.station_code(g.logbook[-1].city)) \
 		and g.STATIONS.size() == g.CITIES.size() and g.CITIES.keys().all(func(c): return String(g.STATIONS.get(c, "")).length() == 4)
 	var tot_row: Array = card.find_children("Total", "HBoxContainer", true, false)
-	var want_total: int = int(deb.pay) + int(deb.get("bonus", 0)) - int(deb.fuel) - int(deb.parts) - int(deb.rent)
+	var want_total: int = int(deb.pay) + int(deb.get("bonus", 0)) - int(deb.fuel) - int(deb.parts) - int(deb.rent) - int(deb.get("guesses", 0))
 	var tot_txt: String = tot_row[0].get_child(1).text if tot_row.size() > 0 else ""
 	var total_ok: bool = tot_txt.replace(",", "") == "%s$%d" % ["+" if want_total > 0 else "-" if want_total < 0 else "", absi(want_total)]
 	var fit_ok: bool = card.get_global_rect().size.y <= card.get_viewport_rect().size.y
@@ -1791,4 +1789,35 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	g._close_panel()
 	var ok := ticket_ok and banner_ok and top_ok and said_ok and centre_ok and colour_ok and n_gain >= 2 and n_loss >= 1 and badge_ok and none_ok
 	print("mission card: banner cleared %s, nothing at the top %s, owner's words %s, centred %s, colours %s (%d gain, %d loss), badges %s %s, none %s" % [banner_ok, top_ok, said_ok, centre_ok, colour_ok, n_gain, n_loss, badge_ok, got, none_ok])
+	return ok
+
+
+## D2: no day count anywhere the player looks. Reads every page of the wallet, logbook (with the
+## badge board), the map, the career on the game-over sheet and the pause readout; the hangar fee
+## is shown as a fee per job. And a save from before D2 loses its clock when it loads.
+func _no_days_ok() -> bool:
+	var rx := RegEx.create_from_string("(?i)\\bday\\s*[0-9]|[0-9.]+\\s*days?\\b|days? (on site|on the road)|\\ba day\\b|waits [0-9]|days' rent|half a day")
+	var seen: PackedStringArray = []
+	var bad: PackedStringArray = []
+	var sheets := {"wallet": func(): g._open_wallet(), "logbook": func(): g._pocket("logbook"), "map": func(): g._open_travel(),
+		"career": func(): g._open_game_over(500)}
+	for name in sheets:
+		g._close_panel()
+		sheets[name].call()
+		for page in g._pages:
+			for r in page:
+				var t := " ".join(PackedStringArray(Array(r).filter(func(x): return x is String)))
+				seen.append(t)
+				if rx.search(t) != null:
+					bad.append("%s: %s" % [name, t.left(80)])
+	g._close_panel()
+	var all := "\n".join(seen)
+	var fee_ok: bool = all.contains("$%d a job" % g.HANGAR_FEE) and all.contains("$%d hangar fee" % g.HANGAR_FEE)
+	var hud_ok: bool = rx.search(g.msg.text) == null and not "day" in g
+	# An old save: version 2, with a clock and a deadline.
+	var old := {"version": 2, "day": 7.5, "money": 900, "jobs": [{"city": "Omaha", "deadline": 9.0, "arrived": 6.0}]}
+	g._migrate(old)
+	var migrate_ok: bool = int(old.version) == g.SAVE_VERSION and not old.has("day") and not old.jobs[0].has("deadline") and not old.jobs[0].has("arrived")
+	var ok: bool = bad.is_empty() and fee_ok and hud_ok and migrate_ok
+	print("no days: shown %s, fee %s, hud %s, old save %s" % ["none" if bad.is_empty() else str(bad), fee_ok, hud_ok, migrate_ok])
 	return ok

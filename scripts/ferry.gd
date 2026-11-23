@@ -56,7 +56,6 @@ var _aid_mag := false  # a wrong mag call: the limit and the three cases on the 
 var _aid_rudder := false  # a ground loop: a straight-line cue on the roll until it's airborne
 var _failed_starts := 0  # starts that didn't catch this time in the seat (the Clean Start badge)
 var _looped := false  # a ground loop on this flight (the Straight and True badge)
-const WRONG_CALL_DAYS := 0.05  # a wrong call costs time, as a wrong verdict does (main._verdict)
 var _mag_t := 0.0
 var _done_t := -1.0
 var _warned := false
@@ -176,11 +175,10 @@ func call_mag(good: bool) -> void:
 	else:
 		main.sound.sfx("deny")
 		main.log_line("Not quite. %s mag: %s Call it again." % [side, mag_reason(drop)])
-		main.note_cost("mag_call", WRONG_CALL_DAYS, 0, "%s mag called %s" % [side, "good" if good else "bad"])
+		main._wrong_guess("%s mag called %s" % [side, "good" if good else "bad"], "mag_call")  # a charge, not time (D2)
 		if not _aid_mag:
 			_aid_mag = true
 			main.playlog("aid: mag limits on the card")
-		main._advance(WRONG_CALL_DAYS)
 
 
 ## "Can earn: <badge>" while that badge is still to earn, for the card's foot (P8).

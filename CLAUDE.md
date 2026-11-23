@@ -91,7 +91,10 @@ by Thad, written into `docs/PROCESS.md`.
 - Money: the owner pays for the job, its parts (in the quoted pay) and the supplies it used
   (paid back at sign-off). Anything you mess up comes out of your pocket: damage from running it
   unready, supplies used on it or on a place with nothing wrong, and comeback deductions.
-- Guessing costs time only: a wrong verdict or quiz answer advances the clock. Running the engine
+- No clock (changed by Thad 2026-11-23, D2): the game counts no days and times no job. Rent is a
+  flat hangar fee per job (`HANGAR_FEE`, $60); calls never expire; mail order arrives at once.
+- Guessing costs a small charge (`WRONG_GUESS`, $25): a wrong verdict, mag call, test or weight
+  and balance; a wrong move in a work scene costs only the try. Running the engine
   with "don't run it yet" work undone breaks a part you pay for (`RUNUP_DAMAGE` in `main.gd`,
   `docs/quick-specs/run-it-unready-2026-11-12.md`).
 - Saves: `SAVE_VERSION` in `main.gd`. Bump it when the layout changes and add the step to `_migrate`.

@@ -102,7 +102,7 @@ func run(main, args: PackedStringArray) -> void:
 			var openers := {"work_order": func(): g._open_inspection("engine"), "map": g._open_travel,
 				"logbook": g._open_logbook, "manual": func(): g._open_manual(""), "shop": g._open_shop, "mailorder": g._open_toolbox,
 				"kit": g._open_kit, "work": func(): g._open_work(wj.faults[0], func(): pass), "bay": func(): g._open_bay(g.FAULTS[wj.faults[0]].zone),
-				"truck": g._open_truck, "parts_table": g._open_parts_table, "signoff": func(): g._open_signoff(0), "tasks": g._open_tasks}
+				"truck": g._open_truck, "parts_table": g._open_parts_table, "tasks": g._open_tasks}
 			for id in openers:
 				g._close_panel()
 				await get_tree().process_frame
@@ -758,18 +758,7 @@ func run(main, args: PackedStringArray) -> void:
 	# Fly it out for real: hold throttle, pull back once past rotate speed.
 	g._start_ferry()
 	ok = ok and g.ferry == null  # an unsigned logbook keeps it on the ground
-	g._open_signoff()
-	await _snap(shot, "signoff")
-	var entry_ok: bool = g.entry_hint(0) == ""  # no mistake, no hint
-	g._entry_pick(0, "The owner can't approve the method.")  # sent back
-	entry_ok = entry_ok and g.entry_hint(0) != ""  # E4: the rule beside the choices for the next pick
-	await _snap(shot, "signoff_hint")
-	g._entry_pick(0, "")
-	entry_ok = entry_ok and g.entry_hint(0) == ""
-	if not entry_ok:
-		print("AID entry: the rule didn't show after an entry was sent back, or didn't go")
-	ok = ok and entry_ok
-	g._sign_logbook()
+	ok = await _sign_off_ok(job, shot) and ok
 	# Pause really stops the world, and resuming leaves nothing paused behind.
 	g._close_panel()
 	g._open_pause()
@@ -805,7 +794,7 @@ func run(main, args: PackedStringArray) -> void:
 	# Badges (P8): earned only when the standard was met. This run checked every spot and missed
 	# nothing (Sharp Eyes) and the scene tests torqued to spec (To Spec); it also called a mag wrong,
 	# had an entry sent back and looped on purpose, so those badges must be withheld.
-	var bad: Array = ["reads_the_drop", "by_the_book", "clean_job", "straight_and_true"].filter(func(b): return g.badges.has(b))
+	var bad: Array = ["reads_the_drop", "clean_job", "straight_and_true"].filter(func(b): return g.badges.has(b))
 	var good: Array = ["sharp_eyes", "to_spec"].filter(func(b): return not g.badges.has(b))
 	if not bad.is_empty() or not good.is_empty():
 		print("BADGES: earned without the skill ", bad, "; missing though earned ", good, " (have ", g.badges.keys(), ")")
@@ -2035,4 +2024,36 @@ func _cash_ok(shot: String) -> bool:
 	g._update_hud()
 	var ok: bool = reads_ok and beside_sheet and hidden_in_pause and pop_ok and sq_ok
 	print("cash: reads %s (%s), beside a sheet %s, hidden in the pause %s, pops clear of cash and squawk %s, squawk clear %s" % [reads_ok, c.text, beside_sheet, hidden_in_pause, pop_ok, sq_ok])
+	return ok
+
+
+
+## L1: signing off is one press. The work order offers "Sign off" (never the old entry choices);
+## pressing it signs with the entry written to the manual; there are seven badges, none of them By
+## the Book; an old save holding By the Book loses it on load.
+func _sign_off_ok(job: Dictionary, shot: String) -> bool:
+	g._open_inspection()
+	var labels: PackedStringArray = []
+	for pg in g._pages:
+		for r in pg:
+			if r.size() > 1:
+				labels.append(String(r[1]))
+	var button_ok: bool = labels.has("Sign off") and not labels.has("Write this") and not labels.has("Write up the logbook")
+	await _snap(shot, "signoff")
+	var sign: Array = []
+	for pg in g._pages:
+		for r in pg:
+			if r.size() > 2 and String(r[1]) == "Sign off":
+				sign.append(r[2])
+	if sign.size() > 0:
+		sign[0].call()
+	var signed_ok: bool = job.get("signed", false) and String(job.get("entry", "")).contains("AC 43.13-1B") \
+		and String(job.entry).contains("certificate")
+	var badges_ok: bool = g.BADGES.size() == 7 and not g.BADGES.any(func(b): return b[0] == "by_the_book") \
+		and g.tracker.get_child_count() == 7
+	var old := {"version": 3, "badges": {"by_the_book": 1, "sharp_eyes": 2}, "jobs": []}
+	g._migrate(old)
+	var migrate_ok: bool = not old.badges.has("by_the_book") and old.badges.has("sharp_eyes") and int(old.version) == g.SAVE_VERSION
+	var ok: bool = button_ok and signed_ok and badges_ok and migrate_ok
+	print("sign off: one button %s, signed to the manual %s, seven badges %s, old save %s" % [button_ok, signed_ok, badges_ok, migrate_ok])
 	return ok

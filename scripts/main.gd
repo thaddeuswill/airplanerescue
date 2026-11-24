@@ -498,7 +498,7 @@ func _install_update() -> void:
 var save_path := "user://airplane_rescue.save"
 var test_seed := 0  # printed with every self-test result
 const SAVE_KEYS := ["money", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held", "tut", "badges", "rank"]
-const SAVE_VERSION := 3  # bump when the layout changes, and teach _migrate the step
+const SAVE_VERSION := 4  # bump when the layout changes, and teach _migrate the step
 var _greeting := ""  # the first message of this session
 var had_save := false  # a career was loaded at launch (so the title screen offers Continue)
 var save_locked := false  # a save we couldn't read is never overwritten (it might be newer, or fixable)
@@ -580,6 +580,9 @@ func _migrate(data: Dictionary) -> void:
 				j[key] = {"years": 0, "washed": true, "spent": {"fuel": 0, "parts": 0, "mail": 0}, "work": {}, "fuel": 0.2, "parked": "apron"}[key]
 	if int(data.get("version", 0)) < 2:  # 2: the apprenticeship. A career already under way skips it.
 		data["tut"] = {"lesson": 0, "tour": true, "done": {}, "base": int(data.get("rescued", 0))}
+	if int(data.get("version", 0)) < 4:  # 4: signing off is one button (L1); By the Book is retired
+		var b: Dictionary = data.get("badges", {})
+		b.erase("by_the_book")
 	if int(data.get("version", 0)) < 3:  # 3: no day count (D2). Deadlines and the clock go.
 		data.erase("day")
 		for j in data.get("jobs", []):
@@ -1953,7 +1956,7 @@ func _buy(part: String, cost: int, mail := false) -> void:
 ## Climb in: the camera moves to the pilot's seat and ferry.gd runs the takeoff.
 func _start_ferry() -> void:
 	if not current_job.get("signed", false):
-		_say("The logbook isn't signed. Write it up before this plane goes anywhere.")
+		_say("The logbook isn't signed. Sign it off before this plane goes anywhere.")
 		return
 	playlog("ferry flight start")
 	_close_panel()
@@ -2018,73 +2021,22 @@ func _ferry_done() -> void:
 	_after_flight()
 
 
-## The aircraft logbook entry: what was done, in your words, over your signature.
-## A maintenance record has to say what was done, to what data, and who did it (14 CFR 43.9).
-## You build it a line at a time; an inspector would hand back a wrong one, and so does this.
-const ENTRY_STEPS := [
-	["Done in accordance with", [["AC 43.13-1B and the manufacturer's data", ""],
-		["The owner's say-so", "The owner can't approve the method. Work is done to approved or acceptable data, like AC 43.13-1B."],
-		["How I've always done it", "Memory isn't data. Cite what you worked to, like AC 43.13-1B or the manual."]]],
-	["Signed by", [["You, with your mechanic certificate type and number", ""],
-		["Just your signature", "The entry needs your certificate type and number as well as your signature."],
-		["The owner, since it's their plane", "The person who did the work signs for it. That's you."]]],
-]
-
-
-func _open_signoff(step := 0) -> void:
-	if step == 0:
-		tutorial.walk("signoff")
-	if step == 0:
-		playlog("logbook entry")
-	var job: Dictionary = current_job
+## Signing off (L1, Thad): the entry is always to the maintenance manual, so it's one press. The
+## entry is written for you: what was done, to AC 43.13-1B and the manufacturer's data, signed
+## with your certificate type and number (what 14 CFR 43.9 asks of a maintenance record).
+func logbook_entry_text(job: Dictionary) -> String:
 	var work: PackedStringArray = []
 	for id in job.faults:
 		if job.fixed.has(id):
 			work.append(FAULTS[id].name)
-	var rows := [["%s, at %s" % [job.type, job.city]],
-		["Work performed\n" + (", ".join(work) if work.size() > 0 else "Inspection only, no defects found.") + ". Ground run-up satisfactory."]]
-	if step < ENTRY_STEPS.size():
-		var s: Array = ENTRY_STEPS[step]
-		rows.append([s[0] + "..."])
-		if entry_hint(step) != "":  # after an entry was sent back: the rule, for the next pick
-			rows.append(["What the inspector wants\n" + entry_hint(step)])
-		var picks: Array = s[1].duplicate()
-		picks.sort_custom(func(a, b): return a[0] < b[0])  # alphabetical: the right one isn't always first
-		for p in picks:
-			rows.append([p[0], "Write this", func(): _entry_pick(step, p[1]), true])
-	else:
-		rows.append(["In accordance with AC 43.13-1B and the manufacturer's data. Approved for return to service.\nSigned, mechanic certificate type and number.", "Sign it", _sign_logbook, true])
-	_open_panel("Aircraft logbook", rows)
-
-
-## What an inspector wants at each step of the entry: the rule, not the option (E4).
-const ENTRY_HINTS := [
-	"The data you worked to: approved or acceptable data, such as an advisory circular or the maker's manual. Not a person, not habit.",
-	"Who signs: the person who did the work, with the type and number of their certificate.",
-]
-
-
-func entry_hint(step: int) -> String:
-	return ENTRY_HINTS[step] if current_job != null and current_job.get("aid", {}).get("entry", -1) == step and step < ENTRY_HINTS.size() else ""
-
-
-func _entry_pick(step: int, wrong: String) -> void:
-	_aid_off("entry")
-	if wrong != "":
-		_aid_on("entry", step)
-		note_cost("entry", 0, "A logbook entry sent back")
-		sound.sfx("deny")
-		_say("An inspector would hand that back. " + wrong)
-		_open_signoff(step)
-		return
-	sound.pen()
-	_open_signoff(step + 1)
+	return "%s. Ground run-up satisfactory. In accordance with AC 43.13-1B and the manufacturer's data. Approved for return to service. Signed, mechanic certificate type and number." % [
+		", ".join(work) if work.size() > 0 else "Inspection only, no defects found"]
 
 
 func _sign_logbook() -> void:
 	current_job.signed = true
-	if not current_job.get("lost", []).any(func(l): return l.kind == "entry"):
-		earn_badge("by_the_book")
+	current_job["entry"] = logbook_entry_text(current_job)
+	playlog("signed off")
 	sound.pen()
 	_save_game()
 	_open_inspection()
@@ -2214,7 +2166,6 @@ const DEBRIEF_ADVICE := {
 	"mag_call": "Read each drop against the limit: more than 75 rpm is bad, and no drop at all is bad too.",
 	"verdict": "Let the test decide: read the result against the manual page before you make the call.",
 	"guess": "Let what you've seen and heard point to the trouble before you run a test or work the numbers.",
-	"entry": "Write what you worked to: AC 43.13-1B and the manufacturer's data. Not memory, not the owner's say-so.",
 	"mail": "Check the town's shed before you fly out, and carry the parts every plane seems to need.",
 	"suspect": "Two suspects? Run the test that tells them apart before you buy the part.",
 	"runup_damage": "Finish the don't-run-it-yet work before the engine turns a single time.",
@@ -3363,7 +3314,7 @@ func _setup_act() -> void:
 	act.visible = false
 
 
-## The achievement tracker (P13): the eight badges as small icons, bottom centre, in process order,
+## The achievement tracker (P13): the badges as small icons, bottom centre, in process order,
 ## greyed until earned. Earning one colours it in with a pulse and shows its name for a moment.
 var tracker: HBoxContainer
 var _tracker_name: Label
@@ -3854,7 +3805,6 @@ const BADGES := [
 	["to_spec", "To Spec", "Repair", "Finish a job with torqued fasteners and no over-torque."],
 	["reads_the_drop", "Reads the Drop", "Run-up", "Call both mags right on a run-up, with no wrong call."],
 	["detective", "Detective", "Troubleshooting", "Follow a trail to its cause with no wrong call."],
-	["by_the_book", "By the Book", "Paperwork", "Sign the logbook with no entry sent back."],
 	["clean_start", "Clean Start", "Flight", "Start the engine with no failed attempt."],
 	["straight_and_true", "Straight and True", "Flight", "Take off with no ground loop."],
 	["clean_job", "Clean Job", "Career", "Deliver a plane with nothing extra on the debrief."],
@@ -3949,10 +3899,7 @@ func task_list(job: Dictionary) -> Array:
 	if job.get("parked", "apron") == "hangar":
 		add.call("todo", "Roll it out to the apron")
 	add.call("done" if job.get("fuel", 1.0) >= 0.5 else "todo", "Fuel it: half tanks at least")
-	var sent_back: bool = job.get("lost", []).any(func(l): return l.kind == "entry")
-	add.call("done" if job.get("signed", false) else ("retry" if sent_back else "todo"), "Sign the logbook",
-		"An entry was sent back: write what you worked to." if sent_back and not job.get("signed", false)
-		else (("Can earn: " + badge_on_offer("by_the_book")) if badge_on_offer("by_the_book") != "" and not job.get("signed", false) else ""))
+	add.call("done" if job.get("signed", false) else "todo", "Sign off")
 	var offer: PackedStringArray = []
 	for b in ["clean_start", "straight_and_true", "clean_job", "sharp_eyes"]:
 		if badge_on_offer(b) != "":
@@ -5297,7 +5244,7 @@ func _open_inspection(at := standing_at) -> void:
 		var skipped: int = ZONES.size() - job.checked.size()
 		rows.append(["Logbook not signed\n" + ("No plane leaves until the work is written up and signed for return to service." if skipped == 0
 			else "%d spot%s never checked. You can sign anyway, but anything you didn't look at will find you in the air." % [skipped, "" if skipped == 1 else "s"]),
-			"Write up the logbook" if at != "" else "", _open_signoff, at != ""])
+			"Sign off" if at != "" else "", _sign_logbook, at != ""])
 	elif ready and at == "cabin":
 		rows.append(["Airworthy! Fly it out to the owner.", "Climb in & take off (+$%d)" % job.reward, _start_ferry, true])
 	elif done:

@@ -144,8 +144,8 @@ func steps() -> Array:
 	var runup := {"id": "runup", "text": "Run it up",
 		"how": "Sit in at the cabin (%s). Fuel on, master, prime, start; hold 1700 rpm and check each mag." % k.call("interact"),
 		"ok": func(): return j != null and _fixed_all(j) and j.get("runup", "") == "ran"}
-	var sign := {"id": "sign", "text": "Sign the logbook",
-		"how": "From the work order at any spot: Write up the logbook. Nobody flies until you sign.",
+	var sign := {"id": "sign", "text": "Sign off",
+		"how": "From the work order at any spot: Sign off. Nobody flies until you sign.",
 		"ok": func(): return j != null and j.get("signed", false)}
 	var fuel := {"id": "fuel", "text": "Fuel it",
 		"how": "The fuel truck by the hangar: half tanks at least, out on the apron.",
@@ -868,7 +868,7 @@ func walk_pages(id: String) -> Array:
 			return [["sheet", "YOUR LOGBOOK", "Every plane you've put back in the air (%s)." % k.call("logbook"), [
 				["RANK", "First: what the next rank needs."],
 				["EACH ENTRY", "The plane, the station, what you did, what it cleared."],
-				["BADGES", "Last: all eight, the ones you've earned in ink."]]]]
+				["BADGES", "Last: all seven, the ones you've earned in ink."]]]]
 		"manual":
 			return [
 				["book", "THE SERVICE MANUAL", "It opens at whatever you're working on (%s)." % k.call("manual"), [
@@ -944,10 +944,6 @@ func walk_pages(id: String) -> Array:
 		"parts_table":
 			return [["sheet", "PARTS ON HAND", "Everything you carry, laid out.", [
 				["MORE", "PARTS shed, or mail order from the hangar."]]]]
-		"signoff":
-			return [["sheet", "THE LOGBOOK ENTRY", "Nothing flies until you sign for it.", [
-				["WRITE", "What you did and the data you worked to."],
-				["WRONG PICK", "Costs time, not money."]]]]
 	return []
 
 

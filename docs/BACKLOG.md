@@ -5,23 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 23 (2026-11-24): no wallet; cash at the top right (W1).**
-
-- **Goal**: your cash is always in sight without opening anything.
-- **Items**: the wallet sheet, its pocket icon, its walkthrough and its tour line go; Tab no longer
-  opens it (it still turns the catalog's sections, and Settings calls it that). Cash shows top
-  right in Courier Prime with thousands separators and a dark outline against the world; shown in
-  the world and beside sheets, hidden in the cockpit, menus and the catalog (which shows cash on
-  hand itself). Money pops sit just under it; in the cockpit they go to its list. The pinned squawk
-  moves down to clear it. What the wallet listed is already elsewhere: parts and materials on the
-  parts table and the catalog, tools in the work scenes and the catalog foot, the hangar fee on
-  the map.
-- **Risk gate**: input: the Tab action stays defined, so saved key bindings still load; nothing
-  else opens the wallet (self-test calls the old pocket and gets nothing). Layout: cash, pops,
-  squawk and the message band at the top right at 1280x720 must not overlap (rectangles measured).
-  Saves: nothing stored. Checks: self-test reads the cash label against `money` after a change, its
-  visibility in the world, a sheet, the cockpit and the pause, and the no-overlap; screenshots.
-- **Acceptance**: as W1 below.
+(None. Iteration 23 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 

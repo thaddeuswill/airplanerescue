@@ -941,6 +941,7 @@ func run(main, args: PackedStringArray) -> void:
 	g._open_game_over(500)
 	await _snap(shot, "game_over")
 	ok = ok and g.panel != null and not g.panel_closable
+	ok = await _game_over_ok() and ok
 	g._open_travel()
 	# A lesson's sign-off card opens on the map (Thad), not over the ticket.
 	await get_tree().process_frame
@@ -1751,7 +1752,7 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	var said_ok: bool = String(deb.get("said", "")) != "" and g.panel.find_children("Said", "Label", true, false).size() == 1
 	await get_tree().process_frame
 	var card: Control = g.panel
-	var centre_ok := card != null and card.name == "MissionCard" \
+	var centre_ok: bool = card != null and card.get_meta("card", "") == "MissionCard" \
 		and card.get_global_rect().get_center().distance_to(card.get_viewport_rect().size / 2.0) < 3.0
 	var colour_ok := true
 	var n_gain := 0
@@ -1822,8 +1823,7 @@ func _no_days_ok() -> bool:
 	var rx := RegEx.create_from_string("(?i)\\bday\\s*[0-9]|[0-9.]+\\s*days?\\b|days? (on site|on the road)|\\ba day\\b|waits [0-9]|days' rent|half a day")
 	var seen: PackedStringArray = []
 	var bad: PackedStringArray = []
-	var sheets := {"logbook": func(): g._pocket("logbook"), "map": func(): g._open_travel(),
-		"career": func(): g._open_game_over(500)}
+	var sheets := {"logbook": func(): g._pocket("logbook"), "map": func(): g._open_travel()}
 	for name in sheets:
 		g._close_panel()
 		sheets[name].call()
@@ -1833,6 +1833,13 @@ func _no_days_ok() -> bool:
 				seen.append(t)
 				if rx.search(t) != null:
 					bad.append("%s: %s" % [name, t.left(80)])
+	g._close_panel()
+	# The game-over card (U4) is a glass card, not sheet rows: read its labels.
+	g._open_game_over(500)
+	for l in g.panel.find_children("*", "Label", true, false):
+		seen.append(l.text)
+		if rx.search(l.text) != null:
+			bad.append("game over: " + l.text.left(80))
 	g._close_panel()
 	# U2: the catalogs are drawn as cards, not sheet rows: open the parts counter and the mail-order
 	# catalog, every section and every spread, and read every card's text.
@@ -1922,7 +1929,7 @@ func _ending_ok() -> bool:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var card: Control = g.panel
-	if card == null or card.name != "EndingCard":
+	if card == null or card.get_meta("card", "") != "EndingCard":
 		print("ending: not the glass card")
 		return false
 	var vp: Vector2 = card.get_viewport_rect().size
@@ -2290,4 +2297,38 @@ func _notes_pages_ok(shot: String) -> bool:
 	report.append("long squawk (7 sentences): %d squawk pages %s, three or fewer each %s, in order %s, page 2 shows the next chunk %s" % [chunks.size(), chunks.size() == 3, chunk_ok, in_order, page2_ok])
 	g.current_job = null
 	print("squawk pages: ", "; ".join(report))
+	return ok
+
+
+
+## U4: game over reads value-first on the ticket's glass: each figure bigger than its label,
+## centred and fitting at full size, not closable, one primary (odd jobs) of three buttons, and
+## pressing it pays and closes the card.
+func _game_over_ok() -> bool:
+	g._open_game_over(500)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var card: Control = g.panel
+	if card == null or card.get_meta("card", "") != "GameOverCard":
+		print("game over: not the glass card")
+		return false
+	var figs: Array = card.find_children("Figure", "Label", true, false)
+	var value_first: bool = figs.size() == 3 and figs.all(func(f):
+		var label: Label = f.get_parent().get_child(0)
+		return f.get_theme_font_size("font_size") > label.get_theme_font_size("font_size") * 2)
+	var buttons: Array = card.find_children("*", "Button", true, false)
+	var primary: Array = buttons.filter(func(b): return b.name == "Primary")
+	var one_primary: bool = primary.size() == 1 and buttons.size() == 3
+	var vp: Vector2 = card.get_viewport_rect().size
+	var fits: bool = card.scale.x >= 0.999 and card.get_global_rect().get_center().distance_to(vp / 2.0) < 3.0
+	var locked: bool = not g.panel_closable  # no closing it by accident
+	var m0: int = g.money
+	if one_primary:
+		primary[0].pressed.emit()
+	var pays: bool = g.money == m0 + g.ODD_JOB_PAY and g.panel == null
+	g._quiet_money = true
+	g.money = m0
+	g._quiet_money = false
+	var ok: bool = value_first and one_primary and fits and locked and pays
+	print("game over: value first %s, one primary %s, fits %s, odd jobs pays and closes %s" % [value_first, one_primary, fits, pays])
 	return ok

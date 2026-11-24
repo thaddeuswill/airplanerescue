@@ -2300,6 +2300,7 @@ func _glass_card(card_name: String, title: String, closable: bool) -> VBoxContai
 	_paper_sheet = false
 	var card := PanelContainer.new()
 	card.name = card_name
+	card.set_meta("card", card_name)  # names can be changed by Godot while an old card is still freeing
 	panel = card
 	card.set_anchors_preset(Control.PRESET_CENTER)
 	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -2448,7 +2449,7 @@ func _open_mission_card(e: Dictionary) -> void:
 
 ## True while the end-of-mission ticket is up: the apprentice checklist's slips wait until it closes.
 func ticket_open() -> bool:
-	return panel != null and is_instance_valid(panel) and panel.name == "MissionCard"
+	return panel != null and is_instance_valid(panel) and panel.get_meta("card", "") == "MissionCard"
 
 
 ## True while the map of rescue calls is up: the apprentice checklist's sign-off opens there (Thad),
@@ -2541,22 +2542,6 @@ func _card_award(icon: String, text: String) -> HBoxContainer:
 	return h
 
 
-func _career_stats() -> Array:
-	var paid := 0
-	var costs := 0
-	var longest := 0
-	for e in logbook:
-		paid += e.pay
-		costs += e.get("fuel", 0) + e.get("parts", 0)
-		longest = maxi(longest, e.get("years", 0))
-	var rows := [["Planes rescued\n%d of %d" % [rescued, GOAL]], ["Earned\n$%d, with $%d spent on fuel and parts" % [paid, costs]], ["Cash in hand\n$%d" % money]]
-	if longest > 0:
-		rows.append(["Longest neglected\nA plane that sat %d years" % longest])
-	return rows
-
-
-## The ending, as a ticket (E6, Thad): the career in figures, what it earned, and the way on. Only
-## what serves the game: no closing prose, no trivia. It can't be closed by accident.
 func _open_ending() -> void:
 	sound.done_tone()
 	var vb := _glass_card("EndingCard", "Career", false)
@@ -2639,13 +2624,61 @@ func career_cleared() -> int:
 	return sum
 
 
+## Out of money (U4): the ticket's glass card, the figures first and large, one line on what
+## happened and one on next time, odd jobs as the one way on. It can't be closed by accident.
 func _open_game_over(cheapest: int) -> void:
 	sound.low_tone()
-	_open_panel("Out of money and grounded", [["You rescued %d of %d planes\nThat work still counts: every one is in your logbook." % [rescued, GOAL]],
-		["What happened\nYou have $%d. The cheapest flight to a call costs $%d, and you can't afford to finish the job here." % [money, cheapest]],
-		["Next time\nKeep enough cash back to fly to the next call, and check the parts bill before you take a job."]]
-		+ _career_stats() + [["Odd jobs at the field here: +$%d" % ODD_JOB_PAY, "Take it", _odd_jobs, true],
-		["", "Start over", _restart, true], ["", "Main menu", _quit_to_title, true]], false)
+	var vb := _glass_card("GameOverCard", "Out of money and grounded", false)
+	var card: Control = panel
+	vb.add_child(_card_heading("Grounded"))
+	vb.add_child(Style.label("Out of money", "hud", Style.SIZE_XL, 900))
+	_card_gap(vb, Style.SPACE_3)
+	vb.add_child(_glass_rule())
+	_card_gap(vb, Style.SPACE_4)
+	var figures := HBoxContainer.new()
+	figures.add_theme_constant_override("separation", Style.SPACE_8)
+	vb.add_child(figures)
+	for f in [["Cash in hand", "$" + _thousands(money), "hud"], ["Cheapest flight", "$" + _thousands(cheapest), "loss"],
+			["Planes rescued", "%d of %d" % [rescued, GOAL], "hud"]]:
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 0)
+		col.add_child(_card_heading(f[0]))
+		var v := Style.label(f[1], f[2], Style.SIZE_2XL)
+		v.name = "Figure"
+		v.add_theme_font_override("font", Style.figures(true))
+		col.add_child(v)
+		figures.add_child(col)
+	_card_gap(vb, Style.SPACE_4)
+	var what := Style.label("You can't pay for the flight to the next call, or to finish the job here. Every plane you saved is still in your logbook.", "hud", Style.SIZE_SM)
+	what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	what.custom_minimum_size.x = 536
+	vb.add_child(what)
+	var nxt := Style.label("Next time: keep enough cash back to fly to the next call, and check the parts bill before you take a job.", "hud_muted", Style.SIZE_SM)
+	nxt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nxt.custom_minimum_size.x = 536
+	vb.add_child(nxt)
+	_card_gap(vb, Style.SPACE_6)
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", Style.SPACE_3)
+	vb.add_child(buttons)
+	var go := Button.new()
+	go.name = "Primary"
+	go.text = "Odd jobs here  +$%s" % _thousands(ODD_JOB_PAY)
+	Style.button(go, "primary")
+	go.custom_minimum_size = Vector2(220, 46)
+	go.pressed.connect(sound.sfx.bind("thread"))
+	go.pressed.connect(_odd_jobs)
+	buttons.add_child(go)
+	for q in [["Start over", _restart], ["Main menu", _quit_to_title]]:
+		var b := Button.new()
+		b.text = q[0]
+		Style.glass_button(b)
+		b.custom_minimum_size.y = 46
+		b.pressed.connect(sound.sfx.bind("thread"))
+		b.pressed.connect(q[1])
+		buttons.add_child(b)
+	_show_glass_card(card, go)
 
 
 const ODD_JOB_PAY := 900  # covers the nearest call (under $600) with some left for parts

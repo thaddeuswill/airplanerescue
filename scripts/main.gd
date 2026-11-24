@@ -3513,6 +3513,9 @@ func _money_pop(change: int) -> void:
 	if is_instance_valid(_pop) and not _pop.is_queued_for_deletion():
 		change += int(_pop.get_meta("sum", 0))
 		_pop.queue_free()
+	if change == 0:  # it came back to where it was: nothing to show
+		_pop = null
+		return
 	var l := Label.new()
 	_pop = l
 	l.set_meta("sum", change)

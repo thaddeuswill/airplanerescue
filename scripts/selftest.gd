@@ -2052,6 +2052,14 @@ func _cash_ok(shot: String) -> bool:
 	g.money += 1  # a fresh pop to measure
 	g.money += 1  # and a second at once: it adds to the first, one figure on screen
 	await get_tree().process_frame
+	if is_instance_valid(g._pop):  # start from no pop on screen
+		g._pop.queue_free()
+	g._pop = null
+	g.money -= 5
+	g.money += 5  # back where it was: the pop sums to nothing and goes, never a "$0"
+	var zero_gone: bool = not is_instance_valid(g._pop) or g._pop.is_queued_for_deletion()
+	g.money += 2  # a fresh one to measure below
+	await get_tree().process_frame
 	var pops: Array = g.ui.get_children().filter(func(n): return n is Label and n.has_meta("sum") and not n.is_queued_for_deletion())
 	var cash_r := c.get_global_rect()
 	var font := Style.figures(true)
@@ -2067,7 +2075,7 @@ func _cash_ok(shot: String) -> bool:
 	g.money = m0
 	g._quiet_money = false
 	g._update_hud()
-	var ok: bool = reads_ok and beside_sheet and hidden_in_pause and pop_ok and sq_ok
+	var ok: bool = reads_ok and beside_sheet and hidden_in_pause and pop_ok and sq_ok and zero_gone
 	print("cash: reads %s (%s), beside a sheet %s, hidden in the pause %s, pops clear of cash and squawk %s, squawk clear %s" % [reads_ok, c.text, beside_sheet, hidden_in_pause, pop_ok, sq_ok])
 	return ok
 

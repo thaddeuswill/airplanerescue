@@ -120,7 +120,7 @@ From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad 
   text band at the top in the cockpit, under the notes and behind the pause; screenshots.~~ In iteration 22.
 - ~~**U4. Stats read value-first.** The ending, game over, wallet and badge board show the figure
   large and its label small; Keep flying is the ending's one primary button; game over fits one
-  page. Acceptance: self-test measures value > label on those rows; screenshots.
+  page. Acceptance: self-test measures value > label on those rows; screenshots.~~ In iteration 28.
 - **U5. One money format.** Thousands separators wherever money shows (map, wallet, ending, game
   over, messages). Acceptance: self-test finds no "$" followed by four or more bare digits on any
   sheet.

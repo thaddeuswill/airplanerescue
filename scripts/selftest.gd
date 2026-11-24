@@ -2015,12 +2015,23 @@ func _cash_ok(shot: String) -> bool:
 	g._update_hud()
 	var hidden_in_pause: bool = not c.visible
 	g._close_menu()
-	var pops: Array = g.ui.get_children().filter(func(n): return n is Label and n != c and (n.text.begins_with("+$") or n.text.begins_with("-$")) and not n.is_queued_for_deletion())
+	g.money += 1  # a fresh pop to measure
+	await get_tree().process_frame
+	var pops: Array = g.ui.get_children().filter(func(n): return n is Label and String(n.name).begins_with("MoneyPop") and not n.is_queued_for_deletion())
 	var cash_r := c.get_global_rect()
-	var pop_ok: bool = pops.is_empty() or pops.all(func(p): return p.get_global_rect().position.y >= cash_r.end.y - 8.0)
+	var font := Style.figures(true)
+	var cash_ink := Rect2(cash_r.end.x - font.get_string_size(c.text, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_XL).x, cash_r.position.y, 9999, cash_r.size.y)
+	var sq_r: Rect2 = g.squawk.get_global_rect() if g.squawk.visible else Rect2()
+	var pop_ok: bool = not pops.is_empty() and pops.all(func(p):
+		var pr: Rect2 = p.get_global_rect()
+		var ink := Rect2(pr.end.x - font.get_string_size(p.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x, pr.position.y, 9999, pr.size.y)
+		ink.size.x = pr.end.x - ink.position.x
+		return not ink.intersects(cash_ink) and not ink.intersects(sq_r))
 	var sq_ok: bool = not g.squawk.visible or g.squawk.get_global_rect().position.y >= cash_r.end.y
+	g._quiet_money = true
 	g.money = m0
+	g._quiet_money = false
 	g._update_hud()
 	var ok: bool = reads_ok and beside_sheet and hidden_in_pause and pop_ok and sq_ok
-	print("cash: reads %s (%s), beside a sheet %s, hidden in the pause %s, pops under it %s, squawk clear %s" % [reads_ok, c.text, beside_sheet, hidden_in_pause, pop_ok, sq_ok])
+	print("cash: reads %s (%s), beside a sheet %s, hidden in the pause %s, pops clear of cash and squawk %s, squawk clear %s" % [reads_ok, c.text, beside_sheet, hidden_in_pause, pop_ok, sq_ok])
 	return ok

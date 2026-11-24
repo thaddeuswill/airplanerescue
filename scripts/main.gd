@@ -3511,12 +3511,15 @@ func _money_pop(change: int) -> void:
 		log_line("%s$%s" % ["+" if change > 0 else "\u2212", _thousands(absi(change))])
 		return
 	var l := Label.new()
-	l.text = "%s$%d" % ["+" if change > 0 else "-", absi(change)]
+	l.text = "%s$%s" % ["+" if change > 0 else "\u2212", _thousands(absi(change))]
 	l.anchor_left = 1.0
 	l.anchor_right = 1.0
-	l.offset_left = -220
-	l.offset_right = -20
-	l.offset_top = 56  # just under the cash it changed (W1)
+	# On the cash's own line, just to its left: never over the cash or the squawk under it (W1).
+	var cash_w: float = Style.figures(true).get_string_size(cash_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_XL).x
+	l.name = "MoneyPop"
+	l.offset_right = -20.0 - cash_w - 14.0
+	l.offset_left = l.offset_right - 200.0
+	l.offset_top = 18
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	l.add_theme_font_override("font", HEAD_FONT)
 	l.add_theme_font_size_override("font_size", 24)
@@ -3526,7 +3529,7 @@ func _money_pop(change: int) -> void:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(l)
 	var tw := l.create_tween().set_parallel()
-	tw.tween_property(l, "offset_top", 48.0, 1.4)  # a small lift toward the figure, never over it
+	tw.tween_property(l, "offset_top", 12.0, 1.4)  # a small lift, staying on the cash's line
 	tw.tween_property(l, "modulate:a", 0.0, 1.4).set_delay(0.5)
 	tw.chain().tween_callback(l.queue_free)
 

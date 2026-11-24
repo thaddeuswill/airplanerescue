@@ -5,19 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 29 (2026-11-24): a parse error fails the self-test, not hangs it (T1).** Ordered by Claude
-toward beta at Thad's request.
-
-- **Goal**: a broken script ends a test run at once, non-zero, naming the file, instead of hanging.
-- **Items**: an autoload, `scripts/boot_guard.gd`, that loads before the main scene and depends on
-  nothing else. In a self-test run it loads every script in `scripts/`; any that fails to parse
-  fails the run (`SELF-TEST FAIL load: <file>`, exit 1). And if the self-test hasn't started 60 s
-  after launch for any other reason, it fails the run saying so.
-- **Risk gate**: the game itself: the guard does nothing without `--self-test`. A false alarm would
-  fail good runs: proved on the definition-of-done set. Checks: a deliberate parse error in a copy
-  of the project ends the run non-zero in under a minute naming the file (and so does a broken
-  `main.gd`); the full set passes with the guard in.
-- **Acceptance**: as T1 below.
+(None. Iteration 29 is in review; see the log in `docs/PROCESS.md`. Next toward beta: F5.)
 
 ## Next
 

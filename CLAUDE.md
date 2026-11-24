@@ -27,6 +27,9 @@ godot --headless --path . -- --self-test --tutorial=2         # play apprentices
 - A run that stops never passes or waits forever: a watchdog thread fails it with `SELF-TEST FAIL hang`
   and the last place it reached (frames stopped for 60 s, or the run past 420 s).
   `--hang-test=wait|frozen` hangs on purpose to prove the watchdog works.
+- A script that won't parse can't start the self-test (or its watchdog): the `BootGuard` autoload
+  (`scripts/boot_guard.gd`) fails the run at once with `SELF-TEST FAIL load: <file>`, and fails it if
+  the self-test hasn't started within 60 s for any other reason.
 - Many runs at once: give each its own `user://` folder, or they fight over one save file:
   `XDG_DATA_HOME=/tmp/run1 godot --headless --path . -- --self-test` (Linux).
 - The `ERROR: Condition "(uint32_t)buff.size() != len"` line is expected. The test deliberately

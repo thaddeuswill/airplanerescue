@@ -5,7 +5,21 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 23 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 24 (2026-11-24): signing off is one button (L1).**
+
+- **Goal**: the logbook entry is always to the maintenance manual, so signing off is one press.
+- **Items**: the work order's "Write up the logbook" becomes "Sign off", which signs at once (the
+  entry written for you: the work, to AC 43.13-1B and the manufacturer's data, your certificate);
+  the entry sheet, its choices, the inspector's aid and its advice line go; the By the Book badge is
+  retired (Thad's choice: seven badges); the task list's sign row and the lesson's sign step say
+  "Sign off"; the sign-off walkthrough goes.
+- **Risk gate**: saves: a career that earned By the Book keeps a stale key; `SAVE_VERSION` 4 and
+  `_migrate` drop it so counts read "of 7". The IA rank needs 6 badges (a game rule, `IA_NEEDS`);
+  with one fewer badge it's harder: flagged for Thad, not changed. Flow: nothing flies until signed
+  (unchanged); the sign button sits where the old one did. Checks: self-test signs with one call,
+  finds no entry choices, counts seven badges everywhere (board, tracker, ending), migrates an old
+  save with the badge; screenshots of the work order and the logbook.
+- **Acceptance**: as L1 below.
 
 ## Next
 
@@ -53,9 +67,9 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   the top message band, reads over bright sky and snow (contrast measured over white), every step
   and key still shown; screenshots at 1280x720 of all three phases.
 
-- **L1. Signing off is one button** (Thad, 2026-11-23: "the logbook should always be in accordance
+- ~~**L1. Signing off is one button** (Thad, 2026-11-23: "the logbook should always be in accordance
   with the maintenance manual so theres no point for that screen or hud it should be a button to
-  just sign off the plane"). The entry-writing steps go ("Done in accordance with...", "Signed
+  just sign off the plane").~~ In iteration 24. Badge: retired (Thad, 2026-11-24). The entry-writing steps go ("Done in accordance with...", "Signed
   by..."): the entry is always to the maintenance manual and signed with your certificate, written
   for you; one Sign off button where that screen was. What depends on it, each to settle at
   planning:

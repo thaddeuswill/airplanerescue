@@ -2150,6 +2150,7 @@ func _badge_rules_ok() -> bool:
 	g.badges = keep[0]
 	g.streaks = keep[1]
 	g._refresh_tracker()  # the row shows the real career again
+	g._clear_top()  # and the test's badge banners go
 	var ok: bool = out.values().all(func(v): return v) and progress_ok and g.IA_NEEDS.badges == 4
 	print("badge rules: %s, progress %s" % [out, progress_ok])
 	return ok

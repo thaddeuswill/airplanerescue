@@ -5,20 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 28 (2026-11-24): stats read value-first (U4).**
-
-- **Goal**: on the screens that show career figures, the figure is the big thing and its label small.
-- **What's left of U4**: the ending (E6), the badge board (LB1, B1) and the wallet (gone in W1) are
-  done; the game-over sheet remains.
-- **Items**: game over becomes a glass card from the ticket's frame: "Out of money and grounded",
-  the figures large in Courier Prime with small labels (cash in hand, the cheapest flight, planes
-  rescued), one line on what happened and one on next time, the odd-jobs button as the one primary
-  (+$900), Start over and Main menu as quiet glass buttons; one page.
-- **Risk gate**: flow: game over still can't be closed by accident; odd jobs still pays and closes
-  it; each button does what it did. Layout: fits 1280x720 at full size. Checks: self-test opens it,
-  measures value > label for each figure, one primary, not closable, one page, odd jobs pays;
-  screenshot.
-- **Acceptance**: as U4 below.
+(None. Iteration 28 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 

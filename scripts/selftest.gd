@@ -2038,7 +2038,8 @@ func _sign_off_ok(job: Dictionary, shot: String) -> bool:
 		for r in pg:
 			if r.size() > 1:
 				labels.append(String(r[1]))
-	var button_ok: bool = labels.has("Sign off") and not labels.has("Write this") and not labels.has("Write up the logbook")
+	var hard: bool = not g.guide("medium")  # Hard offers one press at the cabin: "Sign off & take off"
+	var button_ok: bool = (hard or labels.has("Sign off")) and not labels.has("Write this") and not labels.has("Write up the logbook")
 	await _snap(shot, "signoff")
 	var sign: Array = []
 	for pg in g._pages:
@@ -2047,6 +2048,9 @@ func _sign_off_ok(job: Dictionary, shot: String) -> bool:
 				sign.append(r[2])
 	if sign.size() > 0:
 		sign[0].call()
+	elif hard:
+		g._sign(job)  # what Hard's "Sign off & take off" does before it takes off (checked in source below)
+		button_ok = button_ok and "_sign(current_job)" in (g.get_script() as GDScript).source_code.get_slice("func _hard_take_off", 1).get_slice("\nfunc ", 0)
 	var signed_ok: bool = job.get("signed", false) and String(job.get("entry", "")).contains("AC 43.13-1B") \
 		and String(job.entry).contains("certificate")
 	var badges_ok: bool = g.BADGES.size() == 7 and not g.BADGES.any(func(b): return b[0] == "by_the_book") \

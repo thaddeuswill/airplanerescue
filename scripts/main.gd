@@ -1603,6 +1603,8 @@ func _hard_take_off() -> void:
 	if current_job.get("runup", "") != "ran":
 		_run_up()
 		return
+	if not current_job.get("signed", false):  # "Sign off & take off" signs first (before L1 it didn't: a Hard soft-lock)
+		_sign(current_job)
 	_start_ferry()
 
 
@@ -2033,11 +2035,16 @@ func logbook_entry_text(job: Dictionary) -> String:
 		", ".join(work) if work.size() > 0 else "Inspection only, no defects found"]
 
 
-func _sign_logbook() -> void:
-	current_job.signed = true
-	current_job["entry"] = logbook_entry_text(current_job)
+## Signs the job off: the entry written to the manual, one press (L1).
+func _sign(job: Dictionary) -> void:
+	job.signed = true
+	job["entry"] = logbook_entry_text(job)
 	playlog("signed off")
 	sound.pen()
+
+
+func _sign_logbook() -> void:
+	_sign(current_job)
 	_save_game()
 	_open_inspection()
 	_banner("SIGNED OFF", "Approved for return to service")

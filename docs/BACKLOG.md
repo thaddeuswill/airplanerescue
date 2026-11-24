@@ -5,12 +5,28 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 22 is in review; see the log in `docs/PROCESS.md`. W1 is next, as Thad ordered.)
+**Iteration 23 (2026-11-24): no wallet; cash at the top right (W1).**
+
+- **Goal**: your cash is always in sight without opening anything.
+- **Items**: the wallet sheet, its pocket icon, its walkthrough and its tour line go; Tab no longer
+  opens it (it still turns the catalog's sections, and Settings calls it that). Cash shows top
+  right in Courier Prime with thousands separators and a dark outline against the world; shown in
+  the world and beside sheets, hidden in the cockpit, menus and the catalog (which shows cash on
+  hand itself). Money pops sit just under it; in the cockpit they go to its list. The pinned squawk
+  moves down to clear it. What the wallet listed is already elsewhere: parts and materials on the
+  parts table and the catalog, tools in the work scenes and the catalog foot, the hangar fee on
+  the map.
+- **Risk gate**: input: the Tab action stays defined, so saved key bindings still load; nothing
+  else opens the wallet (self-test calls the old pocket and gets nothing). Layout: cash, pops,
+  squawk and the message band at the top right at 1280x720 must not overlap (rectangles measured).
+  Saves: nothing stored. Checks: self-test reads the cash label against `money` after a change, its
+  visibility in the world, a sheet, the cockpit and the pause, and the no-overlap; screenshots.
+- **Acceptance**: as W1 below.
 
 ## Next
 
-- **W1. No wallet: cash at the top right** (Thad, 2026-11-23: "remove the wallet menu just show your
-  cash at the top right of the screen instead"). The wallet pocket (Tab) and its sheet go; your cash
+- ~~**W1. No wallet: cash at the top right** (Thad, 2026-11-23: "remove the wallet menu just show your
+  cash at the top right of the screen instead").~~ In iteration 23. The wallet pocket (Tab) and its sheet go; your cash
   shows at the top right of the main screen, in figures (Courier Prime, thousands separators),
   backed against the 3D world; the money pop and the cockpit's list share that corner today, so
   they're placed so as not to overlap (found in iteration 22). What the wallet also held moves where it already lives elsewhere:

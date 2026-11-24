@@ -342,11 +342,10 @@ func _draw_card() -> void:
 
 
 ## A red check, drawn in as it ticks (t 0 -> 1). Shared with the cockpit checklist (preflight.gd).
-static func draw_check(c: CanvasItem, box: Rect2, t: float) -> void:
+static func draw_check(c: CanvasItem, box: Rect2, t: float, col := Style.COLOR_TEXT_PAPER_ACCENT) -> void:
 	var a := box.position + Vector2(3, box.size.y * 0.55)
 	var b := box.position + Vector2(box.size.x * 0.42, box.size.y - 3)
 	var e := box.position + Vector2(box.size.x + 3, -3)
-	var col := Style.COLOR_TEXT_PAPER_ACCENT
 	if t < 0.4:
 		c.draw_line(a, a.lerp(b, t / 0.4), col, 3.0)
 	else:

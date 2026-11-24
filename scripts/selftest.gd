@@ -1106,6 +1106,7 @@ func _start_failures() -> bool:
 	ok = ok and f.state == "off" and f.flood > 0.0  # flooded
 	ok = ok and String(f.card().alert).begins_with("Flooded")  # and the checklist says how to clear it
 	await _snap(_shot, "checklist_flooded", 0.2)  # the real flooded start, with its fix on the card
+	ok = await _cockpit_card_ok("flooded start") and ok
 	f.throttle = 1.0
 	await _crank(3.3)
 	ok = ok and f.flood <= 0.0  # cleared with the throttle open
@@ -1128,6 +1129,7 @@ func _start_failures() -> bool:
 		gt += get_process_delta_time()
 	ok = ok and f.state == "run"  # a touch of throttle saves it
 	ok = ok and f.card().title == "TAKE-OFF" and f.card().alert == ""
+	ok = await _cockpit_card_ok("take-off") and ok
 	print("start failures ", ok)
 	return ok
 
@@ -1907,4 +1909,31 @@ func _ending_ok() -> bool:
 		and rings.size() == 1 and rings[0].done == g.GOAL and trimmed and rank_ok
 	print("ending: card centred %s, one primary %s, figures %d, ring %s, trimmed %s, rank %s, scale %.2f" % [centre_ok,
 		one_primary, figures.size(), rings.size() == 1 and rings[0].done == g.GOAL, trimmed, rank_ok, card.scale.x])
+	return ok
+
+
+
+## C1: the cockpit checklist is drawn small in the bottom-left corner on glass: within the screen,
+## narrower than the old 380 px card, smaller in area than the old card would be for the same
+## steps (380 wide, 26 px rows, a 30 px title), and its foot line wrapped, not cut off.
+func _cockpit_card_ok(phase: String) -> bool:
+	var pf = g.preflight
+	pf.queue_redraw()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not pf.wanted():
+		print("cockpit card (%s): not up" % phase)
+		return false
+	var r: Rect2 = pf.last_rect
+	var vp: Vector2 = pf.size
+	var c: Dictionary = g.ferry.card()
+	var old_h: float = 14 + 14 + 30 + c.steps.size() * 26 + (26 if c.foot != "" else 0) + 8 + (40 if c.alert != "" else 0)
+	var corner_ok: bool = r.position.x <= 16.5 and absf(r.end.y - (vp.y - 16.0)) < 1.0 and r.position.y >= 0.0
+	var smaller_ok: bool = r.size.x < 380.0 and r.get_area() < 380.0 * old_h
+	var font := Style.display(600)
+	var foot_w: float = font.get_string_size(c.foot, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_XS).x
+	var foot_ok: bool = c.foot == "" or foot_w <= r.size.x - 24.0 or font.get_multiline_string_size(c.foot, HORIZONTAL_ALIGNMENT_LEFT, r.size.x - 24.0, Style.SIZE_XS).y > Style.SIZE_XS * 1.5
+	var glass_ok: bool = pf._glass.visible and pf._glass.size == r.size
+	var ok: bool = corner_ok and smaller_ok and foot_ok and glass_ok
+	print("cockpit card (%s): corner %s, %dx%d (old about 380x%d) %s, foot %s, glass %s" % [phase, corner_ok, r.size.x, r.size.y, old_h, smaller_ok, foot_ok, glass_ok])
 	return ok

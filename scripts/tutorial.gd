@@ -653,7 +653,8 @@ func _show_notes(j: Dictionary, wording := "") -> void:
 ## Shows one page of the notes: its parts, then the page count, Back and Next (GO LOOK on the last).
 func _notes_page(i: int) -> void:
 	_notes_i = clampi(i, 0, _notes_pages.size() - 1)
-	for c in _notes_col.get_children():
+	for c in _notes_col.get_children():  # out now, not at the frame's end, so the card can shrink to this page
+		_notes_col.remove_child(c)
 		c.queue_free()
 	var w := 520.0
 	for part in _notes_pages[_notes_i]:
@@ -717,8 +718,15 @@ func _notes_page(i: int) -> void:
 		go.pressed.connect(func(): _notes_page(_notes_i + 1))
 	foot.add_child(go)
 	go.grab_focus.call_deferred()  # Enter moves on
+	_fit_notes.call_deferred()
+
+
+## The card fits this page: shrink to its contents (a short page after a long one), then re-centre.
+func _fit_notes() -> void:
+	if not is_instance_valid(_notes):
+		return
 	_notes.reset_size()
-	_center.call_deferred(_notes)
+	_center(_notes)
 
 
 func _close_notes() -> void:

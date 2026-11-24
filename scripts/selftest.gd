@@ -2228,6 +2228,9 @@ func _notes_pages_ok(shot: String) -> bool:
 			await get_tree().process_frame
 		var go: Array = live.call("GoLook")
 		path_ok = path_ok and go.size() == 1 and tut._notes_i == pages.size() - 1
+		await get_tree().process_frame
+		var fits: bool = tut._notes.size.y <= tut._notes.get_combined_minimum_size().y + 1.0  # no empty space left from a longer page
+		path_ok = path_ok and fits
 		if id == long_id:
 			await _snap(shot, "notes_last", 0.3)
 		if go.size() == 1:

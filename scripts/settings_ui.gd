@@ -16,8 +16,9 @@ const TABS := [["video", "Graphics & video"], ["audio", "Audio"], ["controls", "
 const BINDS := [
 	["On foot", [["move_forward", "Walk forward"], ["move_back", "Walk back"], ["move_left", "Step left"],
 		["move_right", "Step right"], ["jump", "Jump"], ["interact", "Use / inspect"]]],
-	["Pockets", [["wallet", "Wallet"], ["clipboard", "Clipboard"], ["logbook", "Logbook"], ["manual", "Service manual"],
+	["Pockets", [["clipboard", "Clipboard"], ["logbook", "Logbook"], ["manual", "Service manual"],
 		["tasks", "Task list"]]],
+	["Catalog", [["wallet", "Next section"]]],  # the action keeps its old name so saved bindings load (W1)
 	["Cockpit", [["throttle_up", "Throttle up"], ["throttle_down", "Throttle down"], ["rudder_left", "Left rudder"],
 		["rudder_right", "Right rudder"], ["stick_forward", "Stick forward"], ["stick_back", "Stick back"],
 		["starter", "Starter (hold)"], ["fuel_valve", "Fuel valve"], ["master", "Master switch"], ["primer", "Primer"],

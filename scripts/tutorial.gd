@@ -404,8 +404,7 @@ func _tour_pages() -> Array:
 		["card", "YOUR CHECKLIST", "Your first three jobs, one step at a time.", [
 			["TICKS", "Each step checks itself off when you do it right."],
 			["HELP", "Only the step you're on is explained."]]],
-		["pockets", "YOUR POCKETS", "Five things you carry, each on a key.", [
-			[k.call("wallet"), "Wallet: money, parts, tools."],
+		["pockets", "YOUR POCKETS", "Four things you carry, each on a key. Your cash is top right.", [
 			[k.call("clipboard"), "Work order for this plane."],
 			[k.call("logbook"), "Logbook: every plane you've saved."],
 			[k.call("manual"), "Service manual, open at your job."],
@@ -865,11 +864,6 @@ func walk_pages(id: String) -> Array:
 				["chart", "THE CHART", "Your field and every call.", [
 					["COURSE", "The heading and distance to each."],
 					["FLY", "Click a town, or Fly on the list."]]]]
-		"wallet":
-			return [["sheet", "YOUR WALLET", "Everything you own (%s)." % k.call("wallet"), [
-				["CASH", "What you have to spend."],
-				["TRUCK", "Parts, tools and materials you carry."],
-				["HANGAR FEE", "$60 a job, back home."]]]]
 		"logbook":
 			return [["sheet", "YOUR LOGBOOK", "Every plane you've put back in the air (%s)." % k.call("logbook"), [
 				["RANK", "First: what the next rank needs."],

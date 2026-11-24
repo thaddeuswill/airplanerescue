@@ -99,7 +99,7 @@ func run(main, args: PackedStringArray) -> void:
 			g.tutorial.force_walks = true
 			g.tut["menus"] = {}
 			g.tools.merge({"ratchet": true, "pliers": true})
-			var openers := {"work_order": func(): g._open_inspection("engine"), "map": g._open_travel, "wallet": g._open_wallet,
+			var openers := {"work_order": func(): g._open_inspection("engine"), "map": g._open_travel,
 				"logbook": g._open_logbook, "manual": func(): g._open_manual(""), "shop": g._open_shop, "mailorder": g._open_toolbox,
 				"kit": g._open_kit, "work": func(): g._open_work(wj.faults[0], func(): pass), "bay": func(): g._open_bay(g.FAULTS[wj.faults[0]].zone),
 				"truck": g._open_truck, "parts_table": g._open_parts_table, "signoff": func(): g._open_signoff(0), "tasks": g._open_tasks}
@@ -310,9 +310,9 @@ func run(main, args: PackedStringArray) -> void:
 	set_panel.tune(0)
 	radio_ok = radio_ok and g.sound.station == 0 and not set_panel._transport.visible
 	g._close_panel()
-	g._pocket("wallet")
-	var pockets_ok = g.panel != null and g.panel_kind == "wallet"
-	await _snap(shot, "wallet")
+	g._pocket("wallet")  # W1: there's no wallet any more; the old pocket opens nothing
+	var pockets_ok = g.panel == null and not g.has_method("_open_wallet")
+	pockets_ok = await _cash_ok(shot) and pockets_ok
 	g._pocket("logbook")
 	await _snap(shot, "logbook")
 	g._pocket("logbook")  # same key again puts it away
@@ -987,7 +987,7 @@ func _leak_test() -> bool:
 	await get_tree().process_frame
 	var nodes = Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
 	var mem = Performance.get_monitor(Performance.MEMORY_STATIC)
-	var opens: Array[Callable] = [g._open_wallet, g._open_logbook, g._open_shop, g._open_toolbox, g._open_travel, g._open_pause]
+	var opens: Array[Callable] = [g._open_logbook, g._open_shop, g._open_toolbox, g._open_travel, g._open_pause]
 	for i in 500:
 		opens[i % opens.size()].call()
 		await get_tree().process_frame
@@ -1811,14 +1811,14 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	return ok
 
 
-## D2: no day count anywhere the player looks. Reads every page of the wallet, logbook (with the
+## D2: no day count anywhere the player looks. Reads every page of the logbook (with the
 ## badge board), the map, the career on the game-over sheet and the pause readout; the hangar fee
 ## is shown as a fee per job. And a save from before D2 loses its clock when it loads.
 func _no_days_ok() -> bool:
 	var rx := RegEx.create_from_string("(?i)\\bday\\s*[0-9]|[0-9.]+\\s*days?\\b|days? (on site|on the road)|\\ba day\\b|waits [0-9]|days' rent|half a day")
 	var seen: PackedStringArray = []
 	var bad: PackedStringArray = []
-	var sheets := {"wallet": func(): g._open_wallet(), "logbook": func(): g._pocket("logbook"), "map": func(): g._open_travel(),
+	var sheets := {"logbook": func(): g._pocket("logbook"), "map": func(): g._open_travel(),
 		"career": func(): g._open_game_over(500)}
 	for name in sheets:
 		g._close_panel()
@@ -1831,7 +1831,7 @@ func _no_days_ok() -> bool:
 					bad.append("%s: %s" % [name, t.left(80)])
 	g._close_panel()
 	var all := "\n".join(seen)
-	var fee_ok: bool = all.contains("$%d a job" % g.HANGAR_FEE) and all.contains("$%d hangar fee" % g.HANGAR_FEE)
+	var fee_ok: bool = all.contains("$%d hangar fee" % g.HANGAR_FEE)  # on the map's estimates (the wallet sheet went in W1)
 	var hud_ok: bool = rx.search(g.msg.text) == null and not "day" in g
 	# An old save: version 2, with a clock and a deadline.
 	var old := {"version": 2, "day": 7.5, "money": 900, "jobs": [{"city": "Omaha", "deadline": 9.0, "arrived": 6.0}]}
@@ -1991,4 +1991,36 @@ func _top_bands_ok(where: String) -> bool:
 			g.current_job = was
 			g._say("")
 	print("top bands (%s): %s, %s" % [where, "only one" if ok else "too many", seen])
+	return ok
+
+
+
+## W1: cash is on screen, top right: it reads what you have (thousands separated) and follows a
+## change; it shows in the world and beside a sheet, not in the pause; money pops sit under it, and
+## neither overlaps the pinned squawk.
+func _cash_ok(shot: String) -> bool:
+	var c: Label = g.cash_label
+	var m0: int = g.money
+	g._close_panel()
+	g.money = m0 + 1234
+	g._update_hud()
+	await get_tree().process_frame
+	var reads_ok: bool = c.text == "$" + g._thousands(g.money) and c.visible
+	await _snap(shot, "cash", 0.2)
+	g._pocket("logbook")
+	g._update_hud()
+	var beside_sheet: bool = c.visible
+	g._close_panel()
+	g._open_pause()
+	g._update_hud()
+	var hidden_in_pause: bool = not c.visible
+	g._close_menu()
+	var pops: Array = g.ui.get_children().filter(func(n): return n is Label and n != c and (n.text.begins_with("+$") or n.text.begins_with("-$")) and not n.is_queued_for_deletion())
+	var cash_r := c.get_global_rect()
+	var pop_ok: bool = pops.is_empty() or pops.all(func(p): return p.get_global_rect().position.y >= cash_r.end.y - 8.0)
+	var sq_ok: bool = not g.squawk.visible or g.squawk.get_global_rect().position.y >= cash_r.end.y
+	g.money = m0
+	g._update_hud()
+	var ok: bool = reads_ok and beside_sheet and hidden_in_pause and pop_ok and sq_ok
+	print("cash: reads %s (%s), beside a sheet %s, hidden in the pause %s, pops under it %s, squawk clear %s" % [reads_ok, c.text, beside_sheet, hidden_in_pause, pop_ok, sq_ok])
 	return ok

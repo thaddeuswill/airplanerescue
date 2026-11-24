@@ -353,7 +353,8 @@ var cub: Node3D  # the plane model; its parts (tyre_l, rudder, antenna_elt...) a
 var visuals := {}  # fault id -> Node3D showing broken/fixed state
 var player
 var ui: CanvasLayer
-var hud: Control  # the pocket strip (wallet, clipboard, logbook keys)
+var hud: Control  # the pocket strip (clipboard, logbook, manual, tasks keys)
+var cash_label: Label  # your cash, top right (W1: no wallet sheet)
 var prompt: Label
 var msg: Label
 var preflight  # scripts/preflight.gd: the cockpit checklist card
@@ -3109,7 +3110,7 @@ func _input(e: InputEvent) -> void:  # before the GUI, so Tab isn't eaten by foc
 			panel.next_section(e.shift_pressed)
 			get_viewport().set_input_as_handled()
 		return
-	for kind in ["wallet", "clipboard", "logbook", "manual", "tasks"]:
+	for kind in ["clipboard", "logbook", "manual", "tasks"]:  # no wallet: cash is on screen (W1)
 		if e.is_action_pressed(kind):
 			_pocket(kind)
 			get_viewport().set_input_as_handled()
@@ -3506,13 +3507,16 @@ func _banner(title: String, sub: String) -> void:
 
 
 func _money_pop(change: int) -> void:
+	if ferry != null:  # in the cockpit it goes in the list, not under it (U3, W1)
+		log_line("%s$%s" % ["+" if change > 0 else "\u2212", _thousands(absi(change))])
+		return
 	var l := Label.new()
 	l.text = "%s$%d" % ["+" if change > 0 else "-", absi(change)]
 	l.anchor_left = 1.0
 	l.anchor_right = 1.0
 	l.offset_left = -220
-	l.offset_right = -24
-	l.offset_top = 22
+	l.offset_right = -20
+	l.offset_top = 56  # just under the cash it changed (W1)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	l.add_theme_font_override("font", HEAD_FONT)
 	l.add_theme_font_size_override("font_size", 24)
@@ -3522,7 +3526,7 @@ func _money_pop(change: int) -> void:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(l)
 	var tw := l.create_tween().set_parallel()
-	tw.tween_property(l, "offset_top", 2.0, 1.4)
+	tw.tween_property(l, "offset_top", 48.0, 1.4)  # a small lift toward the figure, never over it
 	tw.tween_property(l, "modulate:a", 0.0, 1.4).set_delay(0.5)
 	tw.chain().tween_callback(l.queue_free)
 
@@ -3573,6 +3577,9 @@ func _update_hud() -> void:
 	prompt.custom_minimum_size.x = 620.0 if ferry else 0.0  # flight numbers change every frame; a fixed box doesn't shake
 	prompt.add_theme_font_override("font", Style.figures() if ferry else UI_FONT)  # and one-width digits don't jitter inside it
 	msg.visible = msg.text != "" and not is_instance_valid(tutorial._notes)  # the notes card is the one band (U3)
+	cash_label.text = "$" + _thousands(money)
+	cash_label.visible = ferry == null and panel_kind != "menu" and not get_tree().paused and not (panel is CatalogUI) \
+		and not is_instance_valid(_menu_cam) and not is_instance_valid(_loader)
 	var checking: bool = preflight.wanted()  # the checklist card draws itself (preflight.gd)
 	var has_lines: bool = _log_list.get_child_count() > 0 or _log_now.visible
 	_log.visible = has_lines and (checking or Time.get_ticks_msec() < _log_until)
@@ -3613,7 +3620,7 @@ func _setup_squawk() -> void:
 	squawk.add_theme_stylebox_override("panel", sb)
 	squawk.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	squawk.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	squawk.position += Vector2(-16, 16)
+	squawk.position += Vector2(-16, 64)  # under the cash (W1)
 	squawk.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", Style.SPACE_1)
@@ -3664,7 +3671,7 @@ func _setup_pockets() -> void:
 	strip.offset_bottom = -14
 	strip.add_theme_constant_override("separation", 8)
 	strip.modulate.a = 0.55  # always there, never asking for attention
-	for p in [["wallet", "Tab"], ["clipboard", "J"], ["logbook", "L"], ["manual", "N"], ["tasks", "T"]]:
+	for p in [["clipboard", "J"], ["logbook", "L"], ["manual", "N"], ["tasks", "T"]]:
 		var icon := _hud_icon(p[0], 40)
 		var key := _keycap(p[1], 10)
 		key.position = Vector2(20 if p[1] == "Tab" else 28, 27)
@@ -3678,6 +3685,21 @@ func _setup_pockets() -> void:
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud = strip
 	ui.add_child(hud)
+	# Cash, top right, always in sight (W1, Thad): one-width figures, a dark outline against the world.
+	cash_label = Label.new()
+	cash_label.name = "Cash"
+	cash_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	cash_label.offset_left = -260
+	cash_label.offset_right = -20
+	cash_label.offset_top = 14
+	cash_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	cash_label.add_theme_font_override("font", Style.figures(true))
+	cash_label.add_theme_font_size_override("font_size", Style.SIZE_XL)
+	cash_label.add_theme_color_override("font_color", Style.COLOR_TEXT_HUD)
+	cash_label.add_theme_constant_override("outline_size", 8)
+	cash_label.add_theme_color_override("font_outline_color", Color(Style.COLOR_SURFACE_HUD, 0.85))
+	cash_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(cash_label)
 
 
 func _hud_icon(icon: String, px: int) -> TextureRect:
@@ -3722,7 +3744,6 @@ func _pocket(kind: String) -> void:
 			_close_panel()
 		return
 	match kind:
-		"wallet": _open_wallet()
 		"clipboard":
 			if current_job:
 				_open_inspection("")  # read-only: work happens at the plane
@@ -3939,23 +3960,6 @@ func _open_tasks() -> void:
 		var st: Array = TASK_STATES[t.state]
 		rows.append(["%s: %s%s" % [st[0], t.text, ("\n" + t.note) if t.note != "" else ""], "", null, false, st[1]])
 	_open_panel("Task list", rows)
-
-
-func _open_wallet() -> void:
-	tutorial.walk("wallet")  # first time here: a walkthrough of this menu (tutorial.gd)
-	var rows := [["Cash: $%d" % money], ["At %s" % location]]
-	var inv: PackedStringArray = []
-	for k in inventory:
-		if inventory[k] > 0 and not SUPPLIES.has(k):  # materials are listed on their own line
-			inv.append("%s x%d" % [k, inventory[k]])
-	rows.append(["Parts in the truck: " + (", ".join(inv) if inv.size() > 0 else "none")])
-	var have: PackedStringArray = []
-	for t in tools:
-		have.append(Work.TOOLS[t])
-	rows.append(["Tool roll: " + (", ".join(have) if have.size() > 0 else "empty")])
-	rows.append(["Materials: " + ", ".join(SUPPLIES.keys().filter(func(k): return SUPPLIES[k].has("qty")).map(func(k): return "%s %d" % [k, inventory.get(k, 0)]))])
-	rows.append(["Hangar rent and insurance: $%d a job" % HANGAR_FEE])
-	_open_panel("Wallet", rows)
 
 
 func _set_graphics(level: String) -> void:

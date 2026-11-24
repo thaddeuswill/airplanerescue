@@ -5,24 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 21 (2026-11-24): the cockpit checklist, smaller, in a corner, on glass (C1).**
-
-- **Goal**: the before-start, run-up and take-off card takes less of the cockpit and matches the
-  ticket's glass.
-- **Items**: the card moves to the bottom-left corner (clear of the gauges in the middle, the
-  message band at the top and the hint at the top right); 300 px wide instead of 380; type one step
-  down (steps 15, title 18, keys and readings 13, the HUD minimum); a frosted-glass panel behind it
-  (the ticket's tokens and shader); cream text, brass for done and quiet, green ticks, the current
-  step marked with the mustard focus bar, keys as cream chips; the alert band in the loss red; the
-  foot line wraps (U6's cut-off line). Every step, key and live reading stays.
-- **Risk gate**: flow: the card is only drawn, never clicked, so input can't change. Readability:
-  text over the blurred cockpit and sky, measured over white (cream on the glass 10:1, brass 6:1,
-  green 6.6:1, loss red 5.4:1). Layout: at 1280x720 the card must fit above the bottom edge in the
-  longest phase (coached run-up with an alert); self-test measures its rectangle. Checks: self-test
-  reads the drawn card's rectangle in every phase it passes through: in the corner, within the
-  screen, narrower and smaller in area than the old card, the foot line not cut; screenshots of
-  before start, run-up and take-off at 1280x720.
-- **Acceptance**: as C1 below.
+(None. Iteration 21 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 

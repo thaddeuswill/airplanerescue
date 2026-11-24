@@ -5,20 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 26 (2026-11-24): the pilot squawk card, in short pages (U7).** Thad, ordering it: "if its
-a long squawk make it in smaller chunks to read instead of a long page".
-
-- **Goal**: the squawk notes read a few sentences at a time, however long the write-up.
-- **Items**: the card pages: the pilot's squawk first, three sentences a page at most (a long squawk
-  takes several pages); then each telling phrase with what it means, a page each; the last page
-  "Look first" and GO LOOK. Next (Enter) and Back, with "2 of 5"; more space between parts; curly
-  quotes. The words are unchanged, only paged.
-- **Risk gate**: flow: GO LOOK still ticks the squawk step and closes the card (the lesson can't
-  stall); Enter moves on, so keyboard play works. Layout: the card no taller than it needs, every
-  page at 1280x720. Checks: self-test pages through a long and a short squawk: no page over three
-  sentences, every sentence of the write-up on some page in order, GO LOOK only on the last page,
-  Back returns; screenshots of a first and a last page.
-- **Acceptance**: as U7 below.
+(None. Iteration 26 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 

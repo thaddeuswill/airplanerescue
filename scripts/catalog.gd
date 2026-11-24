@@ -389,14 +389,14 @@ func _card(e: Dictionary, index: int) -> Array:
 	if e.get("owned", false):
 		stock = "IN YOUR TOOL ROLL"
 	elif e.get("mail", false):
-		stock = "MAIL ORDER  -  ARRIVES IN 1 DAY"
+		stock = "MAIL ORDER  \u00b7  25% OVER SHELF"  # it comes at once (D2); the markup is the cost
 		stock_col = RED_DK
 	else:
 		stock = "IN STOCK AT THIS COUNTER"
 	if e.get("have", "") != "" and not e.get("owned", false):
-		stock += "   |   YOU HAVE " + String(e.have).to_upper()
+		stock += "   \u00b7   YOU HAVE " + String(e.have).to_upper()
 	if e.get("needed", false) and not e.get("owned", false):  # in words too, not only the red stamp
-		stock = stock.replace("IN STOCK AT THIS COUNTER", "NEEDED  -  IN STOCK")
+		stock = stock.replace("IN STOCK AT THIS COUNTER", "NEEDED  \u00b7  IN STOCK")
 	var st := _label(stock, BLOCK, 16, stock_col)
 	st.position = Vector2(x, 128)
 	row.add_child(st)

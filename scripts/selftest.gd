@@ -1834,6 +1834,29 @@ func _no_days_ok() -> bool:
 				if rx.search(t) != null:
 					bad.append("%s: %s" % [name, t.left(80)])
 	g._close_panel()
+	# U2: the catalogs are drawn as cards, not sheet rows: open the parts counter and the mail-order
+	# catalog, every section and every spread, and read every card's text.
+	var mail_seen := false
+	for opener in [g._open_shop, g._open_toolbox]:
+		opener.call()
+		var cat = g.panel
+		if cat == null or not ("_sections" in cat):  # the catalog sheet (catalog.gd)
+			bad.append("catalog didn't open")
+			continue
+		for sec in cat._sections.size():
+			if sec != cat._sec:
+				cat._tab(sec)
+			for sp in cat._spread_count():
+				cat._spread = sp
+				cat._build()
+				for l in cat.find_children("*", "Label", true, false):
+					if l.is_queued_for_deletion():
+						continue
+					var t: String = l.text
+					mail_seen = mail_seen or t.contains("25% OVER SHELF")
+					if rx.search(t) != null:
+						bad.append("catalog: " + t.left(80))
+		g._close_panel()
 	var all := "\n".join(seen)
 	var fee_ok: bool = all.contains("$%d hangar fee" % g.HANGAR_FEE)  # on the map's estimates (the wallet sheet went in W1)
 	var hud_ok: bool = rx.search(g.msg.text) == null and not "day" in g
@@ -1841,8 +1864,8 @@ func _no_days_ok() -> bool:
 	var old := {"version": 2, "day": 7.5, "money": 900, "jobs": [{"city": "Omaha", "deadline": 9.0, "arrived": 6.0}]}
 	g._migrate(old)
 	var migrate_ok: bool = int(old.version) == g.SAVE_VERSION and not old.has("day") and not old.jobs[0].has("deadline") and not old.jobs[0].has("arrived")
-	var ok: bool = bad.is_empty() and fee_ok and hud_ok and migrate_ok
-	print("no days: shown %s, fee %s, hud %s, old save %s" % ["none" if bad.is_empty() else str(bad), fee_ok, hud_ok, migrate_ok])
+	var ok: bool = bad.is_empty() and fee_ok and hud_ok and migrate_ok and mail_seen
+	print("no days: shown %s, fee %s, hud %s, old save %s, catalog read with its mail-order line %s" % ["none" if bad.is_empty() else str(bad), fee_ok, hud_ok, migrate_ok, mail_seen])
 	return ok
 
 

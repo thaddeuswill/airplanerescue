@@ -5,7 +5,16 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 26 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 27 (2026-11-24): the catalog's "arrives in 1 day" (U2).**
+
+- **Goal**: no day text left anywhere, the catalog included, and a check that can't miss it again.
+- **Items**: the mail-order stock line reads "MAIL ORDER · 25% OVER SHELF"; the stock lines' hyphen
+  separators become middle dots (the audit's catalog finding 2, same lines); the self-test's
+  no-days check opens the parts counter and the mail-order catalog, every section and page, and
+  reads every card's text.
+- **Risk gate**: words only, no behaviour: the mail order already arrives at once (D2). Layout: the
+  line is shorter than before. Check: the extended reading; a screenshot of a mail-order card.
+- **Acceptance**: as U2 below.
 
 ## Next
 
@@ -87,9 +96,9 @@ From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad 
   the card is open (from U3). Acceptance: no page over three sentences; every sentence of the
   write-up reachable; the GO LOOK button on the last page; self-test pages through it;
   screenshots at 1280x720.~~ In iteration 26.
-- **U2. The catalog still says "arrives in 1 day"** (a D2 defect, `catalog.gd:392`). Say "25% over
+- ~~**U2. The catalog still says "arrives in 1 day"** (a D2 defect, `catalog.gd:392`). Say "25% over
   shelf"; extend the no-days check to the catalog's cards. Acceptance: no day text on any catalog
-  card; the check reads them.
+  card; the check reads them.~~ In iteration 27.
 - ~~**U3. One message at a time at the top.** Clear the message band and banners on opening a sheet,
   the cockpit or the pause; hide the pinned squawk under the notes card. Acceptance: at most one
   text band at the top in the cockpit, under the notes and behind the pause; screenshots.~~ In iteration 22.

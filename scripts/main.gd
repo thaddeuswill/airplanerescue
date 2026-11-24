@@ -497,8 +497,8 @@ func _install_update() -> void:
 
 var save_path := "user://airplane_rescue.save"
 var test_seed := 0  # printed with every self-test result
-const SAVE_KEYS := ["money", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held", "tut", "badges", "rank"]
-const SAVE_VERSION := 4  # bump when the layout changes, and teach _migrate the step
+const SAVE_KEYS := ["money", "rescued", "location", "inventory", "tools", "jobs", "logbook", "graphics", "difficulty", "held", "tut", "badges", "streaks", "rank"]
+const SAVE_VERSION := 5  # bump when the layout changes, and teach _migrate the step
 var _greeting := ""  # the first message of this session
 var had_save := false  # a career was loaded at launch (so the title screen offers Continue)
 var save_locked := false  # a save we couldn't read is never overwritten (it might be newer, or fixable)
@@ -580,6 +580,12 @@ func _migrate(data: Dictionary) -> void:
 				j[key] = {"years": 0, "washed": true, "spent": {"fuel": 0, "parts": 0, "mail": 0}, "work": {}, "fuel": 0.2, "parked": "apron"}[key]
 	if int(data.get("version", 0)) < 2:  # 2: the apprenticeship. A career already under way skips it.
 		data["tut"] = {"lesson": 0, "tour": true, "done": {}, "base": int(data.get("rescued", 0))}
+	if int(data.get("version", 0)) < 5:  # 5: the badges redone (B1): the old ones don't carry over
+		var keep: Dictionary = data.get("badges", {})
+		for k in keep.keys():
+			if not BADGES.any(func(b): return b[0] == k):
+				keep.erase(k)
+		data["streaks"] = {}
 	if int(data.get("version", 0)) < 4:  # 4: signing off is one button (L1); By the Book is retired
 		var b: Dictionary = data.get("badges", {})
 		b.erase("by_the_book")
@@ -1661,8 +1667,7 @@ func _call(id: String, key: String) -> void:
 		job.found[id] = true
 		_say("That's it: %s." % FAULTS[id].name)
 		sound.pen()
-		if job.get("misses", {}).get(id, 0) == 0:
-			earn_badge("detective")
+		badge_after_trail(id, job.get("misses", {}).get(id, 0) == 0)
 	else:
 		var why := "Its plugs are wet with oil" if t == "reading_plugs" else "It runs cold"
 		job.get_or_add("dnote", {})[id] = "%s: cylinder %d. Next, a %s on it." % [why, job.get("cyl", 0) + 1, TESTS[job.diag[id][step]].name.to_lower()]
@@ -1926,6 +1931,8 @@ func _ground_job() -> void:
 	money += fee
 	money = maxi(0, money - HANGAR_FEE)  # the job's hangar fee (D2)
 	var why: Array = job.faults.filter(func(id): return FAULTS[id].get("ground", false) and job.found.has(id))
+	if not why.is_empty():
+		earn_badge("hard_call")  # grounded it for a reason that grounds it (B1)
 	logbook.append({"city": job.city, "type": job.type, "pay": fee, "grounded": true,
 		"work": why.map(func(id): return "Grounded: " + FAULTS[id].name), "years": job.get("years", 0),
 		"fuel": job.spent.get("fuel", 0), "parts": job.spent.get("parts", 0)})
@@ -2053,6 +2060,7 @@ func _sign_logbook() -> void:
 ## The fault you never found caught up with you. Down safely: it costs a day and a quarter of
 ## the pay, and the job reopens. Crashed: the job and the excess are gone, and you walk away.
 func _flight_failed(result: String) -> void:
+	badge_after_flight(false)  # a forced landing or a crash breaks the Steady Hands run (B1)
 	var id: String = ferry.trouble
 	playlog("ferry flight %s, cause %s" % [result, id])
 	var job: Dictionary = current_job
@@ -2131,10 +2139,7 @@ func _sign_off() -> void:
 		found_later.append("the engine cowling not screwed down")
 	logbook[-1]["debrief"] = job_debrief(job, pay, missed, open_cowl)
 	_pending_debrief = logbook[-1]
-	if job.get("checked", {}).size() >= ZONES.size() and missed.is_empty():
-		earn_badge("sharp_eyes")
-	if logbook[-1].debrief.extra.is_empty():
-		earn_badge("clean_job")
+	badge_after_delivery(job, missed, logbook[-1].debrief.extra.is_empty())
 	_check_promotion()
 	# The owner's words go on the end-of-mission card (D3), not across the top of the screen.
 	if found_later.is_empty():
@@ -3734,7 +3739,7 @@ func _pocket(kind: String) -> void:
 const RANKS := [["apprentice", "Apprentice", 0.0], ["ap", "A&P Mechanic", 0.0], ["lead", "Lead Mechanic", 0.10],
 	["ia", "Inspection Authorization (IA)", 0.20]]
 const LEAD_NEEDS := {"planes": 5, "clean": 3, "no_comeback_in": 3}
-const IA_NEEDS := {"planes": 8, "badges": 6, "no_comeback_in": 5}
+const IA_NEEDS := {"planes": 8, "badges": 4, "no_comeback_in": 5}  # 4 of the 8 harder badges (B1)
 var rank := ""  # saved; never lost once earned
 
 
@@ -3807,16 +3812,87 @@ func _check_promotion() -> void:
 # ---------- achievement badges (P8): one per skill, earned when its standard is met ----------
 
 ## [id, name, the system it belongs to, the standard in words]. In board order, grouped by system.
+## The badges (B1, chosen by Thad 2026-11-24): each earned over a career, not in one moment, and
+## each says what kind of mechanic you are. [id, name, the skill, the standard in words].
 const BADGES := [
-	["sharp_eyes", "Sharp Eyes", "Walk-around", "Deliver a plane with all 8 spots checked and nothing coming back."],
-	["to_spec", "To Spec", "Repair", "Finish a job with torqued fasteners and no over-torque."],
-	["reads_the_drop", "Reads the Drop", "Run-up", "Call both mags right on a run-up, with no wrong call."],
-	["detective", "Detective", "Troubleshooting", "Follow a trail to its cause with no wrong call."],
-	["clean_start", "Clean Start", "Flight", "Start the engine with no failed attempt."],
-	["straight_and_true", "Straight and True", "Flight", "Take off with no ground loop."],
-	["clean_job", "Clean Job", "Career", "Deliver a plane with nothing extra on the debrief."],
+	["walkround", "Nothing Gets Past You", "Walk-around", "5 deliveries in a row with all 8 spots checked and no comeback."],
+	["calibrated", "Calibrated Hand", "Repair", "10 jobs in a row with every torqued fastener in the band, no over-torque."],
+	["mag_whisperer", "Mag Whisperer", "Run-up", "10 run-ups in a row with both mags called right, 2 of them bad mags."],
+	["troubleshooter", "Troubleshooter", "Troubleshooting", "Follow 5 trails to the cause with no wrong call, one of them a look-alike."],
+	["steady_hands", "Steady Hands", "Flight", "10 ferry flights in a row: started first try, no ground loop, no forced landing."],
+	["clean_sheet", "Clean Sheet", "Career", "5 jobs in a row with nothing extra on the ticket."],
+	["barn_find", "Barn Find", "Old planes", "Deliver a plane that sat 10 years or more, with no comeback."],
+	["hard_call", "The Hard Call", "Judgement", "Ground a plane that has to be grounded instead of flying it."],
 ]
+## The run each streak or count badge needs (game rules for the playtest, like ECONOMY).
+const BADGE_RUNS := {"walkround": 5, "calibrated": 10, "mag_whisperer": 10, "troubleshooter": 5, "steady_hands": 10, "clean_sheet": 5}
+const BADGE_MAG_BAD := 2     # bad mags called right within the Mag Whisperer run
+const BADGE_BARN_YEARS := 10
+var streaks := {}  # badge id -> the run so far; "mag_bad" and "look_alike" alongside (saved)
 var badges := {}  # id -> planes rescued when it was earned (saved; older saves hold a day)
+
+
+## Progress toward a streak or count badge not yet earned ("3 of 5"), for the board; "" if none.
+func badge_progress(id: String) -> String:
+	if badges.has(id) or not BADGE_RUNS.has(id):
+		return ""
+	return "%d of %d" % [mini(int(streaks.get(id, 0)), BADGE_RUNS[id]), BADGE_RUNS[id]]
+
+
+## A streak or count moves: up when the job meets the standard, back to 0 when it breaks it (a
+## count badge never resets). Earns the badge at its run, if any extra condition holds too.
+func _tally(id: String, ok: bool, extra_ok := true) -> void:
+	if badges.has(id):
+		return
+	if ok:
+		streaks[id] = int(streaks.get(id, 0)) + 1
+	elif id != "troubleshooter":
+		streaks[id] = 0
+		if id == "mag_whisperer":
+			streaks["mag_bad"] = 0
+	if int(streaks.get(id, 0)) >= BADGE_RUNS[id] and extra_ok:
+		earn_badge(id)
+
+
+## After a delivery: the walk-around, the torque, the ticket and an old plane (B1).
+func badge_after_delivery(job: Dictionary, missed: Array, clean_ticket: bool) -> void:
+	_tally("walkround", job.get("checked", {}).size() >= ZONES.size() and missed.is_empty())
+	if job.get("over", false) or job.get("torqued", false):  # jobs with no torque work leave it alone
+		_tally("calibrated", not job.get("over", false))
+	_tally("clean_sheet", clean_ticket)
+	if int(job.get("years", 0)) >= BADGE_BARN_YEARS and missed.is_empty():
+		earn_badge("barn_find")
+
+
+## After a run-up's two mag calls: clean when no call was wrong; bad = mags rightly called bad.
+func badge_after_runup(clean: bool, bad: int) -> void:
+	if badges.has("mag_whisperer"):
+		return
+	if clean:
+		streaks["mag_bad"] = int(streaks.get("mag_bad", 0)) + bad
+	_tally("mag_whisperer", clean, int(streaks.get("mag_bad", 0)) >= BADGE_MAG_BAD)
+
+
+## After a ferry flight to the owner: clean when it started first try with no ground loop; a forced
+## landing or a crash breaks the run (`_flight_failed`).
+func badge_after_flight(clean: bool) -> void:
+	_tally("steady_hands", clean)
+
+
+## A troubleshooting trail followed to its cause: counted when no call was wrong on it.
+func badge_after_trail(id: String, clean: bool) -> void:
+	if clean and is_look_alike(id):
+		streaks["look_alike"] = 1
+	_tally("troubleshooter", clean, int(streaks.get("look_alike", 0)) > 0)
+
+
+## Faults that look like another: the suspects (battery or starter), plugs or magneto, and any that
+## share their symptom with another fault (the oil-pressure ones).
+func is_look_alike(id: String) -> bool:
+	if SUSPECTS.has(id) or id in ["spark_plugs", "magneto"]:
+		return true
+	var sym: String = FAULTS[id].get("symptom", "")
+	return FAULTS.keys().any(func(o): return o != id and FAULTS[o].get("symptom", "") == sym)
 
 
 func badge_name(id: String) -> String:
@@ -3908,7 +3984,7 @@ func task_list(job: Dictionary) -> Array:
 	add.call("done" if job.get("fuel", 1.0) >= 0.5 else "todo", "Fuel it: half tanks at least")
 	add.call("done" if job.get("signed", false) else "todo", "Sign off")
 	var offer: PackedStringArray = []
-	for b in ["clean_start", "straight_and_true", "clean_job", "sharp_eyes"]:
+	for b in ["steady_hands", "clean_sheet", "walkround"]:
 		if badge_on_offer(b) != "":
 			offer.append(badge_on_offer(b))
 	add.call("todo", "Fly it out to the owner", ("Can earn: " + ", ".join(offer)) if offer.size() > 0 else "")
@@ -3982,7 +4058,7 @@ func _open_logbook() -> void:
 		rows.append(logbook_entry_row(logbook[i], i == logbook.size() - 1))
 	if logbook.is_empty():
 		rows.append(["No entries yet. Your first rescue goes here."])
-	rows.append(["Badges: %d of %d" % [badges.size(), BADGES.size()], "", null, false, "", {"grid": BADGES.map(func(b): return [b[0], b[1], b[3], badges.has(b[0])]), "name": "Badges"}])
+	rows.append(["Badges: %d of %d" % [badges.size(), BADGES.size()], "", null, false, "", {"grid": BADGES.map(func(b): return [b[0], b[1], b[3], badges.has(b[0]), badge_progress(b[0])]), "name": "Badges"}])
 	_open_panel("Logbook", rows)
 	_header_ring(rescued, GOAL)  # planes rescued as a progress ring, not words (Thad)
 
@@ -4209,8 +4285,8 @@ func _open_panel(title: String, rows: Array, closable := true, stamp := "") -> V
 ## Roughly how tall a row will be once wrapped. Errs tall, so a page never overflows the screen.
 func _row_height(r: Array) -> float:
 	var opt: Dictionary = r[5] if r.size() > 5 and r[5] is Dictionary else {}
-	if opt.has("grid"):  # caption plus rows of icon-and-name cells
-		return 30.0 + ceilf(opt.grid.size() / 4.0) * 72.0 + 21.0
+	if opt.has("grid"):  # caption plus rows of icon, name and progress cells
+		return 30.0 + ceilf(opt.grid.size() / 4.0) * 90.0 + 21.0
 	if opt.has("lead"):  # a large first line
 		return 40.0 + ceilf(r[0].get_slice("\n", 1).length() * 7.0 / _text_width(r)) * 17.0 + 21.0
 	var w := _text_width(r)
@@ -4303,6 +4379,16 @@ func _add_row(vb: VBoxContainer, r: Array) -> void:
 			nm.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER if g[3] else Style.COLOR_TEXT_PAPER_MUTED)
 			nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			cell.add_child(nm)
+			if g.size() > 4 and String(g[4]) != "":  # the run so far (B1)
+				var pr := Label.new()
+				pr.name = "Progress"
+				pr.text = g[4]
+				pr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				pr.add_theme_font_override("font", Style.figures(true))
+				pr.add_theme_font_size_override("font_size", Style.SIZE_XS)
+				pr.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER_MUTED)
+				pr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				cell.add_child(pr)
 			grid.add_child(cell)
 		return
 	if r.size() > 4 and r[4] != "":

@@ -168,8 +168,8 @@ func call_mag(good: bool) -> void:
 	main.playlog("mag call %s: said %s, drop %d, %s" % [side.to_lower(), "good" if good else "bad", drop, "right" if good == right else "wrong"])
 	if good == right:
 		_calls[which] = 1 if good else 0
-		if not _calls.has(-1) and not _aid_mag:
-			main.earn_badge("reads_the_drop")  # both called right, no wrong call this run-up (P8)
+		if not _calls.has(-1):  # both called: the run-up counts toward Mag Whisperer (B1)
+			main.badge_after_runup(not _aid_mag, _calls.count(0))
 		main.sound.sfx("click")
 		main.log_line("Right. %s mag: %s" % [side, mag_reason(drop)])
 	else:
@@ -184,7 +184,8 @@ func call_mag(good: bool) -> void:
 ## "Can earn: <badge>" while that badge is still to earn, for the card's foot (P8).
 func _offer(badge: String) -> String:
 	var n: String = main.badge_on_offer(badge)
-	return ("Can earn: " + n) if n != "" else ""
+	var p: String = main.badge_progress(badge)
+	return ("Toward %s: %s" % [n, p] if p != "" else "Can earn: " + n) if n != "" else ""
 
 
 ## Why a drop is good or bad, in a mechanic's words.
@@ -239,14 +240,14 @@ func card() -> Dictionary:
 	]
 	if mode == "runup":
 		if state != "run":
-			return {"title": "BEFORE START", "alert": alert, "steps": before, "foot": _offer("clean_start")}
+			return {"title": "BEFORE START", "alert": alert, "steps": before, "foot": _offer("steady_hands")}
 		var shown := func(i: int) -> String: return "" if _seen[i] < 0 else "-%d rpm" % _seen[i]
 		var called := func(i: int) -> String: return "" if _calls[i] < 0 else ("GOOD" if _calls[i] == 1 else "BAD")
 		var call_keys: String = "%s / %s" % [k.call("call_good"), k.call("call_bad")]
 		# The limit on the card on Easy and Medium; on Hard you know it, or it's in the manual (N).
 		var foot := "Mag drop %d rpm max (C-85). Carb heat: about 50." % MAG_LIMIT if main.guide("medium") else ""
-		if _offer("reads_the_drop") != "" and not _aid_mag:
-			foot = (foot + "   " if foot != "" else "") + _offer("reads_the_drop")
+		if _offer("mag_whisperer") != "" and not _aid_mag:
+			foot = (foot + "   " if foot != "" else "") + _offer("mag_whisperer")
 		if _aid_mag:  # after a wrong call: the rule in full, on every difficulty, for this run-up
 			foot = "Good: drops a little, no more than %d rpm, runs smooth. Bad: past %d and rough, or no drop at all." % [MAG_LIMIT, MAG_LIMIT]
 		return {"title": "RUN-UP", "alert": alert, "foot": foot, "steps": [
@@ -265,7 +266,7 @@ func card() -> Dictionary:
 			{"text": "Back to BOTH, heat off", "key": "%s %s" % [k.call("mags"), k.call("carb_heat")],
 				"ok": mags == 3 and not carb_heat and not _seen.has(-1) and not _calls.has(-1), "read": "", "how": "Then it shuts down on its own."}]}
 	if state != "run":
-		return {"title": "BEFORE START", "alert": alert, "steps": before, "foot": _offer("clean_start")}
+		return {"title": "BEFORE START", "alert": alert, "steps": before, "foot": _offer("steady_hands")}
 	# The take-off, stage by stage.
 	var on_ground := alt < 0.05
 	if throttle >= 0.95:
@@ -278,7 +279,7 @@ func card() -> Dictionary:
 		_flown["rotate"] = true
 	if alt >= DONE_ALT * 0.5:
 		_flown["climb"] = true
-	return {"title": "TAKE-OFF", "alert": alert, "foot": _offer("straight_and_true"), "steps": [
+	return {"title": "TAKE-OFF", "alert": alert, "foot": _offer("steady_hands"), "steps": [
 		{"text": "Full throttle", "key": k.call("throttle_up"), "ok": _flown.has("full"), "read": "%d%%" % roundi(throttle * 100),
 			"how": "All the way in. The Cub needs every horse it has."},
 		{"text": "Hold the centerline", "key": "%s/%s" % [k.call("rudder_left"), k.call("rudder_right")], "ok": _flown.has("straight"), "read": "",
@@ -414,8 +415,6 @@ func _hung(delta: float) -> void:
 
 func _run(text: String) -> void:
 	state = "run"
-	if _failed_starts == 0:
-		main.earn_badge("clean_start")  # started with no failed attempt (P8)
 	main.sound.stop_loop()
 	main.sound.sfx("jack")
 	main.log_live("")
@@ -542,8 +541,8 @@ func _fly(delta: float) -> void:
 		main._say("Ran out of runway! Lining up to try again.")
 		_line_up()
 	elif alt >= DONE_ALT:
-		if not _looped:
-			main.earn_badge("straight_and_true")  # off the ground with no ground loop (P8)
+		if mode != "runup":  # a ferry flight to the owner: first-try start, no ground loop (B1)
+			main.badge_after_flight(_failed_starts == 0 and not _looped)
 		done = true
 		main.sound.engine = 0.0
 		finished.emit()

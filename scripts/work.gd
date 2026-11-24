@@ -523,8 +523,8 @@ func perform(e: Dictionary, v: String) -> bool:
 		if st.get("_fod", false) and st.get("fod", "") != "done":
 			job["fod"] = true  # closed up with the socket still in there: it rattles on the run-up
 			st._fod = false
-		if els.any(func(x): return x.has("range")) and not st.get("_over", false):
-			main.earn_badge("to_spec")  # torqued to spec, no over-torque (P8)
+		if els.any(func(x): return x.has("range")):  # torque work on this job, for Calibrated Hand (B1)
+			job["over" if st.get("_over", false) else "torqued"] = true
 		finished.emit()
 	queue_redraw()
 	return true

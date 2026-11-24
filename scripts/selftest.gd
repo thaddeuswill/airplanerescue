@@ -791,14 +791,18 @@ func run(main, args: PackedStringArray) -> void:
 	ok = _logbook_ok() and ok
 	ok = await _top_bands_ok("pause") and ok
 	ok = await _top_bands_ok("notes") and ok
-	# Badges (P8): earned only when the standard was met. This run checked every spot and missed
-	# nothing (Sharp Eyes) and the scene tests torqued to spec (To Spec); it also called a mag wrong,
-	# had an entry sent back and looped on purpose, so those badges must be withheld.
-	var bad: Array = ["reads_the_drop", "clean_job", "straight_and_true"].filter(func(b): return g.badges.has(b))
-	var good: Array = ["sharp_eyes", "to_spec"].filter(func(b): return not g.badges.has(b))
-	if not bad.is_empty() or not good.is_empty():
-		print("BADGES: earned without the skill ", bad, "; missing though earned ", good, " (have ", g.badges.keys(), ")")
+	# Badges (B1): one delivery earns none of the run badges, but moves their runs. This run checked
+	# every spot and nothing came back (Nothing Gets Past You: 1 of 5); it called a mag wrong, so the
+	# ticket had extras (Clean Sheet stays 0). Only Barn Find can come in one job, on a 10-year plane.
+	var barn: bool = int(g.logbook[-1].get("years", 0)) >= g.BADGE_BARN_YEARS
+	var bad: Array = g.badges.keys().filter(func(b): return b != "barn_find" or not barn)
+	var runs_ok: bool = int(g.streaks.get("walkround", 0)) == 1 and int(g.streaks.get("clean_sheet", 0)) == 0 \
+		and g.badges.has("barn_find") == barn
+	print("badges after one delivery: runs %s (walk-around %s, clean sheet %s), earned %s" % [runs_ok, g.streaks.get("walkround", 0), g.streaks.get("clean_sheet", 0), g.badges.keys()])
+	if not bad.is_empty() or not runs_ok:
+		print("BADGES: earned without the skill ", bad, " or runs off: ", g.streaks)
 		ok = false
+	ok = _badge_rules_ok() and ok
 	g._pocket("logbook")
 	await _snap(shot, "badges", 0.3)
 	g._close_panel()
@@ -1465,7 +1469,7 @@ func _answer_quiz(id: String) -> bool:
 ## don't count, each test's readings lead to the right call for every fault it can find,
 ## grounding a plane pays and ends the job, and a cold engine needs preheating.
 func _scene_tests() -> bool:
-	var saved = [g.money, g.jobs, g.current_job, null, g.tools, g.inventory]
+	var saved = [g.money, g.jobs, g.current_job, null, g.tools, g.inventory, g.badges.duplicate(), g.streaks.duplicate()]
 	var ok := true
 	g.tools = {}
 	for t in Work.TOOLS:
@@ -1531,6 +1535,7 @@ func _scene_tests() -> bool:
 	var logs: int = g.logbook.size()
 	g._ground_job()
 	ok = ok and g.current_job == null and not g.jobs.has(gj) and g.money > m0 and g.logbook.size() == logs + 1 and g.logbook[-1].grounded
+	ok = ok and g.badges.has("hard_call")  # B1: grounding it for a reason that grounds it is The Hard Call
 	g.logbook.resize(logs)
 	g._close_panel()
 	# A fabric spot that punches through grounds the plane.
@@ -1646,6 +1651,9 @@ func _scene_tests() -> bool:
 	g.current_job = saved[2]
 	g.tools = saved[4]
 	g.inventory = saved[5]
+	g.badges = saved[6]  # the scene tests' own deliveries and grounding don't count toward the real career
+	g.streaks = saved[7]
+	g._refresh_tracker()
 	if not ok:
 		print("SCENE TESTS FAILED")
 	return ok
@@ -1783,7 +1791,7 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	print("ticket: registration %s %s, station %s, total %s %s, fits %s" % [reg_ok, reg_txt, station_ok, total_ok, tot_txt, fit_ok])
 	var awards: Array = card.find_children("Award*", "HBoxContainer", true, false)
 	var got: Array = deb.get("badges", [])
-	var badge_ok: bool = got.has("sharp_eyes") and got.all(func(b): return g.badges.has(b)) \
+	var badge_ok: bool = got.all(func(b): return g.badges.has(b)) and (got.has("barn_find") == (int(g.logbook[-1].get("years", 0)) >= g.BADGE_BARN_YEARS)) \
 		and awards.size() == got.size() + deb.get("promoted", []).size()
 	# None earned: the card says so. And an older entry (no badges or stats saved) still opens.
 	var plain := {"type": "Cub", "city": "Ames", "debrief": {"pay": 900, "fuel": 40, "parts": 0, "rent": 80, "net": 780,
@@ -2053,11 +2061,95 @@ func _sign_off_ok(job: Dictionary, shot: String) -> bool:
 		button_ok = button_ok and "_sign(current_job)" in (g.get_script() as GDScript).source_code.get_slice("func _hard_take_off", 1).get_slice("\nfunc ", 0)
 	var signed_ok: bool = job.get("signed", false) and String(job.get("entry", "")).contains("AC 43.13-1B") \
 		and String(job.entry).contains("certificate")
-	var badges_ok: bool = g.BADGES.size() == 7 and not g.BADGES.any(func(b): return b[0] == "by_the_book") \
-		and g.tracker.get_child_count() == 7
+	var badges_ok: bool = g.BADGES.size() == 8 and not g.BADGES.any(func(b): return b[0] == "by_the_book") \
+		and g.tracker.get_child_count() == 8
 	var old := {"version": 3, "badges": {"by_the_book": 1, "sharp_eyes": 2}, "jobs": []}
-	g._migrate(old)
-	var migrate_ok: bool = not old.badges.has("by_the_book") and old.badges.has("sharp_eyes") and int(old.version) == g.SAVE_VERSION
+	g._migrate(old)  # L1 drops By the Book; B1 drops the rest of the old set and starts the runs empty
+	var migrate_ok: bool = old.badges.is_empty() and old.get("streaks", null) == {} and int(old.version) == g.SAVE_VERSION
 	var ok: bool = button_ok and signed_ok and badges_ok and migrate_ok
-	print("sign off: one button %s, signed to the manual %s, seven badges %s, old save %s" % [button_ok, signed_ok, badges_ok, migrate_ok])
+	print("sign off: one button %s, signed to the manual %s, eight badges %s, old save %s" % [button_ok, signed_ok, badges_ok, migrate_ok])
+	return ok
+
+
+
+## B1: every badge reachable, and only at its standard. Each hook driven to one short (withheld),
+## through a break (reset), and to the run (earned); the extra conditions (two bad mags, a
+## look-alike) hold them back until met. On a copy of the career, put back after.
+func _badge_rules_ok() -> bool:
+	var keep := [g.badges.duplicate(), g.streaks.duplicate()]
+	g.badges = {}
+	g.streaks = {}
+	var out := {}
+	var full := {"checked": {}, "years": 0}
+	for z in g.ZONES:
+		full.checked[z] = true
+	# Clean Sheet: 4, a break, then 5.
+	for i in 4:
+		g.badge_after_delivery({}, ["x"], true)
+	var short_ok: bool = not g.badges.has("clean_sheet")
+	g.badge_after_delivery({}, ["x"], false)
+	for i in 4:
+		g.badge_after_delivery({}, ["x"], true)
+	out["clean_sheet"] = short_ok and not g.badges.has("clean_sheet")
+	g.badge_after_delivery({}, ["x"], true)
+	out["clean_sheet"] = out.clean_sheet and g.badges.has("clean_sheet")
+	# Nothing Gets Past You: 4 full walk-arounds, then a comeback breaks it, then 5.
+	for i in 4:
+		g.badge_after_delivery(full, [], false)
+	short_ok = not g.badges.has("walkround")
+	g.badge_after_delivery(full, ["tire"], false)
+	for i in 5:
+		g.badge_after_delivery(full, [], false)
+	out["walkround"] = short_ok and g.badges.has("walkround")
+	# Calibrated Hand: 9 clean torque jobs, an over-torque, a job with no torque (no change), then 10.
+	for i in 9:
+		g.badge_after_delivery({"torqued": true}, ["x"], false)
+	short_ok = not g.badges.has("calibrated")
+	g.badge_after_delivery({"over": true, "torqued": true}, ["x"], false)
+	g.badge_after_delivery({}, ["x"], false)
+	var reset_ok: bool = int(g.streaks.get("calibrated", -1)) == 0
+	for i in 10:
+		g.badge_after_delivery({"torqued": true}, ["x"], false)
+	out["calibrated"] = short_ok and reset_ok and g.badges.has("calibrated")
+	# Mag Whisperer: 10 clean run-ups with only one bad mag: withheld; one more with a bad mag: earned.
+	for i in 10:
+		g.badge_after_runup(true, 1 if i == 0 else 0)
+	short_ok = not g.badges.has("mag_whisperer")
+	g.badge_after_runup(true, 1)
+	out["mag_whisperer"] = short_ok and g.badges.has("mag_whisperer")
+	# Troubleshooter: 5 clean trails on a fault that's no look-alike: withheld; a look-alike: earned.
+	var plain_ids: Array = g.FAULTS.keys().filter(func(id): return not g.FAULTS[id].get("diags", []).is_empty() and not g.is_look_alike(id))
+	var alike_ids: Array = g.FAULTS.keys().filter(func(id): return not g.FAULTS[id].get("diags", []).is_empty() and g.is_look_alike(id))
+	for i in 5:
+		g.badge_after_trail(plain_ids[0], true)
+	short_ok = not g.badges.has("troubleshooter")
+	g.badge_after_trail(alike_ids[0], false)  # a trail with a wrong call doesn't count
+	var still_short: bool = not g.badges.has("troubleshooter")
+	g.badge_after_trail(alike_ids[0], true)
+	out["troubleshooter"] = short_ok and still_short and g.badges.has("troubleshooter") and not plain_ids.is_empty() and not alike_ids.is_empty()
+	# Steady Hands: 9 clean flights, a forced landing, then 10.
+	for i in 9:
+		g.badge_after_flight(true)
+	short_ok = not g.badges.has("steady_hands")
+	g.badge_after_flight(false)
+	for i in 9:
+		g.badge_after_flight(true)
+	var nine_after_break: bool = not g.badges.has("steady_hands")
+	g.badge_after_flight(true)
+	out["steady_hands"] = short_ok and nine_after_break and g.badges.has("steady_hands")
+	# Barn Find: 9 years no; 10 years with a comeback no; 10 years clean yes.
+	g.badge_after_delivery({"years": 9}, [], false)
+	g.badge_after_delivery({"years": 10}, ["tire"], false)
+	short_ok = not g.badges.has("barn_find")
+	g.badge_after_delivery({"years": 10}, [], false)
+	out["barn_find"] = short_ok and g.badges.has("barn_find")
+	# The board shows a run's progress under a badge not yet earned.
+	g.badges = {}
+	g.streaks = {"clean_sheet": 3}
+	var progress_ok: bool = g.badge_progress("clean_sheet") == "3 of 5" and g.badge_progress("barn_find") == ""
+	g.badges = keep[0]
+	g.streaks = keep[1]
+	g._refresh_tracker()  # the row shows the real career again
+	var ok: bool = out.values().all(func(v): return v) and progress_ok and g.IA_NEEDS.badges == 4
+	print("badge rules: %s, progress %s" % [out, progress_ok])
 	return ok

@@ -5,9 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 28 is in review; see the log in `docs/PROCESS.md`. Refined in review, Thad: game
-over offers "Start over from the last plane" (a checkpoint saved as you fly out to each job), a new
-career, or the menu; odd jobs are gone: "I don't think I would wanna give them away".)
+(None. Iteration 28 is in review, with Thad's start-over change; see the log in `docs/PROCESS.md`.)
 
 ## Next
 

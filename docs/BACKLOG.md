@@ -23,6 +23,16 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Next
 
+- **B1. Better achievements** (Thad, 2026-11-24: "we can relook at the achivements and we can make
+  them better those ones we have now are cheap"). The seven badges today are each earned once, for
+  one clean moment (a clean start, a take-off without a ground loop), and most come in the first
+  job or two. A redesign: what each should take (skill shown over time, harder conditions, rarer
+  faults, streaks), how many, and how they tie to the rank ladder (IA needs 6 badges today, 6 of
+  7 since L1). Start with a short proposal for Thad to choose from (each badge, its standard and why
+  it's worth earning), then build the chosen set. Acceptance: Thad approves the set; each badge's
+  standard measured by the self-test (earned when met, withheld when not); old careers keep what
+  they earned where it maps, otherwise migrated; the rank rule updated to match.
+
 - ~~**W1. No wallet: cash at the top right** (Thad, 2026-11-23: "remove the wallet menu just show your
   cash at the top right of the screen instead").~~ In iteration 23. The wallet pocket (Tab) and its sheet go; your cash
   shows at the top right of the main screen, in figures (Courier Prime, thousands separators),

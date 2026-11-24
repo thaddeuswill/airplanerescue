@@ -5,27 +5,15 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 22 (2026-11-24): one message at a time at the top (U3).** Ordered by Thad: U3, then W1.
-
-- **Goal**: the top of the screen carries one band of text at a time, never a stale one.
-- **Items**: in the cockpit (run-up and ferry flight) every message and banner goes to the cockpit's
-  one list at the top right (the log), and the centre band and banners left from the walk-around
-  are cleared on climbing in; the pause hides the band and clears banners; the squawk notes card
-  hides the centre band and the pinned squawk while it's open.
-- **Risk gate**: nothing a message says is lost: in the cockpit it goes to the log instead of the
-  band; outside the cockpit the band works as before (sheets keep their feedback). Badges and
-  FIXED earned in the cockpit still say so (as log lines). Checks: self-test counts the visible
-  top bands in the cockpit after a message and a banner (one: the log), behind the pause (none
-  but the menu), under the notes card in a lesson (the card only); screenshots of the run-up and
-  the notes.
-- **Acceptance**: as U3 below.
+(None. Iteration 22 is in review; see the log in `docs/PROCESS.md`. W1 is next, as Thad ordered.)
 
 ## Next
 
 - **W1. No wallet: cash at the top right** (Thad, 2026-11-23: "remove the wallet menu just show your
   cash at the top right of the screen instead"). The wallet pocket (Tab) and its sheet go; your cash
   shows at the top right of the main screen, in figures (Courier Prime, thousands separators),
-  backed against the 3D world. What the wallet also held moves where it already lives elsewhere:
+  backed against the 3D world; the money pop and the cockpit's list share that corner today, so
+  they're placed so as not to overlap (found in iteration 22). What the wallet also held moves where it already lives elsewhere:
   parts in the truck and materials on the parts table and in the catalog's "you have"; the tool
   roll in the work scenes and the catalog foot; the hangar fee on the map's estimate. The
   walkthrough page and the HUD pocket icon for it go; U4's wallet finding is moot. Acceptance: no

@@ -1165,6 +1165,7 @@ func _start_runup() -> void:
 	player.frozen = true
 	var before := plane.get_children()
 	_build_gauges()
+	_clear_top()  # nothing from the walk-around follows you into the cockpit (U3)
 	ferry = Ferry.new()
 	ferry.mode = "runup"
 	ferry.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -1961,6 +1962,7 @@ func _start_ferry() -> void:
 		if c.has_meta("kind"):
 			c.queue_free()  # inspection spots
 	_build_gauges()
+	_clear_top()  # (U3)
 	ferry = Ferry.new()
 	ferry.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(ferry)
@@ -3297,6 +3299,16 @@ func _log_label(text: String) -> Label:
 
 
 ## Adds a line to the engine log. Older lines dim, and the oldest drops off.
+## Clears the centre message band and any banner: one band of words at the top at a time (U3).
+func _clear_top() -> void:
+	msg.text = ""
+	msg_time = 0.0
+	msg.visible = false
+	if is_instance_valid(_banner_node):
+		_banner_node.queue_free()
+	_banner_node = null
+
+
 func log_line(text: String) -> void:
 	_log_list.add_child(_log_label(text))
 	if _log_list.get_child_count() > LOG_LINES:
@@ -3462,6 +3474,9 @@ func _chip(size: int, top: float, bottom: float) -> Label:
 func _banner(title: String, sub: String) -> void:
 	if is_instance_valid(_banner_node):
 		_banner_node.queue_free()
+	if ferry != null:  # in the cockpit it goes in the log with everything else (U3)
+		log_line("%s: %s" % [title.capitalize() if title == title.to_upper() else title, sub])
+		return
 	var box_ := CenterContainer.new()
 	box_.anchor_right = 1.0
 	box_.anchor_bottom = 0.5
@@ -3557,7 +3572,7 @@ func _update_hud() -> void:
 	prompt.visible = prompt.text != ""
 	prompt.custom_minimum_size.x = 620.0 if ferry else 0.0  # flight numbers change every frame; a fixed box doesn't shake
 	prompt.add_theme_font_override("font", Style.figures() if ferry else UI_FONT)  # and one-width digits don't jitter inside it
-	msg.visible = msg.text != ""
+	msg.visible = msg.text != "" and not is_instance_valid(tutorial._notes)  # the notes card is the one band (U3)
 	var checking: bool = preflight.wanted()  # the checklist card draws itself (preflight.gd)
 	var has_lines: bool = _log_list.get_child_count() > 0 or _log_now.visible
 	_log.visible = has_lines and (checking or Time.get_ticks_msec() < _log_until)
@@ -3623,7 +3638,7 @@ func _setup_squawk() -> void:
 func _update_squawk() -> void:
 	var job = current_job
 	var here: bool = job != null and job.city == location and ferry == null
-	squawk.visible = here and (hud.visible or panel is Bay) and not _log.visible
+	squawk.visible = here and (hud.visible or panel is Bay) and not _log.visible and not is_instance_valid(tutorial._notes)
 	if here:
 		var note: String = tutorial.squawk_note()
 		if note != _squawk_note.text:
@@ -4019,6 +4034,9 @@ func logbook_entry_row(e: Dictionary, newest: bool) -> Array:
 
 
 func _say(text: String) -> void:
+	if ferry != null and text != "":  # one place for words in the cockpit: its log, top right (U3)
+		log_line(text)
+		return
 	msg.text = text
 	var long := text.length() > 70  # long messages wrap instead of running off both edges
 	msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if long else TextServer.AUTOWRAP_OFF
@@ -4703,6 +4721,7 @@ func _can_quit() -> bool:
 
 
 func _open_pause() -> void:
+	_clear_top()  # the pause shows the menu, not what was said before it (U3)
 	var parked_in_cockpit: bool = ferry != null and ferry.alt <= 0.0 and ferry.speed < 1.0 and ferry._result == ""
 	var fresh := panel == null
 	_close_panel()

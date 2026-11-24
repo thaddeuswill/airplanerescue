@@ -639,6 +639,7 @@ func run(main, args: PackedStringArray) -> void:
 				rf._process(1.0 / 60.0)
 			if step[0] == 1 and not step[1]:  # judge the left mag: a wrong call first, then the right one
 				await _snap(shot, "runup_call", 0.2)
+				calls_ok = await _top_bands_ok("cockpit") and calls_ok
 				calls_ok = calls_ok and Ferry.mag_reason(0).ends_with("Bad.") and Ferry.mag_reason(Ferry.MAG_LIMIT + 1).ends_with("Bad.") \
 					and Ferry.mag_reason(Ferry.MAG_LIMIT).ends_with("Good.") and Ferry.mag_reason(1).ends_with("Good.")
 				var m0: int = g.money  # a wrong call costs a small charge, not time (D2)
@@ -799,6 +800,8 @@ func run(main, args: PackedStringArray) -> void:
 	ok = await _mission_card_ok(deb) and ok
 	ok = _no_days_ok() and ok
 	ok = _logbook_ok() and ok
+	ok = await _top_bands_ok("pause") and ok
+	ok = await _top_bands_ok("notes") and ok
 	# Badges (P8): earned only when the standard was met. This run checked every spot and missed
 	# nothing (Sharp Eyes) and the scene tests torqued to spec (To Spec); it also called a mag wrong,
 	# had an entry sent back and looped on purpose, so those badges must be withheld.
@@ -1936,4 +1939,56 @@ func _cockpit_card_ok(phase: String) -> bool:
 	var glass_ok: bool = pf._glass.visible and pf._glass.size == r.size
 	var ok: bool = corner_ok and smaller_ok and foot_ok and glass_ok
 	print("cockpit card (%s): corner %s, %dx%d (old about 380x%d) %s, foot %s, glass %s" % [phase, corner_ok, r.size.x, r.size.y, old_h, smaller_ok, foot_ok, glass_ok])
+	return ok
+
+
+
+## U3: one band of words at the top at a time. In the cockpit a message and a banner go to the log
+## (the centre band and banners stay clear); the pause clears both; the squawk notes card hides
+## the centre band and the pinned squawk. Counts what's visible at the top after each.
+func _top_bands_ok(where: String) -> bool:
+	var bands := func() -> PackedStringArray:
+		g._update_hud()
+		var out: PackedStringArray = []
+		if g.msg.visible:
+			out.append("message")
+		if is_instance_valid(g._banner_node) and not g._banner_node.is_queued_for_deletion():
+			out.append("banner")
+		if g.squawk.visible:
+			out.append("squawk")
+		return out
+	var ok := false
+	var seen: PackedStringArray = []
+	match where:
+		"cockpit":
+			var lines: int = g._log_list.get_child_count()
+			g._say("A test line in the cockpit.")
+			g._banner("FIXED", "A test fix")
+			await get_tree().process_frame
+			seen = bands.call()
+			ok = seen.is_empty() and g._log_list.get_child_count() > mini(lines, g.LOG_LINES - 2)
+		"pause":
+			g._close_panel()
+			g._say("Said just before the pause.")
+			g._banner("BADGE: TEST", "before the pause")
+			g._open_pause()
+			await get_tree().process_frame
+			seen = bands.call()
+			ok = seen.is_empty()
+			g._close_menu()
+		"notes":
+			g._close_panel()
+			var id: String = g.tutorial.NOTES.keys()[0]
+			var j := {"city": g.location, "type": "Test", "faults": [id], "fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": 0}
+			var was = g.current_job
+			g.current_job = j
+			g._say("Arrived: walk around the plane.")
+			g.tutorial._show_notes(j)
+			await get_tree().process_frame
+			seen = bands.call()
+			ok = seen.is_empty() and is_instance_valid(g.tutorial._notes)
+			g.tutorial._close_notes()
+			g.current_job = was
+			g._say("")
+	print("top bands (%s): %s, %s" % [where, "only one" if ok else "too many", seen])
 	return ok

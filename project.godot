@@ -1,6 +1,10 @@
 ; Engine configuration file.
 config_version=5
 
+[autoload]
+
+BootGuard="*res://scripts/boot_guard.gd"
+
 [application]
 
 config/name="Airplane Rescue"

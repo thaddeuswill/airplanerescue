@@ -5,10 +5,40 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 28 is in review, with Thad's start-over change; see the log in `docs/PROCESS.md`.)
+**Iteration 29 (2026-11-24): a parse error fails the self-test, not hangs it (T1).** Ordered by Claude
+toward beta at Thad's request.
+
+- **Goal**: a broken script ends a test run at once, non-zero, naming the file, instead of hanging.
+- **Items**: an autoload, `scripts/boot_guard.gd`, that loads before the main scene and depends on
+  nothing else. In a self-test run it loads every script in `scripts/`; any that fails to parse
+  fails the run (`SELF-TEST FAIL load: <file>`, exit 1). And if the self-test hasn't started 60 s
+  after launch for any other reason, it fails the run saying so.
+- **Risk gate**: the game itself: the guard does nothing without `--self-test`. A false alarm would
+  fail good runs: proved on the definition-of-done set. Checks: a deliberate parse error in a copy
+  of the project ends the run non-zero in under a minute naming the file (and so does a broken
+  `main.gd`); the full set passes with the guard in.
+- **Acceptance**: as T1 below.
 
 ## Next
 
+### Toward beta (ordered by Claude at Thad's request, 2026-11-24: "our goal right now is to get to beta")
+
+**Beta, for this game** (from `docs/DEVELOPMENT_STAGES.md` stage 4, polish and feel): every system in
+the game is in and reads clearly; no known crash, soft-lock or lost save; the money balanced over a
+long career; the actions you repeat feel and sound right; text can be read at the size a player
+needs; and someone who has never played it gets through the apprenticeship without help.
+
+- ~~**T1. A parse error must fail the self-test, not hang it** (found in iteration 14, proposed by
+  Claude). The watchdog lives in `selftest.gd`, so a script that doesn't parse leaves Godot idle
+  with no output until something outside kills it. Acceptance: a deliberate parse error ends the
+  run non-zero within a minute, saying where.~~ In iteration 29.
+- **F5. Don't pay for the owner's fuel** (Thad, 2026-11-23: "i dont think we should pay for the fuel
+  in the plane because its not our plane"). Today the fuel truck bill for the customer's plane
+  comes out of your pocket and shows under Fuel on the ticket (with your own flight there). The
+  owner's plane is fuelled at the owner's cost: billed to the owner like supplies, or not a cost to
+  you at all; your own flight to the job stays yours. Acceptance: the fuel truck costs you nothing
+  net; the ticket's Fuel line is your trip only; the map's estimate drops the plane's fuel;
+  self-test checks.
 - **K1. The references within reach** (Thad, 2026-11-24: "we need to have the parts catalog and
   maintenance manual and the exploded diagram of the IPC easily accessible"). Today the service
   manual opens on N (at the job's page, with each chapter's exploded drawing after its procedures),
@@ -20,6 +50,71 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   looking up opens the shop or a read-only catalog. Acceptance: from the walk-around, a work scene
   and the work order, each of the three opens in one action at the right page; self-test opens
   each from each place; screenshots.
+- **M1. Difficulty first on the calls; the plane's papers when you arrive** (Thad, 2026-11-23:
+  "differential the text so you can easyly find out what you need thats important, where, how
+  difficult and, how much i am getting paid the accept screen should have the logbook and the pilot
+  discrepancy on there before you fix the plane"; corrected: "no it shows you the logs and
+  everything after you accept not before the only thing that matters is difficulty of the job").
+  - The call list: difficulty is the most prominent thing in each row; where and pay set apart
+    next; parts, fuel, fee and distance smaller and quieter. The owner's story of what happened
+    stays on each call, readable (Thad: "you can keep the story of what happened").
+  - After you accept and arrive, before any work: a screen with the plane's logbook (its past
+    entries) and the pilot's discrepancy (the squawk as written up). Then on to the walk-around.
+  - Needs: the planes have no past logbook entries today; M1 makes a few per plane (from its
+    years sat and type), plain and short.
+  - Acceptance: on the call list difficulty is the largest text in each row; on arrival the
+    logbook and discrepancy screen comes before the first spot can be worked; self-test checks
+    both; screenshots at 1280x720.
+- **U5. One money format.** Thousands separators wherever money shows (map, wallet, ending, game
+  over, messages). Acceptance: self-test finds no "$" followed by four or more bare digits on any
+  sheet.
+- **U6. Small text fixes.** The cockpit card's foot line wraps instead of cutting off; curly quotes
+  in the squawk; no stop after a question; the calls walkthrough says how calls are ordered; the
+  task list marks the next task and drops "To do:"; badge offers in the label style; the
+  inspector's note in accent ink; a backing behind the badge row. Acceptance: each visible in a
+  screenshot; the cut-off line checked by the self-test.
+- **A2. The apprenticeship as a side-panel quest, not a pop-up** (Thad, 2026-11-23: "i dont want
+  that apprenticeship to be a pop up"; "it should be more of a sidepanel quest type behavior").
+  The apprenticeship lives in a quest panel at the side of the screen, like a quest tracker: the
+  quest ("Apprenticeship, 3 jobs"), each job as an objective with its state (done, in progress,
+  locked), the current job's steps ticking as you do them (today's checklist card folds into it),
+  and each job's reward shown on it (the gift). Finishing a job ticks it off there, the panel
+  says what was learned and what comes next, and the next job's objective opens; nothing pops up
+  or needs dismissing. The bonus money stays on the ticket. Collapsible, and hidden over sheets
+  and the cockpit like the tracker. Acceptance: no overlay after a lesson; the panel shows the
+  quest, the three jobs' states, the steps and the rewards; it survives a save and load;
+  self-test checks; screenshots at 1280x720 (it must not cover the work scenes' tool roll).
+- **R1. Registration numbers instead of plane descriptions everywhere** (Thad, 2026-11-23: "the
+  red plane or this other plane kinda looks sloppy, it doesn't really look like something that
+  you would see in the real world"). The map, job sheets, work orders, logbook, radio and owner
+  lines name the plane by its N-number (from D3) instead of "Rag-wing taildragger". Decided by
+  Thad 2026-11-23: the work order and logbook give the make and model after it ("N4127K, Piper
+  J-3"); the station is the airport identifier (the ticket already uses `STATIONS`, D3). Needs at
+  planning: the real make and model for each of the five types (only the Cub, a J-3 with a C85-12,
+  is settled). Acceptance: no type description left in player text;
+  self-test checks; screenshots.
+- **BT1. Torque you can feel** (beta tip 35). The wrench clicks, the needle snaps and the scene
+  nudges when a fastener reaches its band; an over-torque sounds and looks wrong. Acceptance: the
+  cue fires at the band and only there; self-test checks; a short screen capture.
+- **BT2. Cranking that sounds like the fault** (beta tips 32-33). Starter speed and sound follow the
+  battery and starter state; a dead mag sputters; a flooded engine coughs; a good start catches.
+  Varied, layered sounds rather than one tone. Acceptance: each start state has its sound; self-test
+  checks the state-to-sound mapping.
+- **BT3. Text size** (beta tip 40). A text-size setting (Small, Medium, Large) applied to the sheets,
+  cards and HUD; everything still fits at 1280x720 at Large. Acceptance: self-test measures fit at
+  each size; screenshots.
+- **BT4. The economy over a long career** (beta tip 45). A simulation of 20+ jobs at each difficulty
+  with typical mistakes: cash never runs away or starves; pay, fee, guess charge and parts tuned
+  from the numbers. Acceptance: the run's figures written up; any change to `ECONOMY`, `HANGAR_FEE`
+  or `WRONG_GUESS` agreed with Thad.
+- **BT5. Roadmap status brought up to date.** `docs/ROADMAP_STATUS.md` still says mail order takes a
+  day, keys aren't remappable and the like. Re-check every tip against the code. Acceptance: each
+  status line cites the code or check that shows it.
+- **BT6. A first-time player test** (tip 20). Someone who hasn't played it plays the apprenticeship
+  from a fresh install while Claude reads the play log; what they get stuck on becomes backlog items.
+  Needs Thad to find the player. Acceptance: the session's notes and the items it produced.
+
+
 
 - ~~**B1. Better achievements** (Thad, 2026-11-24: "we can relook at the achivements and we can make
   them better those ones we have now are cheap").~~ In iteration 25. The seven badges today are each earned once, for
@@ -108,14 +203,6 @@ From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad 
 - ~~**U4. Stats read value-first.** The ending, game over, wallet and badge board show the figure
   large and its label small; Keep flying is the ending's one primary button; game over fits one
   page. Acceptance: self-test measures value > label on those rows; screenshots.~~ In iteration 28.
-- **U5. One money format.** Thousands separators wherever money shows (map, wallet, ending, game
-  over, messages). Acceptance: self-test finds no "$" followed by four or more bare digits on any
-  sheet.
-- **U6. Small text fixes.** The cockpit card's foot line wraps instead of cutting off; curly quotes
-  in the squawk; no stop after a question; the calls walkthrough says how calls are ordered; the
-  task list marks the next task and drops "To do:"; badge offers in the label style; the
-  inspector's note in accent ink; a backing behind the badge row. Acceptance: each visible in a
-  screenshot; the cut-off line checked by the self-test.
 
 - ~~**U1. UX and typography audit of every pop-up and menu changed or made since the process began**
   (Thad, 2026-11-23: "please look at every pop up and menu weve changed or created that has text
@@ -130,51 +217,9 @@ From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad 
   ordered by Thad. Acceptance: every listed screen audited from a screenshot; findings in the
   format; top fixes proposed.
 
-- **F5. Don't pay for the owner's fuel** (Thad, 2026-11-23: "i dont think we should pay for the fuel
-  in the plane because its not our plane"). Today the fuel truck bill for the customer's plane
-  comes out of your pocket and shows under Fuel on the ticket (with your own flight there). The
-  owner's plane is fuelled at the owner's cost: billed to the owner like supplies, or not a cost to
-  you at all; your own flight to the job stays yours. Acceptance: the fuel truck costs you nothing
-  net; the ticket's Fuel line is your trip only; the map's estimate drops the plane's fuel;
-  self-test checks.
 
-- **M1. Difficulty first on the calls; the plane's papers when you arrive** (Thad, 2026-11-23:
-  "differential the text so you can easyly find out what you need thats important, where, how
-  difficult and, how much i am getting paid the accept screen should have the logbook and the pilot
-  discrepancy on there before you fix the plane"; corrected: "no it shows you the logs and
-  everything after you accept not before the only thing that matters is difficulty of the job").
-  - The call list: difficulty is the most prominent thing in each row; where and pay set apart
-    next; parts, fuel, fee and distance smaller and quieter. The owner's story of what happened
-    stays on each call, readable (Thad: "you can keep the story of what happened").
-  - After you accept and arrive, before any work: a screen with the plane's logbook (its past
-    entries) and the pilot's discrepancy (the squawk as written up). Then on to the walk-around.
-  - Needs: the planes have no past logbook entries today; M1 makes a few per plane (from its
-    years sat and type), plain and short.
-  - Acceptance: on the call list difficulty is the largest text in each row; on arrival the
-    logbook and discrepancy screen comes before the first spot can be worked; self-test checks
-    both; screenshots at 1280x720.
 
-- **A2. The apprenticeship as a side-panel quest, not a pop-up** (Thad, 2026-11-23: "i dont want
-  that apprenticeship to be a pop up"; "it should be more of a sidepanel quest type behavior").
-  The apprenticeship lives in a quest panel at the side of the screen, like a quest tracker: the
-  quest ("Apprenticeship, 3 jobs"), each job as an objective with its state (done, in progress,
-  locked), the current job's steps ticking as you do them (today's checklist card folds into it),
-  and each job's reward shown on it (the gift). Finishing a job ticks it off there, the panel
-  says what was learned and what comes next, and the next job's objective opens; nothing pops up
-  or needs dismissing. The bonus money stays on the ticket. Collapsible, and hidden over sheets
-  and the cockpit like the tracker. Acceptance: no overlay after a lesson; the panel shows the
-  quest, the three jobs' states, the steps and the rewards; it survives a save and load;
-  self-test checks; screenshots at 1280x720 (it must not cover the work scenes' tool roll).
 
-- **R1. Registration numbers instead of plane descriptions everywhere** (Thad, 2026-11-23: "the
-  red plane or this other plane kinda looks sloppy, it doesn't really look like something that
-  you would see in the real world"). The map, job sheets, work orders, logbook, radio and owner
-  lines name the plane by its N-number (from D3) instead of "Rag-wing taildragger". Decided by
-  Thad 2026-11-23: the work order and logbook give the make and model after it ("N4127K, Piper
-  J-3"); the station is the airport identifier (the ticket already uses `STATIONS`, D3). Needs at
-  planning: the real make and model for each of the five types (only the Cub, a J-3 with a C85-12,
-  is settled). Acceptance: no type description left in player text;
-  self-test checks; screenshots.
 
 - ~~**D3. The end-of-mission screen, redone** (Thad, 2026-11-23: "in the middle of the screen glassy
   background with colors of green and red for the positive and negative and the stats and
@@ -206,10 +251,6 @@ From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad 
   - Acceptance: no day figure anywhere the player looks (self-test reads every sheet, the HUD and
     the cards); the replacements above work as chosen; old saves load.
 
-- **T1. A parse error must fail the self-test, not hang it** (found in iteration 14, proposed by
-  Claude). The watchdog lives in `selftest.gd`, so a script that doesn't parse leaves Godot idle
-  with no output until something outside kills it. Acceptance: a deliberate parse error ends the
-  run non-zero within a minute, saying where.
 
 - ~~**D1. Take days and hours off the debrief** (Thad, 2026-11-23: "it adds nothing to the game").~~ In iteration 14.
   The sheet drops "x days on site" and the time each extra cost took ("0.4 days", "3 h"); money

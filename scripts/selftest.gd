@@ -61,6 +61,7 @@ var _quit_open := false  # the pause menu offered a way out during an emergency
 
 
 func run(main, args: PackedStringArray) -> void:
+	Engine.set_meta("selftest_started", true)  # the boot guard stands down (T1)
 	g = main
 	_at("run")
 	if DisplayServer.get_name() != "headless":

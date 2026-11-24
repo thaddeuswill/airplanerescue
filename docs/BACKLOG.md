@@ -5,16 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 27 (2026-11-24): the catalog's "arrives in 1 day" (U2).**
-
-- **Goal**: no day text left anywhere, the catalog included, and a check that can't miss it again.
-- **Items**: the mail-order stock line reads "MAIL ORDER · 25% OVER SHELF"; the stock lines' hyphen
-  separators become middle dots (the audit's catalog finding 2, same lines); the self-test's
-  no-days check opens the parts counter and the mail-order catalog, every section and page, and
-  reads every card's text.
-- **Risk gate**: words only, no behaviour: the mail order already arrives at once (D2). Layout: the
-  line is shorter than before. Check: the extended reading; a screenshot of a mail-order card.
-- **Acceptance**: as U2 below.
+(None. Iteration 27 is in review; see the log in `docs/PROCESS.md`.)
 
 ## Next
 

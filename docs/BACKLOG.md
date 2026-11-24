@@ -5,9 +5,33 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 21 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 22 (2026-11-24): one message at a time at the top (U3).** Ordered by Thad: U3, then W1.
+
+- **Goal**: the top of the screen carries one band of text at a time, never a stale one.
+- **Items**: in the cockpit (run-up and ferry flight) every message and banner goes to the cockpit's
+  one list at the top right (the log), and the centre band and banners left from the walk-around
+  are cleared on climbing in; the pause hides the band and clears banners; the squawk notes card
+  hides the centre band and the pinned squawk while it's open.
+- **Risk gate**: nothing a message says is lost: in the cockpit it goes to the log instead of the
+  band; outside the cockpit the band works as before (sheets keep their feedback). Badges and
+  FIXED earned in the cockpit still say so (as log lines). Checks: self-test counts the visible
+  top bands in the cockpit after a message and a banner (one: the log), behind the pause (none
+  but the menu), under the notes card in a lesson (the card only); screenshots of the run-up and
+  the notes.
+- **Acceptance**: as U3 below.
 
 ## Next
+
+- **W1. No wallet: cash at the top right** (Thad, 2026-11-23: "remove the wallet menu just show your
+  cash at the top right of the screen instead"). The wallet pocket (Tab) and its sheet go; your cash
+  shows at the top right of the main screen, in figures (Courier Prime, thousands separators),
+  backed against the 3D world. What the wallet also held moves where it already lives elsewhere:
+  parts in the truck and materials on the parts table and in the catalog's "you have"; the tool
+  roll in the work scenes and the catalog foot; the hangar fee on the map's estimate. The
+  walkthrough page and the HUD pocket icon for it go; U4's wallet finding is moot. Acceptance: no
+  wallet sheet or key; cash always visible top right in the world (hidden over sheets like the
+  tracker, or kept, to settle at planning); self-test reads it and checks it matches; screenshots
+  at 1280x720.
 
 - ~~**LB1. The logbook, by importance** (Thad, 2026-11-23: asked what matters most in the log, agreed
   to Claude's order).~~ In iteration 19. From the top: (1) rank and what the next rank needs, the most prominent;
@@ -41,17 +65,6 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   the top message band, reads over bright sky and snow (contrast measured over white), every step
   and key still shown; screenshots at 1280x720 of all three phases.
 
-- **W1. No wallet: cash at the top right** (Thad, 2026-11-23: "remove the wallet menu just show your
-  cash at the top right of the screen instead"). The wallet pocket (Tab) and its sheet go; your cash
-  shows at the top right of the main screen, in figures (Courier Prime, thousands separators),
-  backed against the 3D world. What the wallet also held moves where it already lives elsewhere:
-  parts in the truck and materials on the parts table and in the catalog's "you have"; the tool
-  roll in the work scenes and the catalog foot; the hangar fee on the map's estimate. The
-  walkthrough page and the HUD pocket icon for it go; U4's wallet finding is moot. Acceptance: no
-  wallet sheet or key; cash always visible top right in the world (hidden over sheets like the
-  tracker, or kept, to settle at planning); self-test reads it and checks it matches; screenshots
-  at 1280x720.
-
 - **L1. Signing off is one button** (Thad, 2026-11-23: "the logbook should always be in accordance
   with the maintenance manual so theres no point for that screen or hud it should be a button to
   just sign off the plane"). The entry-writing steps go ("Done in accordance with...", "Signed
@@ -79,9 +92,9 @@ From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad 
 - **U2. The catalog still says "arrives in 1 day"** (a D2 defect, `catalog.gd:392`). Say "25% over
   shelf"; extend the no-days check to the catalog's cards. Acceptance: no day text on any catalog
   card; the check reads them.
-- **U3. One message at a time at the top.** Clear the message band and banners on opening a sheet,
+- ~~**U3. One message at a time at the top.** Clear the message band and banners on opening a sheet,
   the cockpit or the pause; hide the pinned squawk under the notes card. Acceptance: at most one
-  text band at the top in the cockpit, under the notes and behind the pause; screenshots.
+  text band at the top in the cockpit, under the notes and behind the pause; screenshots.~~ In iteration 22.
 - **U4. Stats read value-first.** The ending, game over, wallet and badge board show the figure
   large and its label small; Keep flying is the ending's one primary button; game over fits one
   page. Acceptance: self-test measures value > label on those rows; screenshots.

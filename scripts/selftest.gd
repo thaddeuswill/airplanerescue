@@ -2016,13 +2016,14 @@ func _cash_ok(shot: String) -> bool:
 	var hidden_in_pause: bool = not c.visible
 	g._close_menu()
 	g.money += 1  # a fresh pop to measure
+	g.money += 1  # and a second at once: it adds to the first, one figure on screen
 	await get_tree().process_frame
-	var pops: Array = g.ui.get_children().filter(func(n): return n is Label and String(n.name).begins_with("MoneyPop") and not n.is_queued_for_deletion())
+	var pops: Array = g.ui.get_children().filter(func(n): return n is Label and n.has_meta("sum") and not n.is_queued_for_deletion())
 	var cash_r := c.get_global_rect()
 	var font := Style.figures(true)
 	var cash_ink := Rect2(cash_r.end.x - font.get_string_size(c.text, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_XL).x, cash_r.position.y, 9999, cash_r.size.y)
 	var sq_r: Rect2 = g.squawk.get_global_rect() if g.squawk.visible else Rect2()
-	var pop_ok: bool = not pops.is_empty() and pops.all(func(p):
+	var pop_ok: bool = pops.size() == 1 and pops.all(func(p):
 		var pr: Rect2 = p.get_global_rect()
 		var ink := Rect2(pr.end.x - font.get_string_size(p.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x, pr.position.y, 9999, pr.size.y)
 		ink.size.x = pr.end.x - ink.position.x

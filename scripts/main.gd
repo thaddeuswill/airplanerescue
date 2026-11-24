@@ -3506,11 +3506,20 @@ func _banner(title: String, sub: String) -> void:
 	tw.tween_callback(box_.queue_free)
 
 
+var _pop: Label  # the money pop showing now, if any
+
+
 func _money_pop(change: int) -> void:
 	if ferry != null:  # in the cockpit it goes in the list, not under it (U3, W1)
 		log_line("%s$%s" % ["+" if change > 0 else "\u2212", _thousands(absi(change))])
 		return
+	# One pop at a time: a change while one is still showing adds to it instead of drawing over it.
+	if is_instance_valid(_pop) and not _pop.is_queued_for_deletion():
+		change += int(_pop.get_meta("sum", 0))
+		_pop.queue_free()
 	var l := Label.new()
+	_pop = l
+	l.set_meta("sum", change)
 	l.text = "%s$%s" % ["+" if change > 0 else "\u2212", _thousands(absi(change))]
 	l.anchor_left = 1.0
 	l.anchor_right = 1.0
@@ -3523,7 +3532,7 @@ func _money_pop(change: int) -> void:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	l.add_theme_font_override("font", HEAD_FONT)
 	l.add_theme_font_size_override("font_size", 24)
-	l.add_theme_color_override("font_color", Color(0.6, 0.85, 0.55) if change > 0 else Color(0.95, 0.6, 0.45))
+	l.add_theme_color_override("font_color", Style.COLOR_TEXT_GAIN if change > 0 else Style.COLOR_TEXT_LOSS)
 	l.add_theme_constant_override("outline_size", 6)
 	l.add_theme_color_override("font_outline_color", Color(C_EARTH, 0.85))
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE

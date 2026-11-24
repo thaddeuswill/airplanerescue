@@ -932,12 +932,7 @@ func run(main, args: PackedStringArray) -> void:
 	ok = ok and g.panel != null and not g.panel_closable
 	ok = await _ending_ok() and ok
 	g.rescued = rescued_now
-	g._open_game_over(500)
-	var was := [g.money, g.jobs.duplicate(true)]
-	g._odd_jobs()  # broke is a setback: odd jobs pay for the next flight, and no time passes (D2)
-	ok = ok and g.money == was[0] + g.ODD_JOB_PAY and g.panel == null and g.jobs.size() == was[1].size()
-	g.money = was[0]
-	g.jobs = was[1]
+	ok = _checkpoint_ok() and ok
 	g._open_game_over(500)
 	await _snap(shot, "game_over")
 	ok = ok and g.panel != null and not g.panel_closable
@@ -2310,8 +2305,8 @@ func _notes_pages_ok(shot: String) -> bool:
 
 
 ## U4: game over reads value-first on the ticket's glass: each figure bigger than its label,
-## centred and fitting at full size, not closable, one primary (odd jobs) of three buttons, and
-## pressing it pays and closes the card.
+## centred and fitting at full size, not closable; the ways on are start over from the last plane
+## (the one primary, when there is a checkpoint), a new career and the menu: no odd jobs, no handouts.
 func _game_over_ok() -> bool:
 	g._open_game_over(500)
 	await get_tree().process_frame
@@ -2325,18 +2320,38 @@ func _game_over_ok() -> bool:
 		var label: Label = f.get_parent().get_child(0)
 		return f.get_theme_font_size("font_size") > label.get_theme_font_size("font_size") * 2)
 	var buttons: Array = card.find_children("*", "Button", true, false)
+	var texts: Array = buttons.map(func(b): return b.text)
 	var primary: Array = buttons.filter(func(b): return b.name == "Primary")
-	var one_primary: bool = primary.size() == 1 and buttons.size() == 3
+	var want_first: String = "Start over from the last plane" if g.has_checkpoint() else "Start a new career"
+	var ways_ok: bool = primary.size() == 1 and primary[0].text == want_first and texts.has("Start a new career") \
+		and texts.has("Main menu") and not texts.any(func(t): return String(t).contains("Odd jobs")) and not ("ODD_JOB_PAY" in g)
 	var vp: Vector2 = card.get_viewport_rect().size
 	var fits: bool = card.scale.x >= 0.999 and card.get_global_rect().get_center().distance_to(vp / 2.0) < 3.0
 	var locked: bool = not g.panel_closable  # no closing it by accident
+	g._close_panel()
+	var ok: bool = value_first and ways_ok and fits and locked
+	print("game over: value first %s, ways on %s %s, fits %s, locked %s" % [value_first, ways_ok, texts, fits, locked])
+	return ok
+
+
+## U4: the checkpoint written as you fly to a job is what "Start over from the last plane" restores:
+## the save goes back to that moment (here: the cash), and the save it replaced is kept as .bak.
+func _checkpoint_ok() -> bool:
 	var m0: int = g.money
-	if one_primary:
-		primary[0].pressed.emit()
-	var pays: bool = g.money == m0 + g.ODD_JOB_PAY and g.panel == null
+	g._write_checkpoint()
 	g._quiet_money = true
+	g.money = m0 + 777
+	g._quiet_money = false
+	g._save_game()
+	var before_ok: bool = int(g._read_save(g.save_path).money) == m0 + 777
+	var restored: bool = g._restore_checkpoint()
+	var after_ok: bool = int(g._read_save(g.save_path).money) == m0 and int(g._read_save(g.save_path + ".bak").money) == m0 + 777
+	g._quiet_money = true
+	var loaded: bool = g._load_game() and g.money == m0  # what the reload does next: the game is back at the checkpoint
+	after_ok = after_ok and loaded
 	g.money = m0
 	g._quiet_money = false
-	var ok: bool = value_first and one_primary and fits and locked and pays
-	print("game over: value first %s, one primary %s, fits %s, odd jobs pays and closes %s" % [value_first, one_primary, fits, pays])
+	g._save_game()
+	var ok: bool = g.has_checkpoint() and before_ok and restored and after_ok
+	print("checkpoint: written %s, restored to the cash it held %s" % [g.has_checkpoint(), restored and after_ok])
 	return ok

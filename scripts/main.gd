@@ -597,8 +597,52 @@ func _migrate(data: Dictionary) -> void:
 	data.version = SAVE_VERSION
 
 
+## The checkpoint: the save as it was when you took your last job (U4, Thad: "a start over button
+## from the last plane"). Written as you fly out, so a run of bad luck on one plane can be undone;
+## a career gone wrong over several planes starts over instead.
+func _write_checkpoint() -> void:
+	if save_locked:
+		return
+	var data := {"version": SAVE_VERSION, "current": jobs.find(current_job)}
+	for k in SAVE_KEYS:
+		data[k] = get(k)
+	var f := FileAccess.open(save_path + ".checkpoint", FileAccess.WRITE)
+	if f:
+		f.store_var(data)
+		f.close()
+
+
+func has_checkpoint() -> bool:
+	return _read_save(save_path + ".checkpoint") is Dictionary
+
+
+## Puts the checkpoint back as the save (keeping the save it replaces as .bak). True if it could.
+func _restore_checkpoint() -> bool:
+	var data = _read_save(save_path + ".checkpoint")
+	if not data is Dictionary:
+		return false
+	var tmp := save_path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if not f:
+		return false
+	f.store_var(data)
+	f.close()
+	return _commit_save(tmp)
+
+
+## Back to when you took the last plane: the checkpoint becomes the save and the game reloads into it.
+func _retry_last_plane() -> void:
+	if not _restore_checkpoint():
+		_say("There's no earlier plane to go back to. Start a new career instead.")
+		return
+	playlog("game over: start over from the last plane")
+	keep_difficulty = difficulty
+	skip_menu = true
+	get_tree().reload_current_scene()
+
+
 func _delete_save() -> void:
-	for ext in ["", ".bak", ".tmp"]:
+	for ext in ["", ".bak", ".tmp", ".checkpoint"]:
 		DirAccess.remove_absolute(save_path + ext)
 	save_locked = false
 
@@ -851,6 +895,7 @@ const ARRIVAL_SECONDS := 0.7  # least time the arrival card stays up, so a fast 
 func _travel(job: Dictionary, cost: int) -> void:
 	if is_instance_valid(_loader):  # already on the way
 		return
+	_write_checkpoint()  # where "Start over from the last plane" goes back to (U4, Thad)
 	playlog("fly to %s, $%d, faults %s" % [job.city, cost, ",".join(job.faults)])
 	money -= cost
 	_spend(job, "fuel", cost)
@@ -2653,7 +2698,7 @@ func _open_game_over(cheapest: int) -> void:
 	what.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	what.custom_minimum_size.x = 536
 	vb.add_child(what)
-	var nxt := Style.label("Next time: keep enough cash back to fly to the next call, and check the parts bill before you take a job.", "hud_muted", Style.SIZE_SM)
+	var nxt := Style.label("Next time: keep enough cash back to fly to the next call, and check the parts bill before you take a job. One plane gone wrong? Start over from it. A run of them? A new career.", "hud_muted", Style.SIZE_SM)
 	nxt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	nxt.custom_minimum_size.x = 536
 	vb.add_child(nxt)
@@ -2662,35 +2707,28 @@ func _open_game_over(cheapest: int) -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", Style.SPACE_3)
 	vb.add_child(buttons)
-	var go := Button.new()
-	go.name = "Primary"
-	go.text = "Odd jobs here  +$%s" % _thousands(ODD_JOB_PAY)
-	Style.button(go, "primary")
-	go.custom_minimum_size = Vector2(220, 46)
-	go.pressed.connect(sound.sfx.bind("thread"))
-	go.pressed.connect(_odd_jobs)
-	buttons.add_child(go)
-	for q in [["Start over", _restart], ["Main menu", _quit_to_title]]:
+	# The way on (Thad): back to when you took the last plane, or a new career, or the menu. No
+	# handouts: one plane gone wrong is undone; a run of them means a fresh start.
+	var options: Array = []
+	if has_checkpoint():
+		options.append(["Start over from the last plane", _retry_last_plane])
+	options.append(["Start a new career", _restart])
+	options.append(["Main menu", _quit_to_title])
+	var go: Button = null
+	for q in options:
 		var b := Button.new()
 		b.text = q[0]
-		Style.glass_button(b)
+		if go == null:
+			b.name = "Primary"
+			Style.button(b, "primary")
+			go = b
+		else:
+			Style.glass_button(b)
 		b.custom_minimum_size.y = 46
 		b.pressed.connect(sound.sfx.bind("thread"))
 		b.pressed.connect(q[1])
 		buttons.add_child(b)
 	_show_glass_card(card, go)
-
-
-const ODD_JOB_PAY := 900  # covers the nearest call (under $600) with some left for parts
-
-
-## Broke is a setback, not the end: fuel planes and mow the strip, and it pays (D2: no days pass).
-func _odd_jobs() -> void:
-	_close_panel()
-	money += ODD_JOB_PAY
-	_save_game()
-	_say("Fueling planes and mowing the strip at %s. It pays the bills." % location)
-	playlog("broke: took odd jobs")
 
 
 func _can_finish_here() -> bool:

@@ -5,7 +5,24 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 20 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 21 (2026-11-24): the cockpit checklist, smaller, in a corner, on glass (C1).**
+
+- **Goal**: the before-start, run-up and take-off card takes less of the cockpit and matches the
+  ticket's glass.
+- **Items**: the card moves to the bottom-left corner (clear of the gauges in the middle, the
+  message band at the top and the hint at the top right); 300 px wide instead of 380; type one step
+  down (steps 15, title 18, keys and readings 13, the HUD minimum); a frosted-glass panel behind it
+  (the ticket's tokens and shader); cream text, brass for done and quiet, green ticks, the current
+  step marked with the mustard focus bar, keys as cream chips; the alert band in the loss red; the
+  foot line wraps (U6's cut-off line). Every step, key and live reading stays.
+- **Risk gate**: flow: the card is only drawn, never clicked, so input can't change. Readability:
+  text over the blurred cockpit and sky, measured over white (cream on the glass 10:1, brass 6:1,
+  green 6.6:1, loss red 5.4:1). Layout: at 1280x720 the card must fit above the bottom edge in the
+  longest phase (coached run-up with an alert); self-test measures its rectangle. Checks: self-test
+  reads the drawn card's rectangle in every phase it passes through: in the corner, within the
+  screen, narrower and smaller in area than the old card, the foot line not cut; screenshots of
+  before start, run-up and take-off at 1280x720.
+- **Acceptance**: as C1 below.
 
 ## Next
 
@@ -30,9 +47,9 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
   row on it named as serving play; self-test opens it and checks the figures and the one primary;
   screenshots at 1280x720 and 1920x1080.
 
-- **C1. The cockpit checklist: smaller, in the corner, on glass** (Thad, 2026-11-23: "the run up
+- ~~**C1. The cockpit checklist: smaller, in the corner, on glass** (Thad, 2026-11-23: "the run up
   callouts for how to start the engine should be smaller in the corner and a glassy panel
-  instead"). The before-start, run-up and take-off card (`preflight.gd`) moves from a cream paper
+  instead").~~ In iteration 21. The before-start, run-up and take-off card (`preflight.gd`) moves from a cream paper
   card at the top left to a smaller frosted-glass panel in a corner, in the ticket's glass style
   (the `Style` glass tokens and `shaders/glass.gdshader`): earth glass, cream text, gain green for a
   ticked step, the current step marked. Smaller type within the HUD minimum (13 px). Keeps every

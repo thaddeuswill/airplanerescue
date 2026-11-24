@@ -5,12 +5,20 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 24 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 25 (2026-11-24): better achievements (B1).**
+
+- **Goal**: badges that say what kind of mechanic you are, earned over a career, not in one moment.
+- **Step 1 (now)**: the proposal, `docs/quick-specs/achievements-proposal-2026-11-24.md`: eight
+  badges (streaks, counts, the long-neglected plane, the hard call to ground), the rank rule, and
+  what happens to old saves. Thad chooses.
+- **Step 2**: build the chosen set. Risk gate written when the set is chosen (saves, the rank
+  ladder, every standard tested earned-when-met and withheld-when-not).
+- **Acceptance**: as B1 below.
 
 ## Next
 
-- **B1. Better achievements** (Thad, 2026-11-24: "we can relook at the achivements and we can make
-  them better those ones we have now are cheap"). The seven badges today are each earned once, for
+- ~~**B1. Better achievements** (Thad, 2026-11-24: "we can relook at the achivements and we can make
+  them better those ones we have now are cheap").~~ In iteration 25. The seven badges today are each earned once, for
   one clean moment (a clean start, a take-off without a ground loop), and most come in the first
   job or two. A redesign: what each should take (skill shown over time, harder conditions, rarer
   faults, streaks), how many, and how they tie to the rank ladder (IA needs 6 badges today, 6 of

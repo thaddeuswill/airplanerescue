@@ -5,9 +5,34 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 27 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 28 (2026-11-24): stats read value-first (U4).**
+
+- **Goal**: on the screens that show career figures, the figure is the big thing and its label small.
+- **What's left of U4**: the ending (E6), the badge board (LB1, B1) and the wallet (gone in W1) are
+  done; the game-over sheet remains.
+- **Items**: game over becomes a glass card from the ticket's frame: "Out of money and grounded",
+  the figures large in Courier Prime with small labels (cash in hand, the cheapest flight, planes
+  rescued), one line on what happened and one on next time, the odd-jobs button as the one primary
+  (+$900), Start over and Main menu as quiet glass buttons; one page.
+- **Risk gate**: flow: game over still can't be closed by accident; odd jobs still pays and closes
+  it; each button does what it did. Layout: fits 1280x720 at full size. Checks: self-test opens it,
+  measures value > label for each figure, one primary, not closable, one page, odd jobs pays;
+  screenshot.
+- **Acceptance**: as U4 below.
 
 ## Next
+
+- **K1. The references within reach** (Thad, 2026-11-24: "we need to have the parts catalog and
+  maintenance manual and the exploded diagram of the IPC easily accessible"). Today the service
+  manual opens on N (at the job's page, with each chapter's exploded drawing after its procedures),
+  but the parts catalog only opens at the parts shed or the hangar's mail-order box, and the IPC
+  drawing for the part in hand takes paging. Wanted: all three a key or a click away wherever you
+  work: the manual at the job's procedure, the IPC exploded drawing for the part you're on (with its
+  part numbers), and the parts catalog to look up a part and its price (buying still where the parts
+  are sold, or by mail). To settle at planning: keys or a references tab on one sheet; whether
+  looking up opens the shop or a read-only catalog. Acceptance: from the walk-around, a work scene
+  and the work order, each of the three opens in one action at the right page; self-test opens
+  each from each place; screenshots.
 
 - ~~**B1. Better achievements** (Thad, 2026-11-24: "we can relook at the achivements and we can make
   them better those ones we have now are cheap").~~ In iteration 25. The seven badges today are each earned once, for
@@ -93,7 +118,7 @@ From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad 
 - ~~**U3. One message at a time at the top.** Clear the message band and banners on opening a sheet,
   the cockpit or the pause; hide the pinned squawk under the notes card. Acceptance: at most one
   text band at the top in the cockpit, under the notes and behind the pause; screenshots.~~ In iteration 22.
-- **U4. Stats read value-first.** The ending, game over, wallet and badge board show the figure
+- ~~**U4. Stats read value-first.** The ending, game over, wallet and badge board show the figure
   large and its label small; Keep flying is the ending's one primary button; game over fits one
   page. Acceptance: self-test measures value > label on those rows; screenshots.
 - **U5. One money format.** Thousands separators wherever money shows (map, wallet, ending, game

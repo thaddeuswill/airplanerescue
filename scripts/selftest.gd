@@ -791,6 +791,7 @@ func run(main, args: PackedStringArray) -> void:
 	ok = _logbook_ok() and ok
 	ok = await _top_bands_ok("pause") and ok
 	ok = await _top_bands_ok("notes") and ok
+	ok = await _notes_pages_ok(shot) and ok
 	# Badges (B1): one delivery earns none of the run badges, but moves their runs. This run checked
 	# every spot and nothing came back (Nothing Gets Past You: 1 of 5); it called a mag wrong, so the
 	# ticket had extras (Clean Sheet stays 0). Only Barn Find can come in one job, on a 10-year plane.
@@ -2153,4 +2154,82 @@ func _badge_rules_ok() -> bool:
 	g._clear_top()  # and the test's badge banners go
 	var ok: bool = out.values().all(func(v): return v) and progress_ok and g.IA_NEEDS.badges == 4
 	print("badge rules: %s, progress %s" % [out, progress_ok])
+	return ok
+
+
+
+## U7: the squawk notes in short pages. For the longest and the shortest squawk the game has: no
+## page over three sentences (labels and quoted phrases aside), every sentence of the write-up on a
+## page, Next to move on and Back to return, GO LOOK only on the last page, and pressing it closes
+## the card.
+func _notes_pages_ok(shot: String) -> bool:
+	var tut = g.tutorial
+	var ids: Array = tut.NOTES.keys().filter(func(id): return g.SQUAWKS.has(id))
+	var by_len := func(id: String) -> int: return g.SQUAWKS[id].map(func(v): return String(v).length()).max()
+	var long_id: String = ids[0]
+	var short_id: String = ids[0]
+	for id in ids:
+		if by_len.call(id) > by_len.call(long_id):
+			long_id = id
+		if by_len.call(id) < by_len.call(short_id):
+			short_id = id
+	var ok := true
+	var report: PackedStringArray = []
+	for id in [long_id, short_id]:
+		var variants: Array = g.SQUAWKS[id]
+		var longest: int = 0
+		for k in variants.size():
+			if String(variants[k]).length() > String(variants[longest]).length():
+				longest = k
+		var j := {"city": g.location, "type": "Test", "faults": [id], "fixed": {}, "found": {}, "checked": {}, "work": {},
+			"reward": 0, "cyl": 0, "seed_squawk": 0}
+		for s0 in variants.size():  # pick the seed that gives the longest wording
+			j.seed_squawk = s0
+			if g.squawk_line(j, id) == variants[longest]:
+				break
+		var pages: Array = tut.notes_pages(j, id)
+		var counted := true
+		var text_in_order := ""
+		for pg in pages:
+			var n := 0
+			for part in pg:
+				if part[0] in ["squawk", "intro", "means", "look"]:
+					n += tut.sentences(part[1]).size()
+				if part[0] in ["squawk", "phrase", "means", "look"]:
+					text_in_order += " " + String(part[1])
+			counted = counted and n <= tut.NOTES_PAGE_SENTENCES
+		var said: String = g.squawk_line(j, id)
+		var all_there: bool = Array(tut.sentences(said)).all(func(x): return text_in_order.contains(x)) \
+			and tut.NOTES[id].notes.all(func(nn): return text_in_order.contains(nn[1])) and text_in_order.contains(tut.NOTES[id].look)
+		# Page through it for real: Next, Back, then GO LOOK on the last page.
+		g.current_job = j
+		tut._show_notes(j)
+		await get_tree().process_frame
+		var live := func(name: String) -> Array:
+			return tut._notes_col.find_children(name, "Button", true, false).filter(func(b): return not b.is_queued_for_deletion())
+		var path_ok: bool = live.call("GoLook").is_empty() == (pages.size() > 1)
+		if pages.size() > 1:
+			live.call("Next")[0].pressed.emit()
+			await get_tree().process_frame
+			path_ok = path_ok and tut._notes_i == 1
+			if id == long_id:
+				await _snap(shot, "notes_page2", 0.3)
+			live.call("Back")[0].pressed.emit()
+			await get_tree().process_frame
+			path_ok = path_ok and tut._notes_i == 0
+		for k in pages.size() - 1:
+			live.call("Next")[0].pressed.emit()
+			await get_tree().process_frame
+		var go: Array = live.call("GoLook")
+		path_ok = path_ok and go.size() == 1 and tut._notes_i == pages.size() - 1
+		if id == long_id:
+			await _snap(shot, "notes_last", 0.3)
+		if go.size() == 1:
+			go[0].pressed.emit()
+		await get_tree().process_frame
+		path_ok = path_ok and not is_instance_valid(tut._notes)
+		ok = ok and counted and all_there and path_ok
+		report.append("%s: %d pages, three or fewer a page %s, all there %s, Next/Back/GO LOOK %s" % [id, pages.size(), counted, all_there, path_ok])
+	g.current_job = null
+	print("squawk pages: ", "; ".join(report))
 	return ok

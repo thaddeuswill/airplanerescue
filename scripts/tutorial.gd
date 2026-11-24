@@ -584,76 +584,140 @@ func squawk_note() -> String:
 	return "" if id == "" else "Look first: " + NOTES[id].look
 
 
+const NOTES_PAGE_SENTENCES := 3  # the most a squawk page shows (U7, Thad: "smaller chunks")
+var _notes_pages: Array = []  # each page: [[kind, text], ...]
+var _notes_i := 0
+var _notes_col: VBoxContainer
+
+
+## Splits text into sentences, keeping each one's end mark. Quotes and abbreviations rarely end a
+## sentence in these write-ups, so a stop, question or exclamation followed by a space is enough.
+static func sentences(text: String) -> PackedStringArray:
+	var out: PackedStringArray = []
+	var cur := ""
+	for i in text.length():
+		cur += text[i]
+		if text[i] in ".?!" and (i + 1 >= text.length() or text[i + 1] == " "):
+			out.append(cur.strip_edges())
+			cur = ""
+	if cur.strip_edges() != "":
+		out.append(cur.strip_edges())
+	return out
+
+
+## The squawk notes as short pages (U7): the pilot's own words first, three sentences a page at most;
+## then each telling phrase with what it means, a page each; "Look first" last. Same words, paged.
+func notes_pages(j: Dictionary, id: String) -> Array:
+	var pages: Array = []
+	var said := sentences(main.squawk_line(j, id))
+	for i in range(0, said.size(), NOTES_PAGE_SENTENCES):
+		var chunk := " ".join(said.slice(i, i + NOTES_PAGE_SENTENCES))
+		pages.append([["eyebrow", "PILOT SQUAWK"], ["squawk", "\u201c%s\u201d" % chunk]])
+	var first := true
+	for n in NOTES[id].notes:  # each telling phrase, then what it means (one or two sentences)
+		var page: Array = [["eyebrow", "MECHANIC'S NOTES"]]
+		if first:  # how to read a squawk, once, ahead of the first clue
+			page.append(["intro", "Pilots tell you what they felt, heard, saw or smelled, never the cause: read it for clues to where."])
+			first = false
+		page.append_array([["phrase", "\u201c%s\u201d" % n[0]], ["means", n[1]]])
+		pages.append(page)
+	pages.append([["eyebrow", "LOOK FIRST"], ["look", NOTES[id].look]])
+	return pages
+
+
 func _show_notes(j: Dictionary) -> void:
 	var id := _notes_fault(j)
-	var w := 600.0
+	_notes_pages = notes_pages(j, id)
+	_notes_i = 0
 	_notes = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Style.COLOR_SURFACE_PAPER
 	sb.border_width_top = 6
 	sb.border_color = Style.COLOR_TEXT_PAPER_ACCENT
-	sb.set_content_margin_all(Style.SPACE_6)
+	sb.set_content_margin_all(Style.SPACE_8)
 	sb.shadow_color = Color(0, 0, 0, 0.45)
 	sb.shadow_size = 14
 	_notes.add_theme_stylebox_override("panel", sb)
 	_notes.mouse_filter = Control.MOUSE_FILTER_STOP
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", Style.SPACE_2)
-	col.custom_minimum_size.x = w
-	_notes.add_child(col)
-	var eyebrow := Style.label("PILOT SQUAWK", "accent", Style.SIZE_XS, 800)
-	eyebrow.add_theme_font_override("font", Style.caps(800, Style.SIZE_XS))
-	col.add_child(eyebrow)
-	var said := Label.new()  # the pilot's own words, typed as on the squawk sheet
-	said.text = "\"%s\"" % main.squawk_line(j, id)
-	said.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	said.custom_minimum_size.x = w  # wrapped text needs a width, or it lays out a letter per line
-	said.add_theme_font_override("font", Style.figures())
-	said.add_theme_font_size_override("font_size", Style.SIZE_MD)
-	said.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER)
-	col.add_child(said)
-	var gap := Control.new()
-	gap.custom_minimum_size.y = Style.SPACE_2
-	col.add_child(gap)
-	var head := Style.label("MECHANIC'S NOTES", "accent", Style.SIZE_XS, 800)
-	head.add_theme_font_override("font", Style.caps(800, Style.SIZE_XS))
-	col.add_child(head)
-	var rule := ColorRect.new()
-	rule.color = Color(Style.COLOR_TEXT_PAPER_ACCENT, 0.5)
-	rule.custom_minimum_size.y = 1
-	col.add_child(rule)
-	var general := Style.label("Pilots tell you what they felt, heard, saw or smelled, never the cause. Read it for clues to where.", "muted", Style.SIZE_SM, 600)
-	general.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	general.custom_minimum_size.x = w
-	col.add_child(general)
-	for n in NOTES[id].notes:  # each telling phrase, then what it means
-		var phrase := Label.new()
-		phrase.text = "\"%s\"" % n[0]
-		phrase.add_theme_font_override("font", Style.figures(true))
-		phrase.add_theme_font_size_override("font_size", Style.SIZE_SM)
-		phrase.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER_ACCENT)
-		col.add_child(phrase)
-		var means := Style.label(n[1], "body", Style.SIZE_MD, 600)
-		means.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		means.custom_minimum_size.x = w
-		col.add_child(means)
-	var look := Style.label("Look first: " + NOTES[id].look, "body", Style.SIZE_MD, 800)
-	look.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	look.custom_minimum_size.x = w
-	col.add_child(look)
-	var go := Button.new()
-	go.text = "GO LOOK"
-	Style.button(go, "primary")
-	go.custom_minimum_size.y = 44
-	go.pressed.connect(func():
-		tick("squawk", "Read the squawk")
-		_close_notes())
-	col.add_child(go)
+	_notes_col = VBoxContainer.new()
+	_notes_col.add_theme_constant_override("separation", Style.SPACE_3)
+	_notes_col.custom_minimum_size.x = 520.0
+	_notes.add_child(_notes_col)
 	add_child(_notes)
-	_center.call_deferred(_notes)
+	_notes_page(0)
 	main.player.frozen = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	go.grab_focus.call_deferred()
+
+
+## Shows one page of the notes: its parts, then the page count, Back and Next (GO LOOK on the last).
+func _notes_page(i: int) -> void:
+	_notes_i = clampi(i, 0, _notes_pages.size() - 1)
+	for c in _notes_col.get_children():
+		c.queue_free()
+	var w := 520.0
+	for part in _notes_pages[_notes_i]:
+		var l: Label
+		match part[0]:
+			"eyebrow":
+				l = Style.label(part[1], "accent", Style.SIZE_XS, 800)
+				l.add_theme_font_override("font", Style.caps(800, Style.SIZE_XS))
+			"squawk":  # the pilot's own words, typed as on the squawk sheet
+				l = Label.new()
+				l.text = part[1]
+				l.add_theme_font_override("font", Style.figures())
+				l.add_theme_font_size_override("font_size", Style.SIZE_LG)
+				l.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER)
+			"intro":
+				l = Style.label(part[1], "muted", Style.SIZE_SM, 600)
+			"phrase":
+				l = Label.new()
+				l.text = part[1]
+				l.add_theme_font_override("font", Style.figures(true))
+				l.add_theme_font_size_override("font_size", Style.SIZE_MD)
+				l.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER_ACCENT)
+			"means":
+				l = Style.label(part[1], "body", Style.SIZE_LG, 600)
+			"look":
+				l = Style.label(part[1], "body", Style.SIZE_LG, 800)
+		l.name = String(part[0]).capitalize().replace(" ", "")
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size.x = w  # wrapped text needs a width, or it lays out a letter per line
+		_notes_col.add_child(l)
+	var gap := Control.new()
+	gap.custom_minimum_size.y = Style.SPACE_2
+	_notes_col.add_child(gap)
+	var foot := HBoxContainer.new()
+	foot.add_theme_constant_override("separation", Style.SPACE_3)
+	_notes_col.add_child(foot)
+	var count := Style.label("%d of %d" % [_notes_i + 1, _notes_pages.size()], "muted", Style.SIZE_SM, 700)
+	count.name = "Count"
+	count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	foot.add_child(count)
+	if _notes_i > 0:
+		var back := Button.new()
+		back.name = "Back"
+		back.text = "BACK"
+		Style.button(back, "quiet")
+		back.custom_minimum_size = Vector2(96, 44)
+		back.pressed.connect(func(): _notes_page(_notes_i - 1))
+		foot.add_child(back)
+	var last := _notes_i == _notes_pages.size() - 1
+	var go := Button.new()
+	go.name = "GoLook" if last else "Next"
+	go.text = "GO LOOK" if last else "NEXT"
+	Style.button(go, "primary")
+	go.custom_minimum_size = Vector2(160, 44)
+	if last:
+		go.pressed.connect(func():
+			tick("squawk", "Read the squawk")
+			_close_notes())
+	else:
+		go.pressed.connect(func(): _notes_page(_notes_i + 1))
+	foot.add_child(go)
+	go.grab_focus.call_deferred()  # Enter moves on
+	_notes.reset_size()
+	_center.call_deferred(_notes)
 
 
 func _close_notes() -> void:

@@ -11,8 +11,17 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 - **Step 1 (now)**: the proposal, `docs/quick-specs/achievements-proposal-2026-11-24.md`: eight
   badges (streaks, counts, the long-neglected plane, the hard call to ground), the rank rule, and
   what happens to old saves. Thad chooses.
-- **Step 2**: build the chosen set. Risk gate written when the set is chosen (saves, the rank
-  ladder, every standard tested earned-when-met and withheld-when-not).
+- **Step 2 (Thad 2026-11-24: "go with all eight and build them")**: the eight as proposed. Streaks
+  and counts kept in a saved `streaks` record; each hook is one function the game calls at the
+  moment (after a delivery, a run-up's mag calls, a ferry flight, a forced landing, a trail
+  followed, a grounding). The board shows progress ("3 of 5") under each badge not yet earned;
+  the cockpit card and the task list offer the new ones. IA needs 4 of the 8 badges.
+- **Risk gate (step 2)**: saves: `SAVE_VERSION` 5 drops the old badge keys and starts `streaks`
+  empty; a version-4 save loads into the new set. Ladder: IA's badge count changes (6 to 4), a game
+  rule; Lead is unchanged. Reachability: every standard must be earnable in play: the self-test
+  drives each hook to its threshold (earned), one short (withheld) and through a break (reset);
+  the look-alike rule names real look-alike faults. The real run's delivery moves the streaks it
+  should (checked). Screenshots of the board and the ticket.
 - **Acceptance**: as B1 below.
 
 ## Next

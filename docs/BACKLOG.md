@@ -5,7 +5,20 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 25 is in review; see the log in `docs/PROCESS.md`.)
+**Iteration 26 (2026-11-24): the pilot squawk card, in short pages (U7).** Thad, ordering it: "if its
+a long squawk make it in smaller chunks to read instead of a long page".
+
+- **Goal**: the squawk notes read a few sentences at a time, however long the write-up.
+- **Items**: the card pages: the pilot's squawk first, three sentences a page at most (a long squawk
+  takes several pages); then each telling phrase with what it means, a page each; the last page
+  "Look first" and GO LOOK. Next (Enter) and Back, with "2 of 5"; more space between parts; curly
+  quotes. The words are unchanged, only paged.
+- **Risk gate**: flow: GO LOOK still ticks the squawk step and closes the card (the lesson can't
+  stall); Enter moves on, so keyboard play works. Layout: the card no taller than it needs, every
+  page at 1280x720. Checks: self-test pages through a long and a short squawk: no page over three
+  sentences, every sentence of the write-up on some page in order, GO LOOK only on the last page,
+  Back returns; screenshots of a first and a last page.
+- **Acceptance**: as U7 below.
 
 ## Next
 
@@ -79,14 +92,14 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 From the U1 audit (`docs/UX_AUDIT_2026-11-23.md`), proposed by Claude, for Thad to order:
 
-- **U7. The pilot squawk card, uncrowded** (Thad, 2026-11-23: "the pilot squawk doesnt look right
+- ~~**U7. The pilot squawk card, uncrowded** (Thad, 2026-11-23: "the pilot squawk doesnt look right
   its way to crowded i like long write ups just show like 3 sentences at a time"). The write-ups
   stay long; the card shows about three sentences at a time and pages through the rest (Next, or
   Enter), with the squawk itself on the first page and "Look first" on the last; more space
   around each part (the U1 proximity rule); curly quotes (from U6); the pinned squawk hidden while
   the card is open (from U3). Acceptance: no page over three sentences; every sentence of the
   write-up reachable; the GO LOOK button on the last page; self-test pages through it;
-  screenshots at 1280x720.
+  screenshots at 1280x720.~~ In iteration 26.
 - **U2. The catalog still says "arrives in 1 day"** (a D2 defect, `catalog.gd:392`). Say "25% over
   shelf"; extend the no-days check to the catalog's cards. Acceptance: no day text on any catalog
   card; the check reads them.

@@ -607,9 +607,9 @@ static func sentences(text: String) -> PackedStringArray:
 
 ## The squawk notes as short pages (U7): the pilot's own words first, three sentences a page at most;
 ## then each telling phrase with what it means, a page each; "Look first" last. Same words, paged.
-func notes_pages(j: Dictionary, id: String) -> Array:
+func notes_pages(j: Dictionary, id: String, wording := "") -> Array:
 	var pages: Array = []
-	var said := sentences(main.squawk_line(j, id))
+	var said := sentences(wording if wording != "" else main.squawk_line(j, id))
 	for i in range(0, said.size(), NOTES_PAGE_SENTENCES):
 		var chunk := " ".join(said.slice(i, i + NOTES_PAGE_SENTENCES))
 		pages.append([["eyebrow", "PILOT SQUAWK"], ["squawk", "\u201c%s\u201d" % chunk]])
@@ -625,9 +625,10 @@ func notes_pages(j: Dictionary, id: String) -> Array:
 	return pages
 
 
-func _show_notes(j: Dictionary) -> void:
+## `wording` replaces the pilot's words (the self-test's long squawk); "" means the job's own.
+func _show_notes(j: Dictionary, wording := "") -> void:
 	var id := _notes_fault(j)
-	_notes_pages = notes_pages(j, id)
+	_notes_pages = notes_pages(j, id, wording)
 	_notes_i = 0
 	_notes = PanelContainer.new()
 	var sb := StyleBoxFlat.new()

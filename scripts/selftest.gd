@@ -226,9 +226,15 @@ func run(main, args: PackedStringArray) -> void:
 	var trip_ms := Time.get_ticks_msec() - trip_start
 	if lesson > 0:  # the squawk notes: no quiz, one button, and it ticks the step
 		g.tutorial._show_notes(job)
-		var go: Array = g.tutorial._notes.find_children("*", "Button", true, false)
+		var go: Array = g.tutorial._notes_col.find_children("*", "Button", true, false)
 		if go.size() != 1 or g.tut.done.has("squawk") or g.tutorial.squawk_note() == "":
-			print("TUTORIAL: the squawk notes card should have one button, tick nothing yet, and pin a look-first note")
+			print("TUTORIAL: the squawk notes card should open with one button, tick nothing yet, and pin a look-first note")
+			_chk(false, 1)
+		for k in g.tutorial._notes_pages.size() - 1:  # page through to GO LOOK (U7)
+			g.tutorial._notes_page(g.tutorial._notes_i + 1)
+		go = g.tutorial._notes_col.find_children("GoLook", "Button", true, false).filter(func(b): return not b.is_queued_for_deletion())
+		if go.size() != 1:
+			print("TUTORIAL: no GO LOOK on the last page of the squawk notes")
 			_chk(false, 1)
 		go[0].pressed.emit()
 		if not g.tut.done.has("squawk") or is_instance_valid(g.tutorial._notes):
@@ -2230,6 +2236,32 @@ func _notes_pages_ok(shot: String) -> bool:
 		path_ok = path_ok and not is_instance_valid(tut._notes)
 		ok = ok and counted and all_there and path_ok
 		report.append("%s: %d pages, three or fewer a page %s, all there %s, Next/Back/GO LOOK %s" % [id, pages.size(), counted, all_there, path_ok])
+	# A long squawk, as long as the map's (seven sentences): it splits into chunks of three at most,
+	# in order, across pages you can page through and back.
+	var long_said := "Right brake squeals, then grinds. Takes forever to stop on the ramp. It's been sitting a long time. The last gas went in years ago, and what I sumped smells off. Nobody remembers the last oil change. What's on the dipstick looks black. The ropes look rough."
+	var lj := {"city": g.location, "type": "Test", "faults": [long_id], "fixed": {}, "found": {}, "checked": {}, "work": {}, "reward": 0}
+	var lpages: Array = tut.notes_pages(lj, long_id, long_said)
+	var chunks: PackedStringArray = []
+	var chunk_ok := true
+	for pg in lpages:
+		for part in pg:
+			if part[0] == "squawk":
+				var inner: String = String(part[1]).trim_prefix("\u201c").trim_suffix("\u201d")
+				chunk_ok = chunk_ok and tut.sentences(inner).size() <= tut.NOTES_PAGE_SENTENCES
+				chunks.append(inner)
+	var in_order: bool = " ".join(chunks) == long_said and chunks.size() == 3  # 3 + 3 + 1 sentences
+	g.current_job = lj
+	tut._show_notes(lj, long_said)
+	await get_tree().process_frame
+	await _snap(shot, "notes_long_1", 0.3)
+	tut._notes_page(1)
+	await get_tree().process_frame
+	await _snap(shot, "notes_long_2", 0.3)
+	var shown: Array = tut._notes_col.find_children("*", "Label", true, false).filter(func(l): return not l.is_queued_for_deletion() and String(l.text).begins_with("\u201c"))
+	var page2_ok: bool = shown.size() == 1 and String(shown[0].text).contains(chunks[1] if chunks.size() > 1 else "?") and tut._notes_i == 1
+	tut._close_notes()
+	ok = ok and chunk_ok and in_order and page2_ok
+	report.append("long squawk (7 sentences): %d squawk pages %s, three or fewer each %s, in order %s, page 2 shows the next chunk %s" % [chunks.size(), chunks.size() == 3, chunk_ok, in_order, page2_ok])
 	g.current_job = null
 	print("squawk pages: ", "; ".join(report))
 	return ok

@@ -2758,10 +2758,7 @@ func _can_finish_here() -> bool:
 		var short: int = mats_needed[m] - inventory.get(m, 0)
 		if short > 0:
 			need += ceili(float(short) / SUPPLIES[m].qty) * _supply_price(m)
-	var refilled: bool = current_job.faults.has("stale_fuel") and not current_job.fixed.has("stale_fuel")  # that job fills the tanks
-	if current_job.get("fuel", 1.0) < 0.5 and not refilled:
-		need += _fuel_bill(current_job)
-	return money >= need
+	return money >= need  # the plane's fuel is the owner's (F5): it never stands between you and finishing
 
 
 func _restart() -> void:
@@ -5075,9 +5072,7 @@ func _move_plane(to: String) -> void:
 	_open_inspection()
 
 
-## Fuel the plane to full from the truck (on the apron, never inside, no stale fuel in the
-## tanks). Returns what it cost (0 if nothing was pumped).
-## Filling the tanks is the only choice the pump offers, so this is what fueling costs.
+## What filling the plane's tanks comes to: on the owner's account (F5, Thad: "it's not our plane").
 func _fuel_bill(job: Dictionary) -> int:
 	return roundi(roundi((1.0 - job.get("fuel", 1.0)) * TANK_GAL) * AVGAS_PER_GAL)
 
@@ -5087,13 +5082,12 @@ func _fuel_plane() -> int:
 	var gal := roundi((1.0 - job.get("fuel", 1.0)) * TANK_GAL)
 	var cost := _fuel_bill(job)
 	var blocked: bool = job.get("parked", "apron") == "hangar" or (job.faults.has("stale_fuel") and not job.fixed.has("stale_fuel"))
-	if gal <= 0 or money < cost or blocked:  # never indoors, never onto stale gas
+	if gal <= 0 or blocked:  # never indoors, never onto stale gas
 		return 0
-	money -= cost
-	_spend(job, "fuel", cost)
-	job.fuel = 1.0
+	job.fuel = 1.0  # on the owner's account (F5): it's their plane, so it's their fuel
+	job["owner_fuel"] = int(job.get("owner_fuel", 0)) + cost
 	_save_game()
-	_say("Pumped %d gal of 100LL into the %s ($%d)." % [gal, job.type, cost])
+	_say("Pumped %d gal of 100LL into the %s, on the owner's account ($%d)." % [gal, job.type, cost])
 	_save_game()
 	return cost
 
@@ -5118,20 +5112,24 @@ func _open_truck() -> void:
 		elif gal <= 0:
 			rows.append(["The %s's tanks are full." % job.type])
 		else:
-			rows.append(["Fuel the %s: %d gal of 100LL at $%.2f a gallon" % [job.type, gal, AVGAS_PER_GAL], "Pump $%d" % cost,
-				_pump_and_reopen, money >= cost])
+			rows.append(["Fuel the %s: %d gal of 100LL at $%.2f a gallon, on the owner's account ($%d)" % [job.type, gal, AVGAS_PER_GAL, cost],
+				"Pump", _pump_and_reopen, true])
 	else:
 		rows.append(["No plane to fuel at this field."])
-	rows.append(["Jerry can of fresh avgas, for a stale-fuel job (have %d)" % inventory.get("Fresh avgas", 0), "$90",
-		_buy_can, money >= 90])
+	var for_owner: bool = job != null and job.faults.has("stale_fuel") and not job.fixed.has("stale_fuel")
+	rows.append(["Jerry can of fresh avgas, for a stale-fuel job (have %d)%s" % [inventory.get("Fresh avgas", 0),
+		", on the owner's account: it's for their plane" if for_owner else ""], "Fill" if for_owner else "$90",
+		_buy_can, for_owner or money >= 90])
 	_open_panel("Fuel truck", rows)
 
 
 func _buy_can() -> void:
-	money -= 90
+	var job = current_job
+	if job != null and job.faults.has("stale_fuel") and not job.fixed.has("stale_fuel"):
+		job["owner_fuel"] = int(job.get("owner_fuel", 0)) + 90  # the owner's plane, the owner's fuel (F5)
+	else:
+		money -= 90  # stocking up with no plane to fill: yours
 	inventory["Fresh avgas"] = inventory.get("Fresh avgas", 0) + 1
-	if current_job:
-		_spend(current_job, "fuel", 90)
 	_refresh_parts_table()
 	_save_game()
 	_open_truck()
@@ -5814,7 +5812,7 @@ func _open_travel() -> void:
 			continue
 		can_fly = can_fly or money >= cost
 		rows.append(["%s: %s%s\n%s. Pays $%d, clears about $%d after parts $%d, fuel $%d and the $%d hangar fee. %d NM.\n%s" % [
-			job.city, job.type, "   (closest you can afford)" if job == closest else "", rating, job.reward, est.net, est.parts, est.fare + est.plane_fuel,
+			job.city, job.type, "   (closest you can afford)" if job == closest else "", rating, job.reward, est.net, est.parts, est.fare,
 			HANGAR_FEE, roundi(miles(location, job.city) * 0.869), _symptoms(job)],
 			"Fly ($%d)" % cost, func(): _travel(job, cost), money >= cost])
 	if not can_fly and not _can_finish_here():
@@ -5938,9 +5936,8 @@ func call_estimate(job: Dictionary) -> Dictionary:
 	var parts := 0
 	for id in job.faults:
 		parts += FAULTS[id].cost
-	var plane_fuel := _fuel_bill(job)
-	return {"fare": fare, "parts": parts, "plane_fuel": plane_fuel,
-		"net": job.reward - parts - fare - plane_fuel - HANGAR_FEE}
+	return {"fare": fare, "parts": parts,  # the plane's own fuel is the owner's (F5)
+		"net": job.reward - parts - fare - HANGAR_FEE}
 
 
 # ---------- 3D world ----------

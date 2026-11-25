@@ -92,7 +92,8 @@ by Thad, written into `docs/PROCESS.md`.
   airplane wins over AC 43.13-1B. Contradictions found so far are resolved in `JOBS_ATA.md`.
 - Faults with `"ground": true` have no field fix: the plane is grounded and the owner called.
 - Money: the owner pays for the job, its parts (in the quoted pay) and the supplies it used
-  (paid back at sign-off). Anything you mess up comes out of your pocket: damage from running it
+  (paid back at sign-off), and the fuel that goes into their plane (on their account at the truck,
+  F5, Thad 2026-11-25); your own flight to the job is yours. Anything you mess up comes out of your pocket: damage from running it
   unready, supplies used on it or on a place with nothing wrong, and comeback deductions.
 - No clock (changed by Thad 2026-11-23, D2): the game counts no days and times no job. Rent is a
   flat hangar fee per job (`HANGAR_FEE`, $60); calls never expire; mail order arrives at once.

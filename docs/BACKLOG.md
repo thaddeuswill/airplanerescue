@@ -5,7 +5,20 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 29 is in review; see the log in `docs/PROCESS.md`. Next toward beta: F5.)
+**Iteration 30 (2026-11-25): you don't pay for the owner's fuel (F5).**
+
+- **Goal**: fuel that goes into the owner's plane is the owner's cost; your own flight stays yours.
+- **Items**: the fuel truck fills the owner's plane on the owner's account (free to you, never
+  blocked by your cash); the jerry can of fresh avgas for the plane you're working on is on the
+  owner's account too (bought with no job at the field it still costs $90, so it can't be free
+  stock); the ticket's Fuel line is your flight only; the map's estimate and the "can you still
+  finish here" check drop the plane's fuel; CLAUDE.md's money rule says so.
+- **Risk gate**: money rules: a settled decision changes (Thad's request, 2026-11-23): written into
+  CLAUDE.md. Soft-locks: fuel can no longer push a job past what you can afford, so the finish check
+  only loosens. Saves: nothing stored changes. Checks: self-test pumps with $0 (tanks full, cash and
+  the job's spent fuel unchanged), buys the can for a job with $0, finds the estimate without the
+  plane's fuel, finishes a job with dry tanks and no money, and the ticket's Fuel equals the fare.
+- **Acceptance**: as F5 below.
 
 ## Next
 
@@ -20,13 +33,13 @@ needs; and someone who has never played it gets through the apprenticeship witho
   Claude). The watchdog lives in `selftest.gd`, so a script that doesn't parse leaves Godot idle
   with no output until something outside kills it. Acceptance: a deliberate parse error ends the
   run non-zero within a minute, saying where.~~ In iteration 29.
-- **F5. Don't pay for the owner's fuel** (Thad, 2026-11-23: "i dont think we should pay for the fuel
+- ~~**F5. Don't pay for the owner's fuel** (Thad, 2026-11-23: "i dont think we should pay for the fuel
   in the plane because its not our plane"). Today the fuel truck bill for the customer's plane
   comes out of your pocket and shows under Fuel on the ticket (with your own flight there). The
   owner's plane is fuelled at the owner's cost: billed to the owner like supplies, or not a cost to
   you at all; your own flight to the job stays yours. Acceptance: the fuel truck costs you nothing
   net; the ticket's Fuel line is your trip only; the map's estimate drops the plane's fuel;
-  self-test checks.
+  self-test checks.~~ In iteration 30.
 - **K1. The references within reach** (Thad, 2026-11-24: "we need to have the parts catalog and
   maintenance manual and the exploded diagram of the IPC easily accessible"). Today the service
   manual opens on N (at the job's page, with each chapter's exploded drawing after its procedures),

@@ -934,6 +934,7 @@ func run(main, args: PackedStringArray) -> void:
 	ok = await _ending_ok() and ok
 	g.rescued = rescued_now
 	ok = _checkpoint_ok() and ok
+	ok = _owner_fuel_ok() and ok
 	g._open_game_over(500)
 	await _snap(shot, "game_over")
 	ok = ok and g.panel != null and not g.panel_closable
@@ -1278,10 +1279,8 @@ func _edge_tests() -> bool:
 	g.inventory = {"Propeller": 1, "Safety wire": 10}
 	g.current_job.fuel = 1.0
 	ok = ok and g._can_finish_here()
-	# Everything fixed but the tanks are dry and the pump costs more than you have: not finishable.
+	# Everything fixed, the tanks dry and no money: still finishable, since the fuel is the owner's (F5).
 	g.current_job.fuel = 0.03
-	ok = ok and not g._can_finish_here()
-	g.money = g._fuel_bill(g.current_job)
 	ok = ok and g._can_finish_here()
 	g.money = 0
 	for key in g.SUPPLIES:  # off the shelf means the mail price
@@ -2355,4 +2354,40 @@ func _checkpoint_ok() -> bool:
 	g._save_game()
 	var ok: bool = g.has_checkpoint() and before_ok and restored and after_ok
 	print("checkpoint: written %s, restored to the cash it held %s" % [g.has_checkpoint(), restored and after_ok])
+	return ok
+
+
+
+## F5: the owner's fuel is on the owner's account. With $0 in hand the pump fills a dry plane (cash
+## and the job's own spending unchanged), the jerry can for a stale-fuel job is filled for nothing,
+## a can bought with no job still costs $90, and the map's estimate leaves the plane's fuel out.
+func _owner_fuel_ok() -> bool:
+	var keep := [g.money, g.current_job, g.jobs, g.inventory.duplicate()]
+	var j := {"city": g.location, "type": "Test", "faults": ["tire"], "fixed": {}, "found": {}, "checked": {}, "work": {},
+		"reward": 1000, "fuel": 0.1, "parked": "apron", "spent": {"fuel": 0, "parts": 0, "mail": 0}}
+	g.jobs = [j]
+	g.current_job = j
+	g._quiet_money = true
+	g.money = 0
+	var pumped: int = g._fuel_plane()
+	var pump_ok: bool = pumped > 0 and j.fuel == 1.0 and g.money == 0 and int(j.spent.fuel) == 0 and int(j.get("owner_fuel", 0)) == pumped
+	j.faults = ["stale_fuel"]
+	var cans: int = int(g.inventory.get("Fresh avgas", 0))
+	g._buy_can()
+	var can_ok: bool = g.money == 0 and int(g.inventory.get("Fresh avgas", 0)) == cans + 1
+	g._close_panel()
+	g.current_job = null
+	g.money = 200
+	g._buy_can()
+	var stock_ok: bool = g.money == 110
+	g._close_panel()
+	var est: Dictionary = g.call_estimate(j)
+	var est_ok: bool = not est.has("plane_fuel") and est.net == int(j.reward) - est.parts - est.fare - g.HANGAR_FEE
+	g.money = keep[0]
+	g._quiet_money = false
+	g.current_job = keep[1]
+	g.jobs = keep[2]
+	g.inventory = keep[3]
+	var ok: bool = pump_ok and can_ok and stock_ok and est_ok
+	print("owner's fuel: pump on the owner %s, can for their plane %s, stock can yours %s, estimate without it %s" % [pump_ok, can_ok, stock_ok, est_ok])
 	return ok

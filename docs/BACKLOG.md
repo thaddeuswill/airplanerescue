@@ -5,20 +5,22 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 30 (2026-11-25): you don't pay for the owner's fuel (F5).**
+**Iteration 31 (2026-11-25): the references within reach (K1).** Toward beta.
 
-- **Goal**: fuel that goes into the owner's plane is the owner's cost; your own flight stays yours.
-- **Items**: the fuel truck fills the owner's plane on the owner's account (free to you, never
-  blocked by your cash); the jerry can of fresh avgas for the plane you're working on is on the
-  owner's account too (bought with no job at the field it still costs $90, so it can't be free
-  stock); the ticket's Fuel line is your flight only; the map's estimate and the "can you still
-  finish here" check drop the plane's fuel; CLAUDE.md's money rule says so.
-- **Risk gate**: money rules: a settled decision changes (Thad's request, 2026-11-23): written into
-  CLAUDE.md. Soft-locks: fuel can no longer push a job past what you can afford, so the finish check
-  only loosens. Saves: nothing stored changes. Checks: self-test pumps with $0 (tanks full, cash and
-  the job's spent fuel unchanged), buys the can for a job with $0, finds the estimate without the
-  plane's fuel, finishes a job with dry tanks and no money, and the ticket's Fuel equals the fare.
-- **Acceptance**: as F5 below.
+- **Goal**: the service manual, the IPC exploded drawing and the parts catalog are each one action
+  away wherever you work.
+- **Items** (settled here, as Thad left the order and the details to Claude): the manual gets three
+  tabs across its top: Procedure (the job's page), IPC drawing (the exploded figure for the job's
+  part, with its part numbers) and Parts catalog (a look-up of every part: number, what it's for,
+  price at the counter and by mail, how many you have; buying stays at the counter or mail order).
+  N opens it at the Procedure, as now; the work order and the work scene get a References button
+  that opens it at the job; each tab is one click.
+- **Risk gate**: flow: the manual's own paging, contents and back-to-the-work-scene stay as they are;
+  the look-up never buys. Layout: the tabs fit the manual's spread at 1280x720. Real values: part
+  numbers and prices come from the existing data, nothing new. Checks: self-test opens the
+  references from the walk-around (N), the work order and a work scene, lands each tab on the job's
+  page / figure / part, and finds the look-up has no buy; screenshots of the three tabs.
+- **Acceptance**: as K1 below.
 
 ## Next
 
@@ -40,7 +42,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
   you at all; your own flight to the job stays yours. Acceptance: the fuel truck costs you nothing
   net; the ticket's Fuel line is your trip only; the map's estimate drops the plane's fuel;
   self-test checks.~~ In iteration 30.
-- **K1. The references within reach** (Thad, 2026-11-24: "we need to have the parts catalog and
+- ~~**K1. The references within reach** (Thad, 2026-11-24: "we need to have the parts catalog and
   maintenance manual and the exploded diagram of the IPC easily accessible"). Today the service
   manual opens on N (at the job's page, with each chapter's exploded drawing after its procedures),
   but the parts catalog only opens at the parts shed or the hangar's mail-order box, and the IPC
@@ -50,7 +52,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
   are sold, or by mail). To settle at planning: keys or a references tab on one sheet; whether
   looking up opens the shop or a read-only catalog. Acceptance: from the walk-around, a work scene
   and the work order, each of the three opens in one action at the right page; self-test opens
-  each from each place; screenshots.
+  each from each place; screenshots.~~ In iteration 31.
 - **M1. Difficulty first on the calls; the plane's papers when you arrive** (Thad, 2026-11-23:
   "differential the text so you can easyly find out what you need thats important, where, how
   difficult and, how much i am getting paid the accept screen should have the logbook and the pilot

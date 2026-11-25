@@ -115,10 +115,15 @@ needs; and someone who has never played it gets through the apprenticeship witho
   you would see in the real world"). The map, job sheets, work orders, logbook, radio and owner
   lines name the plane by its N-number (from D3) instead of "Rag-wing taildragger". Decided by
   Thad 2026-11-23: the work order and logbook give the make and model after it ("N4127K, Piper
-  J-3"); the station is the airport identifier (the ticket already uses `STATIONS`, D3). Needs at
-  planning: the real make and model for each of the five types (only the Cub, a J-3 with a C85-12,
-  is settled). Acceptance: no type description left in player text;
-  self-test checks; screenshots.
+  J-3"); the station is the airport identifier (the ticket already uses `STATIONS`, D3). Settled by
+  Thad 2026-11-25: "only difference between planes is tail number": every plane is a Piper J-3
+  (C85-12); the five type descriptions go, and only the N-number tells planes apart (how pay and
+  difficulty vary by type today is settled at planning). Acceptance: no type description left in
+  player text; self-test checks; screenshots.
+- **P1. Paint schemes** (Thad, 2026-11-25: "we can work on color uv mapping for dif styles but for
+  right now thats it"). Later, not toward beta: different colour schemes on the one Cub model through
+  its UV mapping, so planes look different as well as carrying different tail numbers. Acceptance to
+  be set when it's planned.
 - **AP1. Buy the full assembly or the piece parts** (Thad, 2026-11-25: "so when you repair stuff
   will you have to buy these separate or full assy for the players id love full assys and indiv").
   Today each repair takes one part, bought whole (the fault's `part`); the catalog's piece parts are

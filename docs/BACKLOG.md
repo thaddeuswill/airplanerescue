@@ -113,6 +113,24 @@ needs; and someone who has never played it gets through the apprenticeship witho
   (C85-12); the five type descriptions go, and only the N-number tells planes apart (how pay and
   difficulty vary by type today is settled at planning). Acceptance: no type description left in
   player text; self-test checks; screenshots.~~ In iteration 36.
+- **E1. Walk round the engine by arrows; only the jobs you have the tools for** (Thad, 2026-11-25:
+  "moving around the engine in the scenes by click arrow to get to the front bottom and side of the
+  engine to navigate the engine and only scenes with tools pop up if you have that tool in
+  inventory").
+  - Navigation: today the open engine's views (left side, top, rear accessory case, underneath,
+    firewall) are a row of tabs under the picture. Wanted: arrows on the picture's edges that move
+    you round the engine as if walking round it (left and right to go round the sides and front,
+    down to go underneath, up for the top), each arrow saying where it goes. Settle at planning:
+    whether a front view is added (there's none today: it needs its art and its parts placed) and
+    whether the tabs stay as well.
+  - Tools: today a part only offers a job whose tool is in your roll, except on Easy, which also
+    lists the missing ones greyed out with where to get the tool. Wanted: only jobs you have the
+    tool for show, on every difficulty. Settle at planning how Easy still tells a new player a
+    tool exists (for example a quiet line on the part, not a greyed-out job).
+  - Acceptance: every view is reached by arrows alone; the arrows match the engine's layout;
+    no part shows a job without its tool in the roll on any difficulty; the self-test walks
+    every view by arrow and checks no job shows without its tool; screenshots at 1280x720 (the
+    arrows mustn't cover parts or the tool roll).
 - **P1. Paint schemes** (Thad, 2026-11-25: "we can work on color uv mapping for dif styles but for
   right now thats it"). Later, not toward beta: different colour schemes on the one Cub model through
   its UV mapping, so planes look different as well as carrying different tail numbers. Acceptance to

@@ -51,7 +51,7 @@ godot --headless --path . -- --self-test --tutorial=2         # play apprentices
 | `scripts/main.gd` | Game state, world, panels. `FAULTS` (every fault: name, part, cost, zone, symptom, diagnosis chain, `ground`, quiz), `TESTS` (inspections), `RUNUP_FAULTS`, `SUPPLIES`, `PLANE_TYPES`, save/load/migrate |
 | `scripts/work.gd` | The 2D work scenes. `scenes()` holds every job as data; the rules and drawing are generic |
 | `scripts/bay.gd` | Every walk-around spot, opened up. The engine: cowled → open → left, top, rear, underneath, firewall (`VIEWS`/`PARTS`). Every other spot is built from its jobs' paintings (`_build_spot`): the parts as installed, the broken one drawn from its `_old` art. Parts offer what you can do with what you carry (tool-gating); a written-up part keeps a "!" until it's fixed |
-| `scripts/tutorial.gd` | The apprenticeship: the first three jobs taught by doing them (tour, self-ticking checklist, what-the-pilot-means quiz, rewards). State in `main.tut`. Spec: `docs/quick-specs/apprenticeship-2026-11-22.md` |
+| `scripts/tutorial.gd` | The apprenticeship: the first three jobs taught by doing them (tour, a side-panel quest with self-ticking steps, what-the-pilot-means quiz, rewards). State in `main.tut`. Spec: `docs/quick-specs/apprenticeship-2026-11-22.md` |
 | `scripts/preflight.gd` | The cockpit checklist card (before start, run-up, take-off) drawn from `ferry.card()`; explains each step and the take-off for the first two deliveries |
 | `scripts/selftest.gd` | The self-test, including `_scene_tests` (every scene solved through `solve()`) and edge tests |
 | `scripts/manual.gd`, `scripts/parts_book.gd` | The M-key service manual and parts book, read from `data/c85_manual.json` and `data/c85_parts.json` |

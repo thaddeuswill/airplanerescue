@@ -123,7 +123,7 @@ func run(main, args: PackedStringArray) -> void:
 					await _snap(pre, "tasks_sheet", 0.3)
 			get_tree().quit(0)
 			return
-		if a.begins_with("--tutorial-shot="):  # the apprenticeship: tour pages, checklist, squawk quiz, reward
+		if a.begins_with("--tutorial-shot="):  # the apprenticeship: tour pages, quest panel, squawk notes, after a lesson
 			var pre := a.trim_prefix("--tutorial-shot=")
 			g.tut = {"lesson": 1, "tour": false, "done": {}, "base": 0}
 			g.jobs.clear()
@@ -153,8 +153,15 @@ func run(main, args: PackedStringArray) -> void:
 			g._open_debrief()
 			await _snap(pre, "debrief", 0.5)
 			g._close_panel()
-			g.tut["reward"] = 2
-			await _snap(pre, "reward", 0.8)
+			# A2: after a lesson the quest panel ticks the job and says what's next; no card pops up.
+			g.tut["reward"] = 1
+			g.tut["lesson"] = 2
+			g.tut["done"] = {"call": true}
+			g.current_job = null
+			await _snap(pre, "quest_after", 0.8)
+			g.tutorial.fold(true)
+			await _snap(pre, "quest_folded", 0.4)
+			g.tutorial.fold(false)
 			get_tree().quit(0)
 			return
 		if a.begins_with("--settings-shot="):  # every settings tab, for checking the sheet
@@ -948,12 +955,9 @@ func run(main, args: PackedStringArray) -> void:
 	ok = ok and g.panel != null and not g.panel_closable
 	ok = await _game_over_ok() and ok
 	g._open_travel()
-	# A lesson's sign-off card opens on the map (Thad), not over the ticket.
-	await get_tree().process_frame
-	await get_tree().process_frame
-	var reward_on_map: bool = is_instance_valid(g.tutorial._reward)
-	if reward_on_map:
-		await _snap(shot, "lesson_on_map", 0.4)
+	var quest_ok: bool = true
+	if lesson > 0:
+		quest_ok = await _quest_after_lesson_ok(lesson, shot)
 	_chk(ok, 275)
 	ok = ok and g.logbook.size() == 1 and g.logbook[0].has("parts")  # the cost sheet was written
 	_chk(ok, 276)
@@ -965,10 +969,10 @@ func run(main, args: PackedStringArray) -> void:
 		var missing: Array = want.filter(func(id): return not id in g.tut.get("last", []))
 		if not missing.is_empty() or int(g.tut.get("lesson", -1)) != (lesson + 1 if lesson < 3 else 0) \
 				or int(g.logbook[-1].get("debrief", {}).get("bonus", 0)) != int(g.tutorial.REWARDS[lesson].cash) \
-				or int(g.tut.get("reward", 0)) != lesson or not reward_on_map:
-			# The bonus is paid on the ticket (D3); the sign-off card waits for the map and opens there.
-			print("TUTORIAL lesson %d: unticked %s, now lesson %s, bonus %s, reward %s, card on the map %s" % [lesson, missing,
-				g.tut.get("lesson"), g.logbook[-1].get("debrief", {}).get("bonus"), g.tut.get("reward"), reward_on_map])
+				or int(g.tut.get("reward", 0)) != lesson or not quest_ok:
+			# The bonus is paid on the ticket (D3); the quest panel ticks the job (A2).
+			print("TUTORIAL lesson %d: unticked %s, now lesson %s, bonus %s, reward %s, quest panel %s" % [lesson, missing,
+				g.tut.get("lesson"), g.logbook[-1].get("debrief", {}).get("bonus"), g.tut.get("reward"), quest_ok])
 			ok = false
 		var want_next: Array = ["tire"] if lesson == 1 else ["stuck_valve"]
 		var lesson_calls: Array = g.jobs.filter(func(jj): return jj.get("lesson", false))
@@ -1785,7 +1789,7 @@ func _mission_card_ok(deb: Dictionary) -> bool:
 	var fit_ok: bool = card.get_global_rect().size.y <= card.get_viewport_rect().size.y
 	# A lesson's sign-off is on the ticket, and its own card doesn't open over it.
 	# The sign-off card waits for the map, and the checklist's tick slips are held, not drawn over it.
-	var lesson_ok: bool = not is_instance_valid(g.tutorial._reward) and g.ticket_open()
+	var lesson_ok: bool = not g.tutorial._card.visible and g.ticket_open()  # the quest panel stays out from under the ticket (A2)
 	print("ticket: no lesson card over it %s" % lesson_ok)
 	# Hierarchy (D4): total > registration > line items > labels, by font size; the corner one line.
 	var fsize := func(l: Label) -> int: return l.get_theme_font_size("font_size")
@@ -1878,6 +1882,62 @@ func _no_days_ok() -> bool:
 	print("no days: shown %s, fee %s, hud %s, old save %s, catalog read with its mail-order line %s" % ["none" if bad.is_empty() else str(bad), fee_ok, hud_ok, migrate_ok, mail_seen])
 	return ok
 
+
+
+## A2: a finished lesson pops nothing up. The map opens with no card over it; back in the world the
+## quest panel shows the job done with what it taught, the next job in progress with its reward
+## (or, after the third, all three done), its steps; it fits the 1280x720 screen, survives a save
+## and load, folds with the quest key, and goes once the walk-around on the next plane begins.
+func _quest_after_lesson_ok(lesson: int, shot: String) -> bool:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var t = g.tutorial
+	var overlay: bool = t.get_children().any(func(c): return c is PanelContainer and c != t._notes and not c.is_queued_for_deletion())
+	var map_clear: bool = g.map_open() and not overlay and not t._card.visible
+	g._close_panel()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var rows: Array = t.quest_rows()
+	var jobs: Array = rows.filter(func(r): return r.kind == "job")
+	var states: Array = jobs.map(func(r): return r.state)
+	var want: Array = (["done", "now", "locked"] if lesson == 1 else ["done", "done", "now"]) if lesson < 3 else ["done", "done", "done"]
+	var notes: Array = rows.filter(func(r): return r.kind == "note")
+	var content_ok: bool = states == want and notes.size() == 2 and String(notes[0].text).begins_with("Learned") \
+		and jobs.all(func(r): return String(r.reward).begins_with("Reward: $")) \
+		and (lesson == 3 or rows.any(func(r): return r.kind == "step" and r.state == "now")) \
+		and String(jobs[1].reward).contains("compression tester")
+	var shown: bool = t._card.visible
+	await _snap(shot, "quest_after", 0.4)
+	await get_tree().process_frame  # drawn with the rows above
+	var bottom: float = t.last_rect.end.y
+	var fits: bool = t.last_rect.end.y <= 720.0 - 70.0 and t.last_rect.end.x <= 400.0  # clear of the pockets row and the screen's middle
+	if not fits:
+		print("QUEST: panel at ", t.last_rect)
+	g._save_game()
+	var before := JSON.stringify(rows)
+	g.tut = {}
+	g._load_game()
+	var saved_ok: bool = JSON.stringify(t.quest_rows()) == before
+	var ev := InputEventKey.new()
+	ev.physical_keycode = KEY_Q
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var folded: bool = g.tut.get("quest_folded", false) and t.quest_rows().size() < rows.size()
+	t.fold(false)
+	# The note goes once the walk-around on the next plane begins.
+	var keep = g.current_job
+	g.current_job = {"city": g.location, "type": "Test", "faults": [], "fixed": {}, "found": {}, "checked": {"prop": true}, "work": {}, "reward": 0}
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var cleared: bool = not g.tut.has("reward")
+	g.current_job = keep
+	g.tut["reward"] = lesson
+	var ok: bool = map_clear and content_ok and shown and fits and saved_ok and folded and cleared
+	print("quest panel after lesson %d: map clear %s, %s %s, shown %s, fits %s (bottom %d), save and load %s, folds with Q %s, note goes on the next walk-around %s" % [lesson,
+		map_clear, states, content_ok, shown, fits, bottom, saved_ok, folded, cleared])
+	return ok
 
 
 ## U5 and U6: money always has its thousands separator ("$4,250", never "$4250"), a question never

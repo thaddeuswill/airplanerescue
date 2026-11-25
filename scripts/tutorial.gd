@@ -3,18 +3,20 @@ extends Control
 ## (docs/quick-specs/apprenticeship-2026-11-22.md).
 ##
 ## - A short tour at home base shows what's on the screen and what the game is for.
-## - A checklist card, top left, lists the job's steps. Each one ticks itself off the moment you
+## - A quest panel, top left (A2), lists the three jobs with their state and reward, and the
+##   current job's steps. Each one ticks itself off the moment you
 ##   do it right (nothing is ever clicked to "acknowledge"), with a pen scratch and a slip that says
 ##   what you just did. Only the step you're on is explained; the rest are one line each.
 ## - Each job teaches one new thing, so no lesson repeats the one before: job 1 the loop (find it,
 ##   write it up, fix it, run it up, sign, fly), job 2 tools and parts (it needs two tools you
 ##   don't own yet, and the shed may not stock the part), job 3 the engine's insides (a fault you
 ##   hear on the run-up and prove with the compression tester from the red toolbox).
-## - Finishing a job pays a bonus and hands over what the next job needs. After the third, the
-##   checklist retires and the career opens up.
+## - Finishing a job pays a bonus (on the ticket) and hands over what the next job needs; the panel
+##   ticks the job and says what it taught and what comes next. Nothing pops up. After the third,
+##   the panel retires once you start on the next plane and the career opens up.
 ##
 ## State lives in main.tut (saved): lesson (1-3, 0 = done or skipped), tour (seen), done (step ids
-## ticked this lesson), base (rescues when the lesson began), reward (a lesson's reward to show).
+## ticked this lesson), base (rescues when the lesson began), reward (a finished lesson: the quest panel shows what it taught until the next walk-around begins).
 
 var main
 const Work := preload("res://scripts/work.gd")
@@ -61,7 +63,6 @@ var _notes: Control  # the squawk notes card
 var _slips: Array = []  # [text, age] tick slips sliding in under the card
 var _tour: Control
 var _tour_i := 0
-var _reward: Control
 var _t := 0.0
 var _at_field := 0.0  # seconds standing at the job's field (the squawk step)
 var _flash := {}  # step id -> seconds since it ticked (the check draws itself in)
@@ -211,17 +212,21 @@ func _process(delta: float) -> void:
 		_poll()
 		var j = _job()
 		if j != null and not main.tut.get("done", {}).has("squawk") and _notes_fault(j) != "" and _at_field > 1.5 \
-				and main.panel == null and not is_instance_valid(_notes) and not is_instance_valid(_tour) and not is_instance_valid(_reward) \
+				and main.panel == null and not is_instance_valid(_notes) and not is_instance_valid(_tour) \
 				and not is_instance_valid(main._loader):
 			_show_notes(j)
 	var touring_card: bool = is_instance_valid(_tour) and _tour_pages()[_tour_i][0] == "card"  # the tour page about it shows it
-	_card.visible = active() and main.settings.get("checklist", true) and main.panel == null and main.ferry == null \
+	# The quest panel (A2): beside the world only, never over a sheet, a work scene, the cockpit or the ticket.
+	_card.visible = (active() or main.tut.has("reward")) and main.settings.get("checklist", true) and main.panel == null \
+		and main.ferry == null and not main.ticket_open() and main.panel_kind != "menu" \
 		and (not is_instance_valid(_tour) or touring_card) and not is_instance_valid(_notes) and not is_instance_valid(main._loader)
 	_card.queue_redraw()
 	queue_redraw()
-	if main.tut.has("reward") and not is_instance_valid(_reward) and main.ferry == null and not is_instance_valid(main._loader) \
-			and main.panel_kind != "menu" and main.map_open():  # on the map, after the ticket (Thad)
-		_show_reward(int(main.tut.reward))
+	# A finished job's note stays on the panel until you start the walk-around on the next plane.
+	var nj = _job()
+	if main.tut.has("reward") and nj != null and nj.checked.size() > 0:
+		main.tut.erase("reward")
+		main._save_game()
 
 
 ## Ticks every step whose check now holds. Steps can be done out of order; a tick never comes off.
@@ -280,65 +285,153 @@ func skip() -> void:
 	main._save_game()
 
 
-# ---------- the checklist card ----------
+# ---------- the quest panel (A2) ----------
+## The apprenticeship as a quest at the side of the screen, like a quest tracker: the three jobs,
+## each with its state and reward, the current job's steps ticking under it, and a finished job's
+## lesson and what comes next. Nothing pops up; Q folds it to the title and the step you're on.
 
-func _draw_card() -> void:
-	var list := steps()
-	if list.is_empty():
-		return
+## What a lesson pays, as the panel shows it.
+func reward_text(l: int) -> String:
+	var r: Dictionary = REWARDS[l]
+	return "Reward: $%s bonus%s" % [main._thousands(r.cash), " and a compression tester" if r.gift == "tester" else ""]
+
+
+func fold(folded: bool) -> void:
+	main.tut["quest_folded"] = folded
+	main._save_game()
+
+
+## The panel's content as rows, read by the drawing and the self-test:
+## {kind: "job"|"note"|"step", text, state ("done"|"now"|"locked" for a job; "done"|"now"|"todo" for a step), how}.
+func quest_rows() -> Array:
+	var rows: Array = []
+	var cur := lesson() if active() else 4  # past the last lesson: every job done
+	var just := int(main.tut.get("reward", 0))
+	var folded: bool = main.tut.get("quest_folded", false)
 	var done: Dictionary = main.tut.get("done", {})
-	var x := 16.0
-	var y := 64.0  # under the next-step icon
-	var pad := 14.0
-	var w := W_CARD
-	var head := Style.caps(800, Style.SIZE_XS)
-	var body := Style.display(700)
-	var muted := Style.display(600)
-	var cur := -1
+	var list := steps()
+	var step_i := -1
 	for i in list.size():
 		if not done.has(list[i].id):
-			cur = i
+			step_i = i
 			break
+	for l in [1, 2, 3]:
+		var state := "done" if l < cur else ("now" if l == cur else "locked")
+		var show_job: bool = not folded or state == "now" or l == just
+		if show_job:
+			rows.append({"kind": "job", "l": l, "state": state, "text": "Job %d  %s" % [l, LESSONS[l].title], "reward": reward_text(l)})
+		if l == just:
+			rows.append({"kind": "note", "text": "Learned " + LESSONS[l].teaches + "."})
+			if not folded:
+				rows.append({"kind": "note", "text": REWARDS[l].line})
+		if state == "now":
+			for i in list.size():
+				if folded and i != step_i:
+					continue
+				var st := "done" if done.has(list[i].id) else ("now" if i == step_i else "todo")
+				rows.append({"kind": "step", "id": list[i].id, "text": list[i].text, "state": st, "how": list[i].how if i == step_i and not folded else ""})
+	return rows
+
+
+const STEP_H := 21.0  # a step row: eleven steps and a finished job's note fit above the pockets at 720 px
+
+## The panel's rectangle on screen, worked out with its rows (the self-test checks it fits).
+var last_rect := Rect2()
+
+
+func _draw_card() -> void:
+	var rows := quest_rows()
+	if rows.is_empty():
+		return
+	var x := 16.0
+	var y := 64.0  # under the map icon
+	var pad := 14.0
+	var w := W_CARD
+	var inner := w - pad * 2
+	var head := Style.caps(800, Style.SIZE_XS)
+	var bold := Style.display(800)
+	var body := Style.display(700)
+	var muted := Style.display(600)
+	var folded: bool = main.tut.get("quest_folded", false)
+	var line_h := func(f: Font, t: String, width: float, sz: int) -> float:
+		return f.get_multiline_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, width, sz).y
 	# height first
-	var h := pad + 16 + 26 + 10
-	for i in list.size():
-		h += 24
-		if i == cur and list[i].how != "":
-			h += muted.get_multiline_string_size(list[i].how, HORIZONTAL_ALIGNMENT_LEFT, w - pad * 2 - 28, Style.SIZE_SM).y + 6
-	h += pad - 4
-	var r := Rect2(x, y, w, h)
-	_card.draw_rect(r.grow(2), Color(0, 0, 0, 0.25))
-	_card.draw_rect(r, Style.COLOR_SURFACE_PAPER)
+	var h := pad + 16 + 26 + 8
+	for r in rows:
+		match r.kind:
+			"job":
+				h += 30 + (0.0 if r.state == "done" else 17.0)
+			"note":
+				h += line_h.call(muted, r.text, inner - 28, Style.SIZE_SM) + 4
+			"step":
+				h += STEP_H
+				if r.how != "":
+					h += line_h.call(muted, r.how, inner - 40, Style.SIZE_SM) + 6
+	h += pad - 2
+	var rect := Rect2(x, y, w, h)
+	last_rect = rect
+	_card.draw_rect(rect.grow(2), Color(0, 0, 0, 0.25))
+	_card.draw_rect(rect, Style.COLOR_SURFACE_PAPER)
 	_card.draw_rect(Rect2(x, y, w, 4), Style.COLOR_TEXT_PAPER_ACCENT)
 	var cy := y + pad + 10
-	_card.draw_string(head, Vector2(x + pad, cy), "APPRENTICE CHECKLIST   JOB %d OF 3" % lesson(), HORIZONTAL_ALIGNMENT_LEFT, -1,
-		Style.SIZE_XS, Style.COLOR_TEXT_PAPER_ACCENT)
+	var cue := "%s TO %s" % [main.key_name("quest"), "OPEN" if folded else "FOLD"]
+	_card.draw_string(head, Vector2(x + pad, cy), "QUEST", HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_XS, Style.COLOR_TEXT_PAPER_ACCENT)
+	_card.draw_string(head, Vector2(x + pad, cy), cue, HORIZONTAL_ALIGNMENT_RIGHT, inner, Style.SIZE_XS, Style.COLOR_TEXT_PAPER_MUTED)
 	cy += 26
-	_card.draw_string(Style.caps(900, Style.SIZE_LG), Vector2(x + pad, cy), LESSONS[lesson()].title.to_upper(), HORIZONTAL_ALIGNMENT_LEFT,
-		w - pad * 2, Style.SIZE_LG, Style.COLOR_TEXT_PAPER)
-	cy += 12
-	for i in list.size():
-		var s: Dictionary = list[i]
-		cy += 24
-		var box := Rect2(x + pad, cy - 14, 16, 16)
-		var is_done: bool = done.has(s.id)
-		var ink: Color = Style.COLOR_TEXT_PAPER_MUTED if is_done else (Style.COLOR_TEXT_PAPER if i == cur else Color(Style.COLOR_TEXT_PAPER, 0.55))
-		_card.draw_rect(box, Color(Style.COLOR_TEXT_PAPER, 0.7 if i == cur else 0.35), false, 1.5)
-		if is_done:
-			draw_check(_card, box, clampf(_flash.get(s.id, 9.0) / 0.35, 0.0, 1.0))
-		if i == cur:  # the step you're on: a red bar in the margin, pulsing gently
-			_card.draw_rect(Rect2(x, cy - 16, 4, 20), Color(Style.COLOR_TEXT_PAPER_ACCENT, 0.7 + 0.3 * sin(_t * 3.0)))
-		_card.draw_string(body if i == cur else muted, Vector2(x + pad + 28, cy), s.text, HORIZONTAL_ALIGNMENT_LEFT, w - pad * 2 - 28,
-			Style.SIZE_MD, ink)
-		if is_done:  # struck through, as you would on paper
-			var tw := muted.get_string_size(s.text, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_MD).x
-			_card.draw_line(Vector2(x + pad + 28, cy - 6), Vector2(x + pad + 28 + minf(tw, w - pad * 2 - 28), cy - 6),
-				Color(Style.COLOR_TEXT_PAPER_MUTED, 0.6), 1.0)
-		if i == cur and s.how != "":
-			var how_h := muted.get_multiline_string_size(s.how, HORIZONTAL_ALIGNMENT_LEFT, w - pad * 2 - 28, Style.SIZE_SM).y
-			_card.draw_multiline_string(muted, Vector2(x + pad + 28, cy + 18), s.how, HORIZONTAL_ALIGNMENT_LEFT, w - pad * 2 - 28,
-				Style.SIZE_SM, -1, Style.COLOR_TEXT_PAPER_MUTED)
-			cy += how_h + 6
+	_card.draw_string(Style.caps(900, Style.SIZE_LG), Vector2(x + pad, cy), "APPRENTICESHIP, 3 JOBS", HORIZONTAL_ALIGNMENT_LEFT,
+		inner, Style.SIZE_LG, Style.COLOR_TEXT_PAPER)
+	cy += 8
+	for r in rows:
+		match r.kind:
+			"job":
+				cy += 30
+				var box := Rect2(x + pad, cy - 15, 18, 18)
+				var ink: Color = Style.COLOR_TEXT_PAPER if r.state == "now" else Style.COLOR_TEXT_PAPER_MUTED
+				_card.draw_line(Vector2(x + pad, cy - 24), Vector2(x + w - pad, cy - 24), Color(Style.COLOR_TEXT_PAPER, 0.15), 1.0)
+				if r.state == "done":
+					_card.draw_rect(box, Color(Style.COLOR_TEXT_PAPER, 0.5), false, 1.5)
+					draw_check(_card, box, 1.0)
+				elif r.state == "now":
+					_card.draw_rect(box, Style.COLOR_TEXT_PAPER, false, 2.0)
+				else:
+					_card.draw_rect(box, Color(Style.COLOR_TEXT_PAPER, 0.3), false, 1.5)
+				_card.draw_string(bold if r.state == "now" else body, Vector2(x + pad + 28, cy), r.text, HORIZONTAL_ALIGNMENT_LEFT,
+					inner - 28 - 70, Style.SIZE_MD, ink)
+				var tag: String = {"done": "DONE", "now": "IN PROGRESS", "locked": "LOCKED"}[r.state]
+				_card.draw_string(head, Vector2(x + pad, cy), tag, HORIZONTAL_ALIGNMENT_RIGHT, inner, Style.SIZE_XS,
+					Style.COLOR_TEXT_PAPER_ACCENT if r.state == "now" else Style.COLOR_TEXT_PAPER_MUTED)
+				if r.state != "done":  # a done job's reward is paid: its note says what it taught
+					cy += 17
+					_card.draw_string(muted, Vector2(x + pad + 28, cy), r.reward, HORIZONTAL_ALIGNMENT_LEFT, inner - 28, Style.SIZE_SM,
+						Style.COLOR_TEXT_PAPER_MUTED if r.state != "now" else Style.COLOR_TEXT_PAPER)
+			"note":  # what a finished job taught, and what comes next
+				var nh: float = line_h.call(muted, r.text, inner - 28, Style.SIZE_SM)
+				_card.draw_multiline_string(muted, Vector2(x + pad + 28, cy + 17), r.text, HORIZONTAL_ALIGNMENT_LEFT, inner - 28,
+					Style.SIZE_SM, -1, Style.COLOR_TEXT_PAPER_ACCENT)
+				cy += nh + 4
+			"step":
+				cy += STEP_H
+				var sx := x + pad + 12
+				var box := Rect2(sx, cy - 14, 16, 16)
+				var is_done: bool = r.state == "done"
+				var is_now: bool = r.state == "now"
+				var ink: Color = Style.COLOR_TEXT_PAPER_MUTED if is_done else (Style.COLOR_TEXT_PAPER if is_now else Color(Style.COLOR_TEXT_PAPER, 0.55))
+				_card.draw_rect(box, Color(Style.COLOR_TEXT_PAPER, 0.7 if is_now else 0.35), false, 1.5)
+				if is_done:
+					draw_check(_card, box, clampf(_flash.get(r.id, 9.0) / 0.35, 0.0, 1.0))
+				if is_now:  # the step you're on: a red bar in the margin, pulsing gently
+					_card.draw_rect(Rect2(x, cy - 16, 4, 20), Color(Style.COLOR_TEXT_PAPER_ACCENT, 0.7 + 0.3 * sin(_t * 3.0)))
+				_card.draw_string(body if is_now else muted, Vector2(sx + 28, cy), r.text, HORIZONTAL_ALIGNMENT_LEFT, inner - 40,
+					Style.SIZE_MD, ink)
+				if is_done:  # struck through, as you would on paper
+					var tw := muted.get_string_size(r.text, HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_MD).x
+					_card.draw_line(Vector2(sx + 28, cy - 6), Vector2(sx + 28 + minf(tw, inner - 40), cy - 6),
+						Color(Style.COLOR_TEXT_PAPER_MUTED, 0.6), 1.0)
+				if r.how != "":
+					var how_h: float = line_h.call(muted, r.how, inner - 40, Style.SIZE_SM)
+					_card.draw_multiline_string(muted, Vector2(sx + 28, cy + 18), r.how, HORIZONTAL_ALIGNMENT_LEFT, inner - 40,
+						Style.SIZE_SM, -1, Style.COLOR_TEXT_PAPER_MUTED)
+					cy += how_h + 6
 
 
 ## A red check, drawn in as it ticks (t 0 -> 1). Shared with the cockpit checklist (preflight.gd).
@@ -401,9 +494,10 @@ func _tour_pages() -> Array:
 			["USE", "%s: the map, a spot on a plane, the fuel truck." % k.call("interact")]]],
 		["quest", "YOUR NEXT STEP", "This icon always shows what comes next.", [
 			["WHERE", "The markers floating over the plane."]]],
-		["card", "YOUR CHECKLIST", "Your first three jobs, one step at a time.", [
+		["card", "YOUR APPRENTICESHIP", "Your first three jobs, each with its reward.", [
 			["TICKS", "Each step checks itself off when you do it right."],
-			["HELP", "Only the step you're on is explained."]]],
+			["HELP", "Only the step you're on is explained."],
+			[k.call("quest"), "Fold it out of the way, or open it again."]]],
 		["pockets", "YOUR POCKETS", "Four things you carry, each on a key. Your cash is top right.", [
 			[k.call("clipboard"), "Work order for this plane."],
 			[k.call("logbook"), "Logbook: every plane you've saved."],
@@ -472,9 +566,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 	if is_instance_valid(_tour) and ev.is_action_pressed("ui_accept"):
 		get_viewport().set_input_as_handled()
 		_tour_next()
-	elif is_instance_valid(_reward) and (ev.is_action_pressed("ui_accept") or ev.is_action_pressed("ui_cancel")):
+	elif _card.visible and ev.is_action_pressed("quest"):  # fold or unfold the quest panel (A2)
 		get_viewport().set_input_as_handled()
-		_close_reward()
+		fold(not main.tut.get("quest_folded", false))
 
 
 ## The callout box: centered for the words that point at nothing, else beside what it points at.
@@ -493,7 +587,7 @@ func _tour_box() -> Rect2:
 func _target() -> Rect2:
 	match _tour_pages()[_tour_i][0]:
 		"quest": return Rect2(10, 8, 60, 52)
-		"card": return Rect2(10, 58, W_CARD + 12, 330)
+		"card": return last_rect.grow(6) if last_rect.size.y > 0 else Rect2(10, 58, W_CARD + 12, 330)
 		"pockets": return Rect2(10, size.y - 62, 230, 54)
 		"center": return Rect2(size.x / 2 - 22, size.y / 2 - 22, 44, 44)
 	return Rect2()
@@ -748,71 +842,6 @@ func _center(c: Control) -> void:
 
 
 # ---------- the reward ----------
-
-func _show_reward(l: int) -> void:
-	var r: Dictionary = REWARDS[l]
-	_reward = PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Style.COLOR_SURFACE_PAPER
-	sb.border_width_top = 6
-	sb.border_color = Style.COLOR_TEXT_PAPER_ACCENT
-	sb.set_content_margin_all(Style.SPACE_8)
-	sb.shadow_color = Color(0, 0, 0, 0.45)
-	sb.shadow_size = 14
-	_reward.add_theme_stylebox_override("panel", sb)
-	_reward.mouse_filter = Control.MOUSE_FILTER_STOP
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", Style.SPACE_3)
-	_reward.add_child(col)
-	var eyebrow := Style.label("APPRENTICE CHECKLIST   JOB %d OF 3   DONE" % l, "accent", Style.SIZE_XS, 800)
-	eyebrow.add_theme_font_override("font", Style.caps(800, Style.SIZE_XS))
-	col.add_child(eyebrow)
-	var title := Style.label(("SIGNED OFF: " + LESSONS[l].title).to_upper() if l < 3 else "APPRENTICESHIP DONE", "body", Style.SIZE_2XL, 900)
-	title.add_theme_font_override("font", Style.caps(900, Style.SIZE_2XL))
-	col.add_child(title)
-	var learned := Style.label("You learned " + LESSONS[l].teaches + ".", "muted", Style.SIZE_MD, 600)
-	col.add_child(learned)
-	if r.gift == "tester":  # the bonus is on the ticket with the rest of the money (D3); the gift is here
-		var gift := Label.new()
-		gift.name = "Gift"
-		gift.text = "GIFT  COMPRESSION TESTER"
-		gift.add_theme_font_override("font", Style.figures(true))
-		gift.add_theme_font_size_override("font_size", Style.SIZE_LG)
-		gift.add_theme_color_override("font_color", Style.COLOR_STATUS_OK)
-		col.add_child(gift)
-	var line := Style.label(r.line, "body", Style.SIZE_MD, 600)
-	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	line.custom_minimum_size.x = 480
-	col.add_child(line)
-	var tally := Style.label("Planes back in the air: %d of %d." % [main.rescued, main.GOAL], "muted", Style.SIZE_SM, 700)
-	col.add_child(tally)
-	var b := Button.new()
-	b.text = "ON TO THE NEXT CALL" if l < 3 else "ON MY OWN"
-	Style.button(b, "primary")
-	b.custom_minimum_size.y = 44
-	b.pressed.connect(_close_reward)
-	col.add_child(b)
-	add_child(_reward)
-	_center(_reward)
-	_reward.scale = Vector2(0.92, 0.92)
-	_reward.modulate.a = 0.0
-	var tw := _reward.create_tween().set_parallel().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	tw.tween_property(_reward, "scale", Vector2.ONE, 0.3)
-	tw.tween_property(_reward, "modulate:a", 1.0, 0.2)
-	main.sound.chime()
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	b.grab_focus.call_deferred()
-
-
-func _close_reward() -> void:
-	main.tut.erase("reward")
-	main._save_game()
-	if is_instance_valid(_reward):
-		_reward.queue_free()
-	_reward = null
-	if main.panel == null:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-
 
 # ---------- menu walkthroughs ----------
 ## The first time you open each menu, a few cards walk you round it, each pointing at the part it

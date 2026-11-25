@@ -5,7 +5,21 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 32 is in review; see the log in `docs/PROCESS.md`. Next toward beta: U5 and U6.)
+**Iteration 33 (2026-11-25): one money format and the small text fixes (U5, U6).** Toward beta.
+
+- **Goal**: money reads the same everywhere, and the small text slips from the audit are gone.
+- **Items (U5)**: every money figure the player sees has thousands separators ("$4,250"), one
+  helper for it. **(U6)**, what's still open of it: the pinned squawk and the work order's owner
+  report use curly quotes; no full stop after a question ("magneto?."); the calls walkthrough says
+  how the calls are ordered; the task list marks the next task and drops the "To do:" prefix
+  (state shown by icon and word as before); badge offers in the quiet label style; a dark backing
+  behind the badge row so it reads over sky and snow. (Already done elsewhere: the cockpit foot line
+  wraps (C1), the squawk card's quotes (U7), the inspector's note went with the entry sheet (L1).)
+- **Risk gate**: text only, no rules. Layout: longer figures with commas must still fit their rows
+  (screenshots of the map, ticket, logbook, catalog). Checks: self-test reads every sheet, card and
+  the HUD for "$" followed by four or more bare digits; finds no ".", after "?"; the task list's
+  next task marked; screenshots.
+- **Acceptance**: as U5 and U6 below.
 
 ## Next
 
@@ -53,14 +67,25 @@ needs; and someone who has never played it gets through the apprenticeship witho
   - Acceptance: on the call list difficulty is the largest text in each row; on arrival the
     logbook and discrepancy screen comes before the first spot can be worked; self-test checks
     both; screenshots at 1280x720.~~ In iteration 32.
-- **U5. One money format.** Thousands separators wherever money shows (map, wallet, ending, game
+- **H1. The plane's history, deeper** (Thad, 2026-11-25: "i think the history of the airplane on the
+  log books lets expand on that"). Today the papers show three generic entries from a short list.
+  Wanted: a history worth reading that tells a mechanic something: entries tied to the plane's real
+  faults where a sharp reader would catch a clue (the last oil change long ago on a plane with black
+  oil; a magneto "repaired" by someone who isn't an A&P; a prop strike nobody logged), the
+  inspections and their findings, past owners, how long it sat and why; more entries, paged like the
+  squawk notes. Settle at planning: how many entries, which faults leave a trail in the logbook, and
+  whether a misleading or missing entry can be the clue (logbook research is real A&P work).
+  Acceptance: each fault type with a logbook clue shows it on some plane; the self-test checks that
+  every clue entry matches a real fault on that plane and that no entry gives the answer outright;
+  screenshots.
+- ~~**U5. One money format.** Thousands separators wherever money shows (map, wallet, ending, game
   over, messages). Acceptance: self-test finds no "$" followed by four or more bare digits on any
-  sheet.
-- **U6. Small text fixes.** The cockpit card's foot line wraps instead of cutting off; curly quotes
+  sheet.~~ In iteration 33.
+- ~~**U6. Small text fixes.** The cockpit card's foot line wraps instead of cutting off; curly quotes
   in the squawk; no stop after a question; the calls walkthrough says how calls are ordered; the
   task list marks the next task and drops "To do:"; badge offers in the label style; the
   inspector's note in accent ink; a backing behind the badge row. Acceptance: each visible in a
-  screenshot; the cut-off line checked by the self-test.
+  screenshot; the cut-off line checked by the self-test.~~ In iteration 33.
 - **A2. The apprenticeship as a side-panel quest, not a pop-up** (Thad, 2026-11-23: "i dont want
   that apprenticeship to be a pop up"; "it should be more of a sidepanel quest type behavior").
   The apprenticeship lives in a quest panel at the side of the screen, like a quest tracker: the

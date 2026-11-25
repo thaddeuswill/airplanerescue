@@ -5087,7 +5087,7 @@ func _fuel_plane() -> int:
 	job.fuel = 1.0  # on the owner's account (F5): it's their plane, so it's their fuel
 	job["owner_fuel"] = int(job.get("owner_fuel", 0)) + cost
 	_save_game()
-	_say("Pumped %d gal of 100LL into the %s, on the owner's account ($%d)." % [gal, job.type, cost])
+	_say("Pumped %d gal of 100LL into the %s." % [gal, job.type])
 	_save_game()
 	return cost
 
@@ -5104,7 +5104,6 @@ func _open_truck() -> void:
 	var job = current_job
 	if job:
 		var gal := roundi((1.0 - job.get("fuel", 1.0)) * TANK_GAL)
-		var cost := _fuel_bill(job)
 		if job.faults.has("stale_fuel") and not job.fixed.has("stale_fuel"):
 			rows.append(["The %s's tanks are full of stale fuel. Drain and sump them first (left wing)." % job.type])
 		elif job.get("parked", "apron") == "hangar":
@@ -5112,13 +5111,11 @@ func _open_truck() -> void:
 		elif gal <= 0:
 			rows.append(["The %s's tanks are full." % job.type])
 		else:
-			rows.append(["Fuel the %s: %d gal of 100LL at $%.2f a gallon, on the owner's account ($%d)" % [job.type, gal, AVGAS_PER_GAL, cost],
-				"Pump", _pump_and_reopen, true])
+			rows.append(["Fuel the %s: %d gal of 100LL" % [job.type, gal], "Pump", _pump_and_reopen, true])
 	else:
 		rows.append(["No plane to fuel at this field."])
 	var for_owner: bool = job != null and job.faults.has("stale_fuel") and not job.fixed.has("stale_fuel")
-	rows.append(["Jerry can of fresh avgas, for a stale-fuel job (have %d)%s" % [inventory.get("Fresh avgas", 0),
-		", on the owner's account: it's for their plane" if for_owner else ""], "Fill" if for_owner else "$90",
+	rows.append(["Jerry can of fresh avgas, for a stale-fuel job (have %d)" % inventory.get("Fresh avgas", 0), "Fill" if for_owner else "$90",
 		_buy_can, for_owner or money >= 90])
 	_open_panel("Fuel truck", rows)
 

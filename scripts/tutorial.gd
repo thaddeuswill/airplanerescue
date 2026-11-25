@@ -1012,8 +1012,7 @@ func walk_pages(id: String) -> Array:
 		"truck":
 			return [["sheet", "THE FUEL TRUCK", "Half tanks at least to fly it out.", [
 				["WHERE", "On the apron, never in the hangar."],
-				["STALE GAS", "Drain it first."],
-				["COST", "On the owner's account: it's their plane."]]]]
+				["STALE GAS", "Drain it first."]]]]
 		"parts_table":
 			return [["sheet", "PARTS ON HAND", "Everything you carry, laid out.", [
 				["MORE", "PARTS shed, or mail order from the hangar."]]]]

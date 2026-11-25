@@ -597,6 +597,52 @@ func _migrate(data: Dictionary) -> void:
 	data.version = SAVE_VERSION
 
 
+## Past logbook work, story only (M1): what a mechanic might have written up on a plane like this.
+## No figures from the manuals here, and no dates: tach hours only (no clock, D2).
+const PAST_WORK := ["Annual inspection completed. Aircraft found airworthy.",
+	"Changed oil, cleaned the oil screen. No metal found.",
+	"Cleaned, gapped and rotated the spark plugs.",
+	"Adjusted the brakes. Taxi-tested.",
+	"Repaired fabric on the left aileron per AC 43.13-1B.",
+	"Replaced the tailwheel spring leaf.",
+	"Serviced the tires and checked the gear for wear.",
+	"Cleaned the fuel strainer. Sumped the tanks: no water."]
+const PAST_HANDS := ["R. Haines, A&P", "M. Ortega, A&P IA", "D. Kowalski, A&P", "L. Whitfield, A&P", "J. Baptiste, A&P IA"]
+
+
+## The plane's logbook before you (M1): three entries, newest first, worked out from its
+## registration so the same plane always shows the same history; a plane that sat ends with storage.
+func plane_logbook(job: Dictionary) -> Array:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash("logbook|" + registration(job))
+	var tach := r.randf_range(380.0, 2400.0)
+	var out: Array = []
+	var years: int = int(job.get("years", 0))
+	if years >= 2:
+		out.append(["%s" % _tach(tach), "Flown home and tied down. Put away for storage, not preserved.", PAST_HANDS[r.randi() % PAST_HANDS.size()]])
+		tach -= r.randf_range(2.0, 20.0)
+	var picks := PAST_WORK.duplicate()
+	while out.size() < 3:
+		var w: String = picks.pop_at(r.randi() % picks.size())
+		out.append([_tach(tach), w, PAST_HANDS[r.randi() % PAST_HANDS.size()]])
+		tach -= r.randf_range(15.0, 120.0)
+	return out
+
+
+func _tach(hours: float) -> String:
+	return "Tach %s.%d" % [_thousands(floori(hours)), floori(fmod(hours, 1.0) * 10.0)]
+
+
+## The plane's papers (M1): the pilot's discrepancy, then its logbook; the walk-around after.
+func _open_papers(job: Dictionary) -> void:
+	var rows: Array = [["Pilot's discrepancy\n" + _symptoms(job), "", null, false, "", {"lead": Style.SIZE_LG, "name": "Discrepancy"}],
+		["Aircraft logbook, newest first"]]
+	for e in plane_logbook(job):
+		rows.append(["%s   %s\n%s" % [e[0], e[2], e[1]], "", null, false, "", {"name": "Entry"}])
+	rows.append(["", "Start the walk-around", _close_panel, true])
+	_open_panel("Aircraft papers: %s" % registration(job), rows)
+
+
 ## The checkpoint: the save as it was when you took your last job (U4, Thad: "a start over button
 ## from the last plane"). Written as you fly out, so a run of bad luck on one plane can be undone;
 ## a career gone wrong over several planes starts over instead.
@@ -922,6 +968,7 @@ func _travel(job: Dictionary, cost: int) -> void:
 	_hide_loading()
 	if alive:
 		_say("Arrived in %s. Walk around the %s: the floating markers show each spot to inspect (E)." % [job.city, job.type])
+		_open_papers(job)  # the plane's papers first, before any work (M1)
 
 
 ## The still scene that covers the field build: the logo and where you've landed.
@@ -4174,7 +4221,7 @@ var _side: Control  # something shown beside the sheet, like the chart: goes whe
 ## The paperwork sheets: what a mechanic writes on or carries in a pocket goes on cream stock with
 ## ink (the design system's paper surface), like the catalog and the manual. Menus stay on the
 ## dark hangar surface.
-const PAPER_SHEETS := ["Work order", "Clipboard", "Logbook", "Aircraft logbook", "Wallet", "Toolbox", "Parts on hand", "Weight and balance", "Fuel truck", "Debrief", "Task list"]
+const PAPER_SHEETS := ["Aircraft papers", "Work order", "Clipboard", "Logbook", "Aircraft logbook", "Wallet", "Toolbox", "Parts on hand", "Weight and balance", "Fuel truck", "Debrief", "Task list"]
 var _paper_sheet := false
 
 
@@ -4358,6 +4405,8 @@ func _row_height(r: Array) -> float:
 	var opt: Dictionary = r[5] if r.size() > 5 and r[5] is Dictionary else {}
 	if opt.has("grid"):  # caption plus rows of icon, name and progress cells
 		return 30.0 + ceilf(opt.grid.size() / 4.0) * 90.0 + 21.0
+	if opt.has("call"):  # four lines: rating, where and pay, the story (wrapped), the small print
+		return 30.0 + 22.0 + ceilf(String(opt.call[2]).length() * 7.0 / _text_width(r)) * 18.0 + 16.0 + 21.0
 	if opt.has("lead"):  # a large first line
 		return 40.0 + ceilf(r[0].get_slice("\n", 1).length() * 7.0 / _text_width(r)) * 17.0 + 21.0
 	var w := _text_width(r)
@@ -4474,7 +4523,20 @@ func _add_row(vb: VBoxContainer, r: Array) -> void:
 	words.alignment = BoxContainer.ALIGNMENT_CENTER
 	words.add_theme_constant_override("separation", 1)
 	hb.add_child(words)
-	var parts: PackedStringArray = r[0].split("\n", true, 1)
+	if opt.has("call"):  # a rescue call, by importance (M1): difficulty, where and pay, the story, the small print
+		var steps := [[Style.SIZE_LG, 800, Style.COLOR_TEXT_PAPER], [Style.SIZE_MD, 700, Style.COLOR_TEXT_PAPER],
+			[Style.SIZE_SM, 600, Style.COLOR_TEXT_PAPER], [Style.SIZE_XS, 600, Style.COLOR_TEXT_PAPER_MUTED]]
+		for k in 4:
+			var cl := Label.new()
+			cl.name = ["Rating", "Where", "Story", "Small"][k]
+			cl.text = opt.call[k]
+			cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			cl.custom_minimum_size.x = _text_width(r)
+			cl.add_theme_font_override("font", Style.display(steps[k][1]))
+			cl.add_theme_font_size_override("font_size", steps[k][0])
+			cl.add_theme_color_override("font_color", steps[k][2])
+			words.add_child(cl)
+	var parts: PackedStringArray = PackedStringArray() if opt.has("call") else r[0].split("\n", true, 1)
 	for i in parts.size():
 		if parts[i] == "":
 			continue
@@ -5805,15 +5867,20 @@ func _open_travel() -> void:
 		var cost: int = est.fare
 		var d := call_difficulty(job)
 		var rating := "Difficulty %d of 5: %s" % [d, DIFFICULTY_NAMES[d - 1]]
+		# M1 (Thad): difficulty first, then where and the pay, then the owner's story, then the small print.
+		var where := "%s %s  \u00b7  pays $%s  \u00b7  clears about $%s%s" % [station_code(job.city), job.city, _thousands(job.reward),
+			_thousands(est.net), "   (closest you can afford)" if job == closest else ""]
+		var small := "Parts $%s  \u00b7  your fuel $%s  \u00b7  hangar fee $%d  \u00b7  %d NM" % [_thousands(est.parts), _thousands(est.fare),
+			HANGAR_FEE, roundi(miles(location, job.city) * 0.869)]
 		if call_locked(job):
-			rows.append(["%s: %s\n%s. Locked until your apprenticeship is done (%d of 3 jobs).\n%s" % [job.city, job.type, rating,
-				int(tut.lesson) - 1, _symptoms(job)], "Locked", Callable(), false])
+			small = "Locked until your apprenticeship is done (%d of 3 jobs)." % (int(tut.lesson) - 1)
+		var call := [rating, where, _symptoms(job), small]
+		var text := "\n".join(PackedStringArray(call))
+		if call_locked(job):
+			rows.append([text, "Locked", Callable(), false, "", {"call": call, "name": "Call"}])
 			continue
 		can_fly = can_fly or money >= cost
-		rows.append(["%s: %s%s\n%s. Pays $%d, clears about $%d after parts $%d, fuel $%d and the $%d hangar fee. %d NM.\n%s" % [
-			job.city, job.type, "   (closest you can afford)" if job == closest else "", rating, job.reward, est.net, est.parts, est.fare,
-			HANGAR_FEE, roundi(miles(location, job.city) * 0.869), _symptoms(job)],
-			"Fly ($%d)" % cost, func(): _travel(job, cost), money >= cost])
+		rows.append([text, "Fly ($%s)" % _thousands(cost), func(): _travel(job, cost), money >= cost, "", {"call": call, "name": "Call"}])
 	if not can_fly and not _can_finish_here():
 		var fares := jobs.filter(func(j): return j != current_job and not call_locked(j)).map(func(j): return int(miles(location, j.city) * FUEL_PER_MILE))
 		_open_game_over(fares.min() if fares.size() > 0 else 0)

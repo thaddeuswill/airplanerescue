@@ -95,6 +95,8 @@ func run(main, args: PackedStringArray) -> void:
 			var pre := a.trim_prefix("--walk-shot=")
 			var wj: Dictionary = g.jobs[0]
 			await g._travel(wj, 0)
+			await _snap(pre, "papers", 0.4)
+			g._close_panel()  # the plane's papers (M1)
 			for id in wj.faults:
 				wj.found[id] = true
 			g.tutorial.force_walks = true
@@ -134,6 +136,7 @@ func run(main, args: PackedStringArray) -> void:
 			await _snap(pre, "home_card", 0.4)
 			var tj: Dictionary = g.jobs[0]
 			await g._travel(tj, 0)
+			g._close_panel()  # the plane's papers (M1)
 			g.tutorial._show_notes(tj)
 			await _snap(pre, "notes", 0.4)
 			g.tutorial._close_notes()
@@ -225,6 +228,7 @@ func run(main, args: PackedStringArray) -> void:
 	_trip_probe()
 	await g._travel(job, 0)
 	var trip_ms := Time.get_ticks_msec() - trip_start
+	var papers_ok: bool = await _papers_ok(job, shot)
 	if lesson > 0:  # the squawk notes: no quiz, one button, and it ticks the step
 		g.tutorial._show_notes(job)
 		var go: Array = g.tutorial._notes_col.find_children("*", "Button", true, false)
@@ -341,7 +345,7 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "look_" + first_zone)
 	pockets_ok = pockets_ok and (g.panel is Work or g.panel is Bay) and job.found.is_empty() and g.panel.solve() and g.panel is PanelContainer
 	await _snap(shot, "inspect")
-	var ok: bool = pockets_ok and radio_ok and marks_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return g.FAULTS[id].zone == first_zone))
+	var ok: bool = papers_ok and pockets_ok and radio_ok and marks_ok and (job.found.size() < job.faults.size() or job.faults.all(func(id): return g.FAULTS[id].zone == first_zone))
 	for z in g.ZONES:
 		g._inspect_zone(z)
 		if g.panel is Work or g.panel is Bay:
@@ -1861,7 +1865,7 @@ func _no_days_ok() -> bool:
 						bad.append("catalog: " + t.left(80))
 		g._close_panel()
 	var all := "\n".join(seen)
-	var fee_ok: bool = all.contains("$%d hangar fee" % g.HANGAR_FEE)  # on the map's estimates (the wallet sheet went in W1)
+	var fee_ok: bool = all.contains("hangar fee $%d" % g.HANGAR_FEE)  # on the map's estimates (the wallet sheet went in W1)
 	var hud_ok: bool = rx.search(g.msg.text) == null and not "day" in g
 	# An old save: version 2, with a clock and a deadline.
 	var old := {"version": 2, "day": 7.5, "money": 900, "jobs": [{"city": "Omaha", "deadline": 9.0, "arrived": 6.0}]}
@@ -2458,4 +2462,47 @@ func _references_ok(job: Dictionary, shot: String) -> bool:
 	g._close_panel()
 	var ok: bool = from_order and tabs_ok and catalog_ok and from_work
 	print("references: from the work order %s, tabs land right %s (%s), catalog marks the job and sells nothing %s, from a work scene and back %s" % [from_order, tabs_ok, fault_with_part, catalog_ok, from_work])
+	return ok
+
+
+
+## M1: arriving opens the plane's papers before any work: the pilot's discrepancy (the squawk) on
+## top, then at least two logbook entries with tach hours and a signature, no day figures, the same
+## history every time for the same plane; "Start the walk-around" closes it. And the map's calls read
+## difficulty first: rating > where and pay > story > small print, by size.
+func _papers_ok(job: Dictionary, shot: String) -> bool:
+	var sheet_ok: bool = g.panel != null and g._list_title.begins_with("Aircraft papers") and g._list_title.ends_with(g.registration(job))
+	var rows: Array = []
+	for pg in g._pages:
+		rows.append_array(pg)
+	var name_of := func(r: Array) -> String: return String(r[5].get("name", "")) if r.size() > 5 and r[5] is Dictionary else ""
+	var disc: Array = rows.filter(func(r): return name_of.call(r) == "Discrepancy")
+	var entries: Array = rows.filter(func(r): return name_of.call(r) == "Entry")
+	var day_rx := RegEx.create_from_string("(?i)\\bday\\b|\\bdays\\b|19[0-9][0-9]|20[0-9][0-9]")
+	var content_ok: bool = disc.size() == 1 and String(disc[0][0]).contains(g._symptoms(job)) and entries.size() >= 2 \
+		and entries.all(func(r): return String(r[0]).begins_with("Tach ") and String(r[0]).contains("A&P")) \
+		and not entries.any(func(r): return day_rx.search(String(r[0])) != null) \
+		and g.plane_logbook(job) == g.plane_logbook(job.duplicate(true))
+	await _snap(shot, "papers", 0.3)
+	var walk: Array = rows.filter(func(r): return r.size() > 2 and String(r[1]) == "Start the walk-around")
+	if walk.size() == 1:
+		walk[0][2].call()
+	var closes: bool = walk.size() == 1 and g.panel == null
+	# The map, difficulty first.
+	g._open_travel()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var call_rows: Array = g.panel.find_children("*", "HBoxContainer", true, false).filter(func(h): return h.find_child("Rating", true, false) != null and not h.is_queued_for_deletion()) if g.panel else []
+	# A lesson's map lists no other calls (by design): nothing to order then. Anywhere else there must be rows.
+	var lesson_empty: bool = g.tutorial.active() and call_rows.is_empty() and g._pages.all(func(pg): return pg.is_empty())
+	var order_ok := lesson_empty
+	if call_rows.size() > 0:
+		var sz := func(n: String) -> int:
+			var l: Array = call_rows[0].find_children(n, "Label", true, false)
+			return l[0].get_theme_font_size("font_size") if l.size() > 0 else 0
+		order_ok = sz.call("Rating") > sz.call("Where") and sz.call("Where") > sz.call("Story") and sz.call("Story") > sz.call("Small") and sz.call("Small") > 0
+	await _snap(shot, "calls_m1", 0.3)
+	g._close_panel()
+	var ok: bool = sheet_ok and content_ok and closes and order_ok
+	print("papers: on arrival %s, discrepancy and %d entries %s, closes to the walk-around %s; calls difficulty first %s" % [sheet_ok, entries.size(), content_ok, closes, order_ok])
 	return ok

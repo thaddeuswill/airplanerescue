@@ -89,9 +89,9 @@ needs; and someone who has never played it gets through the apprenticeship witho
   magneto's points and condenser, set the gap, time it). Bought at the counter or by mail like
   today; the repair scene follows the choice; the owner's quote covers the cheaper way, so the full
   assembly is your call to buy time with money. Needs at planning: which repairs get piece-part
-  routes (start with the magneto and the carburetor), and real prices: `c85_parts.json` marks its
-  prices as game values (`source: game`, unverified), so Thad decides whether those stand as game
-  balance or need sources. Acceptance: both routes solvable by `solve()` for each chosen repair;
+  routes (start with the magneto and the carburetor), and prices: in `c85_parts.json` 56 of 93 parts are
+  sourced (Continental or Piper, verified) and 37 are game values (unverified); Thad decides whether
+  the game values stand as balance or need sources. Acceptance: both routes solvable by `solve()` for each chosen repair;
   the shop sells both; self-test buys each route and finishes the job; screenshots.
 - **BT1. Torque you can feel** (beta tip 35). The wrench clicks, the needle snaps and the scene
   nudges when a fastener reaches its band; an over-torque sounds and looks wrong. Acceptance: the

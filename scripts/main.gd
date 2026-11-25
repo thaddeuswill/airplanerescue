@@ -243,6 +243,18 @@ const HARD_CLUES := {
 }
 
 
+## Joins short reports into sentences: a stop only where one is missing, never after a question
+## ("Plug, lead or magneto?", not "magneto?.").
+static func sentences_joined(parts: Array) -> String:
+	var out: PackedStringArray = []
+	for p in parts:
+		var t := String(p).strip_edges()
+		if t == "":
+			continue
+		out.append(t if t[t.length() - 1] in ".?!" else t + ".")
+	return " ".join(out)
+
+
 func clue(id: String) -> String:
 	return HARD_CLUES[id] if not guide("medium") and HARD_CLUES.has(id) else CLUES[id]
 
@@ -892,18 +904,18 @@ func _symptoms(job: Dictionary) -> String:
 	var years: int = job.get("years", 0)
 	var sat := (" Sat out in the weather %d years." % years) if years > 0 else ""
 	if job.get("annual", false):  # no complaints: it's your job to find what's wrong
-		return "\"Annual's due. Go over it nose to tail and sign it off.\"" + sat
+		return "\u201cAnnual's due. Go over it nose to tail and sign it off.\u201d" + sat
 	var s: PackedStringArray = []
 	for id in job.faults:
 		var line := squawk_line(job, id)
 		if line == "":  # no squawk written (found only on site): fall back to the short symptom
 			line = (TESTS[job.diag[id][0]].symptom if job.get("diag", {}).has(id) else FAULTS[id].symptom)
-			line = (line[0].to_upper() + line.substr(1) + ".") if line != "" else ""
+			line = sentences_joined([line[0].to_upper() + line.substr(1)]) if line != "" else ""
 		if line != "" and not line in s:
 			s.append(line)
 	if s.is_empty():
 		s.append("Just get it flying, please.")
-	return "\"" + " ".join(s) + "\"" + sat
+	return "\u201c" + " ".join(s) + "\u201d" + sat  # the owner's own words, in real quotes (U6)
 
 
 ## What a job cost you, itemized for the logbook (like the end of a Rebuild Rescue episode).
@@ -1220,7 +1232,7 @@ func _run_up_result() -> void:
 	for c in job.get("tried", {}):
 		job.tried[c] = true  # this run-up shows whether the swap cured it
 	log_clear()
-	log_line(". ".join(heard) + ("." if job.runup == "ran" or not guide("medium") else ". Can't run it up until that's fixed."))
+	log_line(sentences_joined(heard) + ("" if job.runup == "ran" or not guide("medium") else " Can't run it up until that's fixed."))
 	playlog("run-up result: " + ". ".join(heard))
 	_save_game()
 	_open_inspection("cabin")
@@ -1320,7 +1332,7 @@ func _found_hidden() -> void:
 	visuals[h].queue_free()
 	visuals[h] = _part_visual(h, false)
 	sound.chime()
-	log_line("%s. You call %s, who okays the extra work: +$%d." % [HIDDEN_CLUES[h], current_job.get("owner", "the owner"), extra])
+	log_line("%s. You call %s, who okays the extra work: +$%s." % [HIDDEN_CLUES[h], current_job.get("owner", "the owner"), _thousands(extra)])
 	_save_game()
 
 
@@ -2035,7 +2047,7 @@ func _ground_job() -> void:
 		plane = null
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
-	_say("Grounded the %s and told the owner straight. They paid $%d for the diagnosis." % [job.type, fee])
+	_say("Grounded the %s and told the owner straight. They paid $%s for the diagnosis." % [job.type, _thousands(fee)])
 	sound.pen()
 	_save_game()
 	_open_travel()
@@ -2182,7 +2194,7 @@ func _flight_failed(result: String) -> void:
 		_save_game()
 		sound.low_tone()
 		_open_panel("Crashed", [["You walked away. The %s didn't.\nHit too hard, or stalled on the way down." % job.type], [missed],
-			["What it cost\nThe job, and $%d insurance excess. It's in your logbook." % bill],
+			["What it cost\nThe job, and $%s insurance excess. It's in your logbook." % _thousands(bill)],
 			["Next time\n" + ("Hold the Down arrow after lift-off and keep climbing until you're clear." if hill
 				else "Check every spot before you sign. If the engine quits, Up arrow lowers the nose: keep above 45 kt, then Down arrow to flare.")]])
 		return
@@ -2194,7 +2206,7 @@ func _flight_failed(result: String) -> void:
 	_load_field(location, job)
 	_save_game()
 	_open_panel("Aborted take-off" if result == "abort" else "Forced landing", [["You got it down safely, and it's back at the field."], [missed],
-		["What it cost\nThe owner knocked the pay from $%d to $%d." % [was, job.reward]],
+		["What it cost\nThe owner knocked the pay from $%s to $%s." % [_thousands(was), _thousands(job.reward)]],
 		["Next\nFix it, then sign the logbook again."]])
 
 
@@ -2236,9 +2248,9 @@ func _sign_off() -> void:
 	# The owner's words go on the end-of-mission card (D3), not across the top of the screen.
 	if found_later.is_empty():
 		logbook[-1].debrief["said"] = "%s: \u201c%s\u201d%s" % [job.get("owner", "The owner"), THANKS[rng.randi() % THANKS.size()],
-			("  The pay includes $%d of supplies." % supplies) if supplies > 0 else ""]
+			("  The pay includes $%s of supplies." % _thousands(supplies)) if supplies > 0 else ""]
 	else:
-		logbook[-1].debrief["said"] = "A comeback: the owner's next mechanic found %s. Owner paid $%d of $%d." % [", ".join(found_later), pay, job.reward]
+		logbook[-1].debrief["said"] = "A comeback: the owner's next mechanic found %s. Owner paid $%s of $%s." % [", ".join(found_later), _thousands(pay), _thousands(job.reward)]
 	var earlier := logbook.filter(func(e): return e.pay > 0 and e.has("owner") and e.city != job.city)
 	if earlier.size() > 0 and rng.randf() < 0.4:  # now and then, word from a plane you saved before
 		var e: Dictionary = earlier[rng.randi() % earlier.size()]
@@ -2895,7 +2907,7 @@ func _open_menu() -> void:
 			["BACK", "", _menu_back]]
 	else:
 		if has_save:
-			items.append(["CONTINUE", "%s  -  $%d  -  %d of %d rescued" % [location.to_upper(), money, rescued, GOAL], _close_menu])
+			items.append(["CONTINUE", "%s  -  $%s  -  %d of %d rescued" % [location.to_upper(), _thousands(money), rescued, GOAL], _close_menu])
 			items.append(["NEW CAREER", "", _menu_confirm])
 		else:
 			items.append(["START", "Home base: %s" % START_CITY.to_upper(), _close_menu])
@@ -3448,8 +3460,13 @@ var _tracker_name: Label
 var _tracker_name_t := 0.0
 
 
+## The badge row's whole box (name line and backed row), shown only in the world.
+var _tracker_box: VBoxContainer
+
+
 func _setup_tracker() -> void:
 	var box := VBoxContainer.new()
+	_tracker_box = box
 	box.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	box.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	box.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -3475,7 +3492,20 @@ func _setup_tracker() -> void:
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		t.tooltip_text = "%s: %s" % [b[1], b[3]]
 		tracker.add_child(t)
-	box.add_child(tracker)
+	var back := PanelContainer.new()  # a dark strip so greyed badges don't vanish over bright ground or sky (U6)
+	back.name = "TrackerBack"
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(Style.COLOR_SURFACE_HUD, 0.55)
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	back.add_theme_stylebox_override("panel", sb)
+	back.add_child(tracker)
+	box.add_child(back)
 	ui.add_child(box)
 	_refresh_tracker()
 
@@ -3677,7 +3707,7 @@ func _update_hud() -> void:
 	var has_lines: bool = _log_list.get_child_count() > 0 or _log_now.visible
 	_log.visible = has_lines and (checking or Time.get_ticks_msec() < _log_until)
 	quest.visible = hud.visible
-	tracker.get_parent().visible = hud.visible  # the badge row: in the world only, never over a sheet, job or cockpit
+	_tracker_box.visible = hud.visible  # the badge row: in the world only, never over a sheet, job or cockpit
 	if _tracker_name_t > 0.0:
 		_tracker_name_t -= get_process_delta_time()
 		if _tracker_name_t <= 0.0:
@@ -4116,9 +4146,18 @@ func _open_tasks() -> void:
 		_open_panel("Task list", [["No plane here. Take a call from the MAP on the hangar workbench."]])
 		return
 	var rows := [["%s at %s" % [job.type, job.city]]]
-	for t in task_list(job):
+	var next_done := false
+	for t in task_list(job):  # the next task stands out; plain to-dos carry no prefix; other states keep their word (U6)
 		var st: Array = TASK_STATES[t.state]
-		rows.append(["%s: %s%s" % [st[0], t.text, ("\n" + t.note) if t.note != "" else ""], "", null, false, st[1]])
+		var is_next: bool = not next_done and t.state in ["todo", "retry"]
+		next_done = next_done or is_next
+		var head: String = (("Next, try again: " if t.state == "retry" else "Next: ") + t.text) if is_next else (t.text if t.state == "todo" else "%s: %s" % [st[0], t.text])
+		var opt: Dictionary = {"lead": Style.SIZE_LG, "name": "NextTask"} if is_next else {"name": "Task"}
+		var note: String = t.note
+		if note.begins_with("Can earn"):  # badge offers sit apart, in the small label style
+			opt["aside"] = note
+			note = ""
+		rows.append([head + (("\n" + note) if note != "" else ""), "", null, false, st[1], opt])
 	_open_panel("Task list", rows)
 
 
@@ -4403,6 +4442,10 @@ func _open_panel(title: String, rows: Array, closable := true, stamp := "") -> V
 ## Roughly how tall a row will be once wrapped. Errs tall, so a page never overflows the screen.
 func _row_height(r: Array) -> float:
 	var opt: Dictionary = r[5] if r.size() > 5 and r[5] is Dictionary else {}
+	if opt.has("aside"):  # the quiet line under the row, then the row itself
+		var rest := opt.duplicate()
+		rest.erase("aside")
+		return _row_height(r.slice(0, 5) + [rest]) + ceilf(String(opt.aside).length() * 6.0 / _text_width(r)) * 15.0
 	if opt.has("grid"):  # caption plus rows of icon, name and progress cells
 		return 30.0 + ceilf(opt.grid.size() / 4.0) * 90.0 + 21.0
 	if opt.has("call"):  # four lines: rating, where and pay, the story (wrapped), the small print
@@ -4549,6 +4592,15 @@ func _add_row(vb: VBoxContainer, r: Array) -> void:
 		if i > 0:
 			l.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER_MUTED if _paper_sheet else C_BRASS)
 		words.add_child(l)
+	if opt.has("aside"):  # a quiet extra under the state, like the badges a task can earn (U6)
+		var a := Label.new()
+		a.name = "Aside"
+		a.text = opt.aside
+		a.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		a.custom_minimum_size.x = _text_width(r)
+		a.add_theme_font_size_override("font_size", Style.SIZE_XS)
+		a.add_theme_color_override("font_color", Style.COLOR_TEXT_PAPER_MUTED if _paper_sheet else Style.COLOR_TEXT_HUD_MUTED)
+		words.add_child(a)
 	if r.size() > 1 and r[1] != "":
 		var b := Button.new()
 		b.text = r[1]
@@ -4560,7 +4612,7 @@ func _add_row(vb: VBoxContainer, r: Array) -> void:
 		b.disabled = not r[3]
 		hb.add_child(b)
 		if b.disabled and "$" in r[1]:  # a greyed-out price says what's missing
-			var short := "Need $%d more" % (int(r[1].get_slice("$", 1)) - money)
+			var short := "Need $%s more" % _thousands(int(r[1].get_slice("$", 1).replace(",", "")) - money)  # "Fly ($1,013)" reads as 1013, not 1
 			b.tooltip_text = short
 			var why := Label.new()
 			why.text = short
@@ -5473,7 +5525,7 @@ func _open_inspection(at := standing_at) -> void:
 			else "%d spot%s never checked. You can sign anyway, but anything you didn't look at will find you in the air." % [skipped, "" if skipped == 1 else "s"]),
 			"Sign off" if at != "" else "", _sign_logbook, at != ""])
 	elif ready and at == "cabin":
-		rows.append(["Airworthy! Fly it out to the owner.", "Climb in & take off (+$%d)" % job.reward, _start_ferry, true])
+		rows.append(["Airworthy! Fly it out to the owner.", "Climb in & take off (+$%s)" % _thousands(job.reward), _start_ferry, true])
 	elif done:
 		rows.append(["Airworthy! " + ("Roll it out of the hangar, " if in_hangar else "") + ("fuel it at the truck, " if fuel < 0.5 else "") + "then climb in at the cabin to fly it out."])
 	elif not all_checked:
@@ -5642,7 +5694,7 @@ func _supply_row(key: String, mail: bool) -> Array:
 		return ["%s  -  owned" % s.name, "", null, false, icon]
 	return ["%s  (%s)%s" % [s.name, _supply_have(key), "
 Mail order: 25% over shelf price" if mail else ""],
-		("Order $%d" if mail else "$%d") % price, func(): _buy_supply(key, price, mail), money >= price, icon]
+		("Order $%s" if mail else "$%s") % _thousands(price), func(): _buy_supply(key, price, mail), money >= price, icon]
 
 
 func _buy_supply(key: String, cost: int, mail: bool) -> void:
@@ -5911,7 +5963,7 @@ func _open_travel() -> void:
 		pin.add_theme_color_override("font_hover_color", Color(0.9, 0.1, 0.5))
 		pin.position = chart.px(job.city) + Vector2(6, -24)
 		pin.disabled = money < cost or call_locked(job)
-		pin.tooltip_text = ("%s: locked for now" % job.city) if call_locked(job) else "Fly to %s ($%d fuel)" % [job.city, cost]
+		pin.tooltip_text = ("%s: locked for now" % job.city) if call_locked(job) else "Fly to %s ($%s fuel)" % [job.city, _thousands(cost)]
 		pin.pressed.connect(func(): _travel(job, cost))
 		map.add_child(pin)
 

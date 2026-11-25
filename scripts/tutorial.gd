@@ -929,7 +929,7 @@ func walk_pages(id: String) -> Array:
 					["LOGBOOK", "Sign it before it flies."]]]]
 		"map":
 			return [
-				["sheet_rows", "RESCUE CALLS", "Pick a plane to rescue. The best pay is first.", [
+				["sheet_rows", "RESCUE CALLS", "Pick a plane to rescue. Open calls first, the best estimate first.", [
 					["DIFFICULTY", "1 Routine to 5 Expert."],
 					["CLEARS", "About what you keep after parts, fuel and the hangar fee."]]],
 				["sheet_rows", "WHICH ONE?", "Not sure? Take the one marked (closest you can afford).", [

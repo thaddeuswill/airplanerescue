@@ -586,7 +586,7 @@ func _catalog(L: Control, R: Control, rows: Array) -> void:
 		var y := 104.0
 		for p in rows.slice(side * CATALOG_ROWS, (side + 1) * CATALOG_ROWS):
 			var mine: bool = _job != "" and (String(p.get("fault", "")) == _job or _job in p.get("jobs", []))
-			var row := _table_row("JOB" if mine else "", String(p.get("no", "")), String(p.get("name", "")), "$%d" % int(p.get("price", 0)), false)
+			var row := _table_row("JOB" if mine else "", String(p.get("no", "")), String(p.get("name", "")), "$" + _commas(int(p.get("price", 0))), false)
 			row.set_meta("part", String(p.get("id", "")))  # a tag, not a name: sibling names get renumbered
 			_put(page, row, 30, y)
 			y += 26
@@ -791,3 +791,13 @@ func _style_button(b: Button, bg: Color, fg: Color) -> void:
 	for s in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
 		b.add_theme_color_override(s, fg if bg.a > 0.5 else INK)
 	b.add_theme_color_override("font_disabled_color", Color(fg if bg.a > 0.5 else INK, 0.4))
+
+
+## Thousands separators for a price ("$1,400"): one money format everywhere (U5).
+static func _commas(n: int) -> String:
+	var t := str(absi(n))
+	var out := ""
+	while t.length() > 3:
+		out = "," + t.right(3) + out
+		t = t.left(t.length() - 3)
+	return ("-" if n < 0 else "") + t + out

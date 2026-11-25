@@ -229,6 +229,7 @@ func run(main, args: PackedStringArray) -> void:
 	await g._travel(job, 0)
 	var trip_ms := Time.get_ticks_msec() - trip_start
 	var papers_ok: bool = await _papers_ok(job, shot)
+	papers_ok = _next_task_ok(job) and papers_ok
 	if lesson > 0:  # the squawk notes: no quiz, one button, and it ticks the step
 		g.tutorial._show_notes(job)
 		var go: Array = g.tutorial._notes_col.find_children("*", "Button", true, false)
@@ -800,6 +801,7 @@ func run(main, args: PackedStringArray) -> void:
 	await _snap(shot, "debrief", 0.3)
 	ok = await _mission_card_ok(deb) and ok
 	ok = _no_days_ok() and ok
+	ok = _text_format_ok() and ok
 	ok = _logbook_ok() and ok
 	ok = await _top_bands_ok("pause") and ok
 	ok = await _top_bands_ok("notes") and ok
@@ -824,7 +826,8 @@ func run(main, args: PackedStringArray) -> void:
 	await get_tree().process_frame
 	g._update_hud()  # read the HUD as it is now, not as the last frame left it (screenshot runs lag a frame)
 	var row: HBoxContainer = g.tracker
-	var tracker_ok: bool = row.get_parent().visible and row.get_child_count() == g.BADGES.size()
+	var back: Control = row.get_parent()  # U6: the row sits on a dark backing strip
+	var tracker_ok: bool = g._tracker_box.visible and back is PanelContainer and back.get_theme_stylebox("panel").bg_color.a > 0.3 and row.get_child_count() == g.BADGES.size()
 	for t: TextureRect in row.get_children():
 		var want := "badge.svg" if g.badges.has(String(t.name)) else "badge_none.svg"
 		tracker_ok = tracker_ok and t.texture.resource_path.ends_with(want)
@@ -832,7 +835,7 @@ func run(main, args: PackedStringArray) -> void:
 	g._pocket("logbook")
 	await get_tree().process_frame
 	g._update_hud()
-	tracker_ok = tracker_ok and not row.get_parent().visible
+	tracker_ok = tracker_ok and not g._tracker_box.visible
 	g._close_panel()
 	if not tracker_ok:
 		print("TRACKER: wrong icons, or shown over a sheet")
@@ -1875,6 +1878,63 @@ func _no_days_ok() -> bool:
 	print("no days: shown %s, fee %s, hud %s, old save %s, catalog read with its mail-order line %s" % ["none" if bad.is_empty() else str(bad), fee_ok, hud_ok, migrate_ok, mail_seen])
 	return ok
 
+
+
+## U5 and U6: money always has its thousands separator ("$4,250", never "$4250"), a question never
+## gets a stop after it ("magneto?."), and the owner's words sit in curly quotes. Read from the map,
+## the logbook, the game-over card, the cash line and the message band, as a player sees them.
+func _text_format_ok() -> bool:
+	var bare := RegEx.create_from_string("\\$[0-9]{4,}")
+	var stop := RegEx.create_from_string("[?!]\\.")
+	var seen: PackedStringArray = []
+	for opener in [func(): g._pocket("logbook"), func(): g._open_travel()]:
+		g._close_panel()
+		opener.call()
+		for page in g._pages:
+			for r in page:
+				seen.append(" ".join(PackedStringArray(Array(r).filter(func(x): return x is String))))
+				if r.size() > 5 and r[5] is Dictionary and r[5].has("call"):
+					seen.append(" ".join(PackedStringArray(r[5].call)))
+	g._close_panel()
+	g._open_game_over(5000)
+	for l in g.panel.find_children("*", "Label", true, false):
+		seen.append(l.text)
+	g._close_panel()
+	seen.append(g.cash_label.text)
+	seen.append(g.msg.text)
+	seen.append(g._thousands(1234567))
+	seen.append(g.sentences_joined(["Plug, lead or magneto?", "Rough on the left", "Won't start!"]))
+	var bad: PackedStringArray = []
+	for t in seen:
+		if bare.search(t) != null or stop.search(t) != null:
+			bad.append(t.left(80))
+	var joined_ok: bool = g.sentences_joined(["Plug, lead or magneto?", "Rough", ""]) == "Plug, lead or magneto? Rough."
+	var ok: bool = bad.is_empty() and joined_ok and g._thousands(1234567) == "1,234,567"
+	print("text format: bare money or stop after a question %s, sentences joined %s" % ["none" if bad.is_empty() else str(bad), joined_ok])
+	return ok
+
+
+## U6: the task list marks the next task (one row, larger) and no row says "To do:"; badge offers
+## sit apart in the small label style.
+func _next_task_ok(job: Dictionary) -> bool:
+	g._close_panel()
+	g._open_tasks()
+	var rows: Array = []
+	for page in g._pages:
+		rows.append_array(page)
+	g._close_panel()
+	var names := rows.map(func(r): return String(r[5].get("name", "")) if r.size() > 5 and r[5] is Dictionary else "")
+	var next_i: int = names.find("NextTask")
+	var todo: bool = g.task_list(job).any(func(t): return t.state in ["todo", "retry"])
+	var mark_ok: bool = names.count("NextTask") == (1 if todo else 0) and (next_i < 0 or String(rows[next_i][0]).begins_with("Next"))
+	var prefix_ok: bool = rows.all(func(r): return not String(r[0]).begins_with("To do:"))
+	var aside_ok: bool = rows.all(func(r): return not String(r[0]).contains("Can earn"))
+	var said: String = g._symptoms(job)
+	var quote_ok: bool = not said.contains("\"") and said.contains("\u201c")  # the owner's words in curly quotes
+	var ok: bool = mark_ok and prefix_ok and aside_ok and quote_ok
+	if not ok:
+		print("TASKS: next marked %s, no 'To do:' %s, badge offers apart %s, curly quotes %s: %s" % [mark_ok, prefix_ok, aside_ok, quote_ok, rows.map(func(r): return String(r[0]).left(40))])
+	return ok
 
 
 ## LB1: the logbook opens on the rank, then the entries newest first with no money breakdown, then

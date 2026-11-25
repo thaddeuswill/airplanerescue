@@ -5,33 +5,26 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 35 (2026-11-25): the plane's history, deeper (H1).** Toward beta. R1 is next in order
-but waits on Thad's make and model for each of the five types (asked 2026-11-25); H1 needs nothing
-from Thad, so it goes first.
+**Iteration 36 (2026-11-25): registration numbers instead of plane descriptions (R1).** Toward beta.
 
-- **Goal**: the plane's logbook is worth reading: a sharp reader finds a clue to what's wrong.
-- **Items (H1)**, settled at planning:
-  - Six to eight entries, newest first, paged on the papers sheet like any long sheet.
-  - Faults that leave a trail (about twenty): each has a logbook entry that points toward it
-    without naming the fault or its part. The kinds of trail, all real logbook research:
-    a missing entry (oil not changed for hundreds of hours: the newest oil change is the oldest
-    entry); work signed by someone who can't sign for it (a pilot-owner overhauling the ignition at
-    home, no certificate number); a follow-up never logged (a wood prop's bolts "to be re-torqued"
-    with no entry after); the same fix again and again (brakes adjusted twice in a few hours); a
-    finding deferred (bright flakes in the oil filter, "owner to monitor"); work that leads to it
-    (painted, fuel caps and all; a speaker on the panel and the compass never swung).
-  - The plane's past: a sale to a past owner, and why it sat when it sat (from a short list).
-  - Nothing misleading on purpose in this iteration: a clue entry only appears for a fault the
-    plane really has. Generic entries that would contradict a clue (an oil change on a plane whose
-    oil is long overdue) are left out on that plane.
-- **Risk gate**: what could break: the papers sheet (more rows: it pages, and the walk-around
-  button must stay reachable on the last page); a clue that gives the answer away (checked: no
-  entry names its fault or part); a clue on a plane without that fault (checked: every tagged entry
-  matches a fault on the plane); determinism (the history is built from the registration and the
-  faults, so the same plane reads the same after a save and load; checked). No numbers from the
-  manuals: tach times stay the game's own, as today. No save change.
-- **Acceptance**: as H1: each fault with a trail shows it on a plane with that fault; the self-test
-  checks the two rules above for every fault and on the run's real plane; screenshots of the papers.
+- **Goal**: planes are named the way a mechanic names them: by tail number.
+- **Items (R1)**, settled by Thad 2026-11-25 ("only difference between planes is tail number"):
+  every plane is a Piper J-3 with a C85-12. The five type descriptions go. Player text names the
+  plane by its N-number: the arrival line, the work order and clipboard titles ("Work order:
+  N591UZ, Piper J-3"), the task list ("N591UZ, Piper J-3 at Omaha"), the fuel truck, the spot
+  header, the grounded and crash messages, radio news of a plane you saved.
+  Settled at planning: pay. Each type carried a base pay ($1,500 to $3,500); with one airplane
+  there is one base, **$2,500**, the average of the five, so the career's pay is the same on
+  average. It's a game value, not a manual one, and goes to BT4 (the economy over 20+ jobs) to
+  check. The types' "no starter" list was empty for all five, so nothing changes there.
+- **Risk gate**: what could break: old saves (their jobs and logbook carry a type, and an old job
+  without a stored N-number makes one from its fields, type included): the type field is kept
+  on saved jobs and logbook entries and simply not shown, so an old plane keeps its number; no
+  save change. Pay spread narrows (difficulty, faults and years still set it). Text that still
+  shows a description: the self-test reads the arrival line, the work order, the clipboard, the
+  task list, the fuel truck and the spot header for any of the five old names and for the
+  registration.
+- **Acceptance**: as R1: no type description left in player text; self-test checks; screenshots.
 
 ## Next
 
@@ -110,7 +103,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
   quest, the three jobs' states, the steps and the rewards; it survives a save and load;
   self-test checks; screenshots at 1280x720 (it must not cover the work scenes' tool roll).~~ In
   iteration 34.
-- **R1. Registration numbers instead of plane descriptions everywhere** (Thad, 2026-11-23: "the
+- ~~**R1. Registration numbers instead of plane descriptions everywhere** (Thad, 2026-11-23: "the
   red plane or this other plane kinda looks sloppy, it doesn't really look like something that
   you would see in the real world"). The map, job sheets, work orders, logbook, radio and owner
   lines name the plane by its N-number (from D3) instead of "Rag-wing taildragger". Decided by
@@ -119,7 +112,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
   Thad 2026-11-25: "only difference between planes is tail number": every plane is a Piper J-3
   (C85-12); the five type descriptions go, and only the N-number tells planes apart (how pay and
   difficulty vary by type today is settled at planning). Acceptance: no type description left in
-  player text; self-test checks; screenshots.
+  player text; self-test checks; screenshots.~~ In iteration 36.
 - **P1. Paint schemes** (Thad, 2026-11-25: "we can work on color uv mapping for dif styles but for
   right now thats it"). Later, not toward beta: different colour schemes on the one Cub model through
   its UV mapping, so planes look different as well as carrying different tail numbers. Acceptance to

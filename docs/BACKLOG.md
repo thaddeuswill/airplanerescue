@@ -5,22 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 31 (2026-11-25): the references within reach (K1).** Toward beta.
-
-- **Goal**: the service manual, the IPC exploded drawing and the parts catalog are each one action
-  away wherever you work.
-- **Items** (settled here, as Thad left the order and the details to Claude): the manual gets three
-  tabs across its top: Procedure (the job's page), IPC drawing (the exploded figure for the job's
-  part, with its part numbers) and Parts catalog (a look-up of every part: number, what it's for,
-  price at the counter and by mail, how many you have; buying stays at the counter or mail order).
-  N opens it at the Procedure, as now; the work order and the work scene get a References button
-  that opens it at the job; each tab is one click.
-- **Risk gate**: flow: the manual's own paging, contents and back-to-the-work-scene stay as they are;
-  the look-up never buys. Layout: the tabs fit the manual's spread at 1280x720. Real values: part
-  numbers and prices come from the existing data, nothing new. Checks: self-test opens the
-  references from the walk-around (N), the work order and a work scene, lands each tab on the job's
-  page / figure / part, and finds the look-up has no buy; screenshots of the three tabs.
-- **Acceptance**: as K1 below.
+(None. Iteration 31 is in review; see the log in `docs/PROCESS.md`. Next toward beta: M1.)
 
 ## Next
 

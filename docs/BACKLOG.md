@@ -81,6 +81,18 @@ needs; and someone who has never played it gets through the apprenticeship witho
   planning: the real make and model for each of the five types (only the Cub, a J-3 with a C85-12,
   is settled). Acceptance: no type description left in player text;
   self-test checks; screenshots.
+- **AP1. Buy the full assembly or the piece parts** (Thad, 2026-11-25: "so when you repair stuff
+  will you have to buy these separate or full assy for the players id love full assys and indiv").
+  Today each repair takes one part, bought whole (the fault's `part`); the catalog's piece parts are
+  look-up only. Wanted: for repairs where the IPC has the pieces, a choice: the full assembly (costs
+  more, fewer steps: swap it and time it) or the individual parts (cheaper, more steps: e.g. a
+  magneto's points and condenser, set the gap, time it). Bought at the counter or by mail like
+  today; the repair scene follows the choice; the owner's quote covers the cheaper way, so the full
+  assembly is your call to buy time with money. Needs at planning: which repairs get piece-part
+  routes (start with the magneto and the carburetor), and real prices: `c85_parts.json` marks its
+  prices as game values (`source: game`, unverified), so Thad decides whether those stand as game
+  balance or need sources. Acceptance: both routes solvable by `solve()` for each chosen repair;
+  the shop sells both; self-test buys each route and finishes the job; screenshots.
 - **BT1. Torque you can feel** (beta tip 35). The wrench clicks, the needle snaps and the scene
   nudges when a fastener reaches its band; an over-torque sounds and looks wrong. Acceptance: the
   cue fires at the band and only there; self-test checks; a short screen capture.

@@ -3515,8 +3515,9 @@ func _refresh_tracker() -> void:
 		return
 	for t: TextureRect in tracker.get_children():
 		var got: bool = badges.has(String(t.name))
-		t.texture = load("res://textures/hud/badge.svg" if got else "res://textures/hud/badge_none.svg")
-		t.modulate.a = 1.0 if got else 0.55
+		# Not yet earned: the light brass outline, made to read on the row's dark strip (U6)
+		t.texture = load("res://textures/hud/badge.svg" if got else "res://textures/hud/badge_none_hud.svg")
+		t.modulate.a = 1.0 if got else 0.8
 
 
 ## The moment a badge is earned: its icon colours in with a pulse, and its name shows above the row.

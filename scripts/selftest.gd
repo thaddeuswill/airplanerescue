@@ -229,7 +229,7 @@ func run(main, args: PackedStringArray) -> void:
 	await g._travel(job, 0)
 	var trip_ms := Time.get_ticks_msec() - trip_start
 	var papers_ok: bool = await _papers_ok(job, shot)
-	papers_ok = _next_task_ok(job) and papers_ok
+	papers_ok = await _next_task_ok(job, shot) and papers_ok
 	if lesson > 0:  # the squawk notes: no quiz, one button, and it ticks the step
 		g.tutorial._show_notes(job)
 		var go: Array = g.tutorial._notes_col.find_children("*", "Button", true, false)
@@ -829,7 +829,7 @@ func run(main, args: PackedStringArray) -> void:
 	var back: Control = row.get_parent()  # U6: the row sits on a dark backing strip
 	var tracker_ok: bool = g._tracker_box.visible and back is PanelContainer and back.get_theme_stylebox("panel").bg_color.a > 0.3 and row.get_child_count() == g.BADGES.size()
 	for t: TextureRect in row.get_children():
-		var want := "badge.svg" if g.badges.has(String(t.name)) else "badge_none.svg"
+		var want := "badge.svg" if g.badges.has(String(t.name)) else "badge_none_hud.svg"
 		tracker_ok = tracker_ok and t.texture.resource_path.ends_with(want)
 	await _snap(shot, "tracker", 0.3)
 	g._pocket("logbook")
@@ -1916,9 +1916,10 @@ func _text_format_ok() -> bool:
 
 ## U6: the task list marks the next task (one row, larger) and no row says "To do:"; badge offers
 ## sit apart in the small label style.
-func _next_task_ok(job: Dictionary) -> bool:
+func _next_task_ok(job: Dictionary, shot: String) -> bool:
 	g._close_panel()
 	g._open_tasks()
+	await _snap(shot, "tasks", 0.3)
 	var rows: Array = []
 	for page in g._pages:
 		rows.append_array(page)

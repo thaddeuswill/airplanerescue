@@ -579,7 +579,8 @@ func _catalog(L: Control, R: Control, rows: Array) -> void:
 	for side in 2:
 		var page: Control = L if side == 0 else R
 		_put(page, _label("PARTS CATALOG" if side == 0 else "CONTINUED", BLACK, 26, INK), 30, 24)
-		_put(page, _label("PRICES AT THE COUNTER  ·  MAIL ORDER 25% MORE", BLOCK, 15, RED), 30 if side else 250, 34 if side else 32)
+		if side == 0:  # the price note once, beside the title
+			_put(page, _label("PRICES AT THE COUNTER  ·  MAIL ORDER 25% MORE", BLOCK, 15, RED), 250, 32)
 		_put(page, _rule(3, INK, PAGE_W - 60), 30, 62)
 		_put(page, _table_row("", "PART NO.", "DESCRIPTION", "PRICE", true), 30, 74)
 		var y := 104.0

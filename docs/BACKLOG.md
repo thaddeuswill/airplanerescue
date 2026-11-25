@@ -5,28 +5,33 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 34 (2026-11-25): the apprenticeship as a side-panel quest (A2).** Toward beta.
+**Iteration 35 (2026-11-25): the plane's history, deeper (H1).** Toward beta. R1 is next in order
+but waits on Thad's make and model for each of the five types (asked 2026-11-25); H1 needs nothing
+from Thad, so it goes first.
 
-- **Goal**: the apprenticeship reads like a quest tracker at the side of the screen, and nothing
-  pops up or needs dismissing when a lesson ends.
-- **Items (A2)**: the checklist card becomes the quest panel, top left where the card is:
-  "Apprenticeship, 3 jobs"; each job a line with its state (done, in progress, locked) and its
-  reward (the bonus, and the compression tester on job 2); the current job's steps under it,
-  ticking as today. A finished job keeps "Learned: ..." and the line that says what comes next
-  until you start the walk-around on the next plane. The reward pop-up on the map goes. Q (rebindable,
-  "Fold the quest panel") folds it to the title and the step you're on. Hidden over sheets, work
-  scenes, the cockpit and the ticket, as the card was. The bonus stays on the ticket.
-- **Risk gate**: what could break: the lesson flow (rewards, the gift, the next lesson's calls)
-  and the tutorial self-tests that read the old pop-up; a soft-lock if anything waited on the
-  pop-up's button (nothing gates on it: the self-test proves the next lesson starts); the panel
-  covering the tool roll or the call list (it's hidden over every sheet, checked); its height at
-  1280x720 with eleven steps (checked: the panel's bottom stays on screen); a save taken between
-  lessons (the finished-job note is in `tut`, saved; checked across a save and load); Q clashing
-  with another key (Q is free in the world; the menu's own Q stays the menu's). No numbers change.
-- **Acceptance**: as A2 below: no overlay after a lesson; the panel shows the quest, the three
-  jobs' states, the steps and the rewards; the note survives a save and load; folds with Q; the
-  three tutorial runs and the screenshot runs pass, with a screenshot of the panel mid-lesson and
-  after a lesson.
+- **Goal**: the plane's logbook is worth reading: a sharp reader finds a clue to what's wrong.
+- **Items (H1)**, settled at planning:
+  - Six to eight entries, newest first, paged on the papers sheet like any long sheet.
+  - Faults that leave a trail (about twenty): each has a logbook entry that points toward it
+    without naming the fault or its part. The kinds of trail, all real logbook research:
+    a missing entry (oil not changed for hundreds of hours: the newest oil change is the oldest
+    entry); work signed by someone who can't sign for it (a pilot-owner overhauling the ignition at
+    home, no certificate number); a follow-up never logged (a wood prop's bolts "to be re-torqued"
+    with no entry after); the same fix again and again (brakes adjusted twice in a few hours); a
+    finding deferred (bright flakes in the oil filter, "owner to monitor"); work that leads to it
+    (painted, fuel caps and all; a speaker on the panel and the compass never swung).
+  - The plane's past: a sale to a past owner, and why it sat when it sat (from a short list).
+  - Nothing misleading on purpose in this iteration: a clue entry only appears for a fault the
+    plane really has. Generic entries that would contradict a clue (an oil change on a plane whose
+    oil is long overdue) are left out on that plane.
+- **Risk gate**: what could break: the papers sheet (more rows: it pages, and the walk-around
+  button must stay reachable on the last page); a clue that gives the answer away (checked: no
+  entry names its fault or part); a clue on a plane without that fault (checked: every tagged entry
+  matches a fault on the plane); determinism (the history is built from the registration and the
+  faults, so the same plane reads the same after a save and load; checked). No numbers from the
+  manuals: tach times stay the game's own, as today. No save change.
+- **Acceptance**: as H1: each fault with a trail shows it on a plane with that fault; the self-test
+  checks the two rules above for every fault and on the run's real plane; screenshots of the papers.
 
 ## Next
 
@@ -74,7 +79,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
   - Acceptance: on the call list difficulty is the largest text in each row; on arrival the
     logbook and discrepancy screen comes before the first spot can be worked; self-test checks
     both; screenshots at 1280x720.~~ In iteration 32.
-- **H1. The plane's history, deeper** (Thad, 2026-11-25: "i think the history of the airplane on the
+- ~~**H1. The plane's history, deeper** (Thad, 2026-11-25: "i think the history of the airplane on the
   log books lets expand on that"). Today the papers show three generic entries from a short list.
   Wanted: a history worth reading that tells a mechanic something: entries tied to the plane's real
   faults where a sharp reader would catch a clue (the last oil change long ago on a plane with black
@@ -84,7 +89,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
   whether a misleading or missing entry can be the clue (logbook research is real A&P work).
   Acceptance: each fault type with a logbook clue shows it on some plane; the self-test checks that
   every clue entry matches a real fault on that plane and that no entry gives the answer outright;
-  screenshots.
+  screenshots.~~ In iteration 35.
 - ~~**U5. One money format.** Thousands separators wherever money shows (map, wallet, ending, game
   over, messages). Acceptance: self-test finds no "$" followed by four or more bare digits on any
   sheet.~~ In iteration 33.

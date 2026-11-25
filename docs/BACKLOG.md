@@ -5,7 +5,23 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-(None. Iteration 31 is in review; see the log in `docs/PROCESS.md`. Next toward beta: M1.)
+**Iteration 32 (2026-11-25): difficulty first on the calls; the plane's papers when you arrive (M1).**
+
+- **Goal**: choosing a call starts from how hard it is; arriving starts from the plane's papers.
+- **Items**: each call on the map reads in four steps: the difficulty, largest ("Difficulty 3 of 5:
+  Standard"); then where and the pay ("KOMA Omaha · pays $3,400 · clears about $2,280"); then the
+  owner's story of what happened, readable; then the small print (parts, fuel, the fee, distance).
+  On arrival, before any work: the plane's papers, a paper sheet with the pilot's discrepancy (the
+  squawk, written up) and the plane's logbook (a few past entries: tach time, what was done, who
+  signed; the last one before it sat, for a plane that sat); "Start the walk-around" closes it.
+- **Risk gate**: no clock (D2): the entries carry tach hours, never dates or days. Values: tach hours
+  and past entries are story, not mechanical values; nothing from the manuals changes. Flow: the
+  lesson's squawk notes wait for the papers to close (they open only with no sheet up). Saves: the
+  entries are worked out from the job (its registration seeds them), never stored. Checks: self-test
+  measures the call row's sizes (difficulty > where-and-pay > story > small print), opens the papers
+  on arrival with the discrepancy and at least two entries and no day figure, and closes them;
+  screenshots of the map and the papers.
+- **Acceptance**: as M1 below.
 
 ## Next
 
@@ -38,7 +54,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
   looking up opens the shop or a read-only catalog. Acceptance: from the walk-around, a work scene
   and the work order, each of the three opens in one action at the right page; self-test opens
   each from each place; screenshots.~~ In iteration 31.
-- **M1. Difficulty first on the calls; the plane's papers when you arrive** (Thad, 2026-11-23:
+- ~~**M1. Difficulty first on the calls; the plane's papers when you arrive** (Thad, 2026-11-23:
   "differential the text so you can easyly find out what you need thats important, where, how
   difficult and, how much i am getting paid the accept screen should have the logbook and the pilot
   discrepancy on there before you fix the plane"; corrected: "no it shows you the logs and
@@ -52,7 +68,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
     years sat and type), plain and short.
   - Acceptance: on the call list difficulty is the largest text in each row; on arrival the
     logbook and discrepancy screen comes before the first spot can be worked; self-test checks
-    both; screenshots at 1280x720.
+    both; screenshots at 1280x720.~~ In iteration 32.
 - **U5. One money format.** Thousands separators wherever money shows (map, wallet, ending, game
   over, messages). Acceptance: self-test finds no "$" followed by four or more bare digits on any
   sheet.

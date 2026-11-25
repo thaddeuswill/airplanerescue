@@ -2500,7 +2500,9 @@ func _papers_ok(job: Dictionary, shot: String) -> bool:
 		var sz := func(n: String) -> int:
 			var l: Array = call_rows[0].find_children(n, "Label", true, false)
 			return l[0].get_theme_font_size("font_size") if l.size() > 0 else 0
-		order_ok = sz.call("Rating") > sz.call("Where") and sz.call("Where") > sz.call("Story") and sz.call("Story") > sz.call("Small") and sz.call("Small") > 0
+		var rating: Label = call_rows[0].find_children("Rating", "Label", true, false)[0]
+		var want: Color = Style.COLOR_TEXT_PAPER if g._paper_sheet else Style.COLOR_TEXT_HUD  # readable on the sheet it's on
+		order_ok = rating.get_theme_color("font_color") == want and sz.call("Rating") > sz.call("Where") and sz.call("Where") > sz.call("Story") and sz.call("Story") > sz.call("Small") and sz.call("Small") > 0
 	await _snap(shot, "calls_m1", 0.3)
 	g._close_panel()
 	var ok: bool = sheet_ok and content_ok and closes and order_ok

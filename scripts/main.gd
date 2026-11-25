@@ -4524,8 +4524,9 @@ func _add_row(vb: VBoxContainer, r: Array) -> void:
 	words.add_theme_constant_override("separation", 1)
 	hb.add_child(words)
 	if opt.has("call"):  # a rescue call, by importance (M1): difficulty, where and pay, the story, the small print
-		var steps := [[Style.SIZE_LG, 800, Style.COLOR_TEXT_PAPER], [Style.SIZE_MD, 700, Style.COLOR_TEXT_PAPER],
-			[Style.SIZE_SM, 600, Style.COLOR_TEXT_PAPER], [Style.SIZE_XS, 600, Style.COLOR_TEXT_PAPER_MUTED]]
+		var ink: Color = Style.COLOR_TEXT_PAPER if _paper_sheet else Style.COLOR_TEXT_HUD  # the map is a dark sheet
+		var quiet: Color = Style.COLOR_TEXT_PAPER_MUTED if _paper_sheet else Style.COLOR_TEXT_HUD_MUTED
+		var steps := [[Style.SIZE_LG, 800, ink], [Style.SIZE_MD, 700, ink], [Style.SIZE_SM, 600, ink], [Style.SIZE_XS, 600, quiet]]
 		for k in 4:
 			var cl := Label.new()
 			cl.name = ["Rating", "Where", "Story", "Small"][k]

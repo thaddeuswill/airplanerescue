@@ -29,7 +29,11 @@ static var TEXT := Style.text_font()  # the reading face for summaries and steps
 static var _last := 0  # remembers the open spread between visits
 
 var _data := {}
-var _pages: Array = []  # [{kind: "contents"|"page"|"figure", ...}]
+var _pages: Array = []  # [{kind: "contents"|"page"|"figure"|"catalog", ...}]
+var _job := ""  # the job it was opened for: the Procedure and IPC tabs land on its page and drawing (K1)
+var _tabs: HBoxContainer
+const TAB_H := 56.0  # room above the book for the tabs
+const CATALOG_ROWS := 22  # parts per catalog page
 var _parts := {}  # part id -> part (from c85_parts.json, optional)
 var _spread := 0
 var _sfx := Callable()
@@ -82,7 +86,13 @@ func setup(data: Dictionary, sfx := Callable(), open_to := "", parts := {}) -> v
 	for id in figs:
 		if not placed.has("fig:" + id):
 			_pages.append({"kind": "figure", "id": id, "f": figs[id]})
+	# The parts catalog (K1): every part in the book with its number, a page of rows at a time, at the back.
+	var plist: Array = parts.get("parts", []).duplicate()
+	plist.sort_custom(func(a, b): return String(a.get("section", "")) + String(a.name) < String(b.get("section", "")) + String(b.name))
+	for k in range(0, plist.size(), CATALOG_ROWS * 2):
+		_pages.append({"kind": "catalog", "rows": plist.slice(k, k + CATALOG_ROWS * 2)})
 	_number_figures()
+	_job = open_to
 	_spread = clampi(_last, 0, _pages.size() - 1)
 	if open_to != "":
 		var i := _find_job(open_to)
@@ -114,6 +124,17 @@ func _ready() -> void:
 	_book = Control.new()
 	_book.size = BOOK
 	add_child(_book)
+	_tabs = HBoxContainer.new()  # Procedure, IPC drawing, Parts catalog: each one click (K1)
+	_tabs.name = "Tabs"
+	_tabs.add_theme_constant_override("separation", 8)
+	add_child(_tabs)
+	for t in [["procedure", "PROCEDURE"], ["ipc", "IPC DRAWING"], ["catalog", "PARTS CATALOG"]]:
+		var b := Button.new()
+		b.name = t[0]
+		b.text = t[1]
+		b.custom_minimum_size = Vector2(170, 40)
+		b.pressed.connect(tab.bind(t[0]))
+		_tabs.add_child(b)
 	_build()
 	_fit.call_deferred()
 
@@ -131,9 +152,66 @@ func fade_in() -> void:
 
 func _fit() -> void:
 	var area := size if size.x >= 1 and size.y >= 1 else get_viewport_rect().size
-	var s := minf(area.x / (BOOK.x + 40), area.y / (BOOK.y + 40))
+	var s := minf(area.x / (BOOK.x + 40), (area.y - TAB_H) / (BOOK.y + 40))
 	_book.scale = Vector2(s, s)
-	_book.position = (area - BOOK * s) / 2
+	_book.position = Vector2((area.x - BOOK.x * s) / 2, TAB_H + (area.y - TAB_H - BOOK.y * s) / 2)
+	if _tabs:
+		_tabs.reset_size()
+		_tabs.position = Vector2((area.x - _tabs.size.x) / 2, (TAB_H - _tabs.size.y) / 2 + 4)
+
+
+## The three references, one click each (K1): the job's procedure, the exploded drawing for its part,
+## or the parts catalog. Without a job, Procedure is the contents and IPC the first drawing.
+func tab(which: String) -> void:
+	match which:
+		"procedure":
+			var i := _find_job(_job) if _job != "" else -1
+			go(i if i >= 0 else 0)
+		"ipc":
+			go(maxi(0, _figure_for_job()))
+		"catalog":  # at the page with the job's parts, or the first page
+			var first := -1
+			for i in _pages.size():
+				if _pages[i].kind != "catalog":
+					continue
+				if first < 0:
+					first = i
+				if _job != "" and _pages[i].rows.any(func(p): return String(p.get("fault", "")) == _job or _job in p.get("jobs", [])):
+					go(i)
+					return
+			if first >= 0:
+				go(first)
+
+
+## Which tab the open spread belongs to, for the highlight.
+func current_tab() -> String:
+	match String(_pages[_spread].kind):
+		"figure":
+			return "ipc"
+		"catalog":
+			return "catalog"
+	return "procedure"
+
+
+## The exploded drawing for the job's part: the part that fixes it names its figure; failing that,
+## the first drawing in the job's chapter; failing that, the first drawing in the book.
+func _figure_for_job() -> int:
+	for id in _parts:
+		var pt: Dictionary = _parts[id]
+		if _job != "" and (String(pt.get("fault", "")) == _job or _job in pt.get("jobs", [])):
+			var i := _find_figure(String(pt.get("figure", "")))
+			if i >= 0:
+				return i
+	var pg := _find_job(_job) if _job != "" else -1
+	var ata: String = String(_pages[pg].p.ata) if pg >= 0 else ""
+	var first := -1
+	for i in _pages.size():
+		if _pages[i].kind == "figure":
+			if first < 0:
+				first = i
+			if ata != "" and String(_pages[i].f.get("ata", "")) == ata:
+				return i
+	return first
 
 
 func _unhandled_key_input(e: InputEvent) -> void:
@@ -188,7 +266,13 @@ func _build() -> void:
 			_procedure(L, R, sp.p)
 		"figure":
 			_figure(L, R, sp.id, sp.f)
+		"catalog":
+			_catalog(L, R, sp.rows)
 	_footer(L, 0)
+	if _tabs:  # the open tab in the accent; the others quiet
+		for b: Button in _tabs.get_children():
+			var on: bool = b.name == current_tab()
+			_style_button(b, RED if on else CREAM, CREAM if on else INK)
 	_footer(R, 1)
 
 
@@ -314,6 +398,8 @@ func _title_of(i: int) -> String:
 		return String(sp.p.title)
 	if sp.kind == "figure":
 		return fig_title(sp.id)
+	if sp.kind == "catalog":
+		return "Parts catalog"
 	return "Contents"
 
 
@@ -485,6 +571,25 @@ func _figure(L: Control, R: Control, id: String, f: Dictionary) -> void:
 		_put(R, _table_row(str(int(it.index)), String(it.no), String(it.name), str(int(it.qty)), false), 30, y)
 		y += 26
 		_put(R, _rule(1, Color(INK, 0.25), PAGE_W - 60), 30, y - 3)
+
+
+## The parts catalog (K1): part number, description and price, the parts for the job you opened
+## it on marked. A look-up only: parts are bought at the counter or by mail order.
+func _catalog(L: Control, R: Control, rows: Array) -> void:
+	for side in 2:
+		var page: Control = L if side == 0 else R
+		_put(page, _label("PARTS CATALOG" if side == 0 else "CONTINUED", BLACK, 26, INK), 30, 24)
+		_put(page, _label("PRICES AT THE COUNTER  ·  MAIL ORDER 25% MORE", BLOCK, 15, RED), 30 if side else 250, 34 if side else 32)
+		_put(page, _rule(3, INK, PAGE_W - 60), 30, 62)
+		_put(page, _table_row("", "PART NO.", "DESCRIPTION", "PRICE", true), 30, 74)
+		var y := 104.0
+		for p in rows.slice(side * CATALOG_ROWS, (side + 1) * CATALOG_ROWS):
+			var mine: bool = _job != "" and (String(p.get("fault", "")) == _job or _job in p.get("jobs", []))
+			var row := _table_row("JOB" if mine else "", String(p.get("no", "")), String(p.get("name", "")), "$%d" % int(p.get("price", 0)), false)
+			row.set_meta("part", String(p.get("id", "")))  # a tag, not a name: sibling names get renumbered
+			_put(page, row, 30, y)
+			y += 26
+			_put(page, _rule(1, Color(INK, 0.25), PAGE_W - 60), 30, y - 3)
 
 
 func _table_row(a: String, b: String, c: String, d: String, head: bool) -> Control:

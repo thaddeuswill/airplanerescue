@@ -765,6 +765,7 @@ func run(main, args: PackedStringArray) -> void:
 	# Fly it out for real: hold throttle, pull back once past rotate speed.
 	g._start_ferry()
 	ok = ok and g.ferry == null  # an unsigned logbook keeps it on the ground
+	ok = await _references_ok(job, shot) and ok
 	ok = await _sign_off_ok(job, shot) and ok
 	# Pause really stops the world, and resuming leaves nothing paused behind.
 	g._close_panel()
@@ -2390,4 +2391,71 @@ func _owner_fuel_ok() -> bool:
 	g.inventory = keep[3]
 	var ok: bool = pump_ok and can_ok and stock_ok and est_ok
 	print("owner's fuel: pump on the owner %s, can for their plane %s, stock can yours %s, estimate without it %s" % [pump_ok, can_ok, stock_ok, est_ok])
+	return ok
+
+
+
+## K1: the references one action away. From the work order, References opens the manual at this
+## job; its three tabs land on the job's procedure, the exploded drawing for its part and the
+## parts catalog (with the job's parts marked and nothing to buy); from a work scene N opens it and
+## closing it goes back to the work.
+func _references_ok(job: Dictionary, shot: String) -> bool:
+	g._open_inspection()
+	var refs: Array = []
+	for pg in g._pages:
+		for r in pg:
+			if r.size() > 2 and String(r[1]).begins_with("References"):
+				refs.append(r[2])
+	var from_order: bool = refs.size() == 1
+	if from_order:
+		refs[0].call()
+	await get_tree().process_frame
+	var m = g.panel
+	var is_manual: bool = m != null and ("_tabs" in m) and m._tabs != null and m._tabs.get_child_count() == 3
+	from_order = from_order and is_manual
+	var tabs_ok := false
+	var catalog_ok := false
+	var fault_with_part: String = ""
+	if is_manual:
+		# Open it for a fault whose part has a drawing, and walk the three tabs.
+		for id in g.parts_data.get("parts", []).map(func(p): return String(p.get("fault", ""))):
+			if id != "" and g.FAULTS.has(id):
+				fault_with_part = id
+				break
+		g._open_manual(fault_with_part)
+		await get_tree().process_frame
+		m = g.panel
+		m.tab("procedure")
+		var proc_ok: bool = m.current_tab() == "procedure" and m._pages[m._spread].kind == "page"
+		m.tab("ipc")
+		var want_fig: String = ""
+		for p in g.parts_data.get("parts", []):
+			if String(p.get("fault", "")) == fault_with_part:
+				want_fig = String(p.get("figure", ""))
+				break
+		var ipc_ok: bool = m.current_tab() == "ipc" and m._pages[m._spread].kind == "figure" and String(m._pages[m._spread].id) == want_fig
+		await _snap(shot, "refs_ipc", 0.3)
+		m.tab("catalog")
+		await get_tree().process_frame
+		var parts_rows: Array = m.find_children("*", "Control", true, false).filter(func(r): return r.has_meta("part") and not r.is_queued_for_deletion())
+		var marked: bool = parts_rows.any(func(r): return r.get_child(0).text == "JOB")
+		var no_buy: bool = not m.find_children("*", "Button", true, false).any(func(b): return String(b.text).contains("BUY") or String(b.text).contains("ORDER"))
+		catalog_ok = m.current_tab() == "catalog" and parts_rows.size() > 0 and marked and no_buy
+		await _snap(shot, "refs_catalog", 0.3)
+		tabs_ok = proc_ok and ipc_ok
+	g._close_manual()
+	# From a work scene: N opens the references, and closing goes back to the work.
+	var scene: String = job.faults[0]
+	g._open_work(scene, func(): pass)
+	await get_tree().process_frame
+	var in_work: bool = g.panel is Work
+	g._pocket("manual")
+	await get_tree().process_frame
+	var from_work: bool = in_work and g.panel != null and ("_tabs" in g.panel)
+	g._close_manual()
+	await get_tree().process_frame
+	from_work = from_work and g.panel is Work
+	g._close_panel()
+	var ok: bool = from_order and tabs_ok and catalog_ok and from_work
+	print("references: from the work order %s, tabs land right %s (%s), catalog marks the job and sells nothing %s, from a work scene and back %s" % [from_order, tabs_ok, fault_with_part, catalog_ok, from_work])
 	return ok

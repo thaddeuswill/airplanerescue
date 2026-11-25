@@ -5330,7 +5330,9 @@ func _open_inspection(at := standing_at) -> void:
 	station_zone = ""
 	var job: Dictionary = current_job
 	var rows := [["Owner reports: " + _symptoms(job)],
-		["Walk-around: %d of %d spots checked" % [job.checked.size(), ZONES.size()]]]
+		["Walk-around: %d of %d spots checked" % [job.checked.size(), ZONES.size()]],
+		["Service manual, IPC drawings, parts catalog", "References (%s)" % key_name("manual"),
+			func(): _open_manual(_manual_job()), true]]  # one click to all three (K1)
 	var tried: Dictionary = job.get("tried", {})
 	var shown := {}
 	if job.get("annual", false):

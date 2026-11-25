@@ -5,23 +5,7 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 32 (2026-11-25): difficulty first on the calls; the plane's papers when you arrive (M1).**
-
-- **Goal**: choosing a call starts from how hard it is; arriving starts from the plane's papers.
-- **Items**: each call on the map reads in four steps: the difficulty, largest ("Difficulty 3 of 5:
-  Standard"); then where and the pay ("KOMA Omaha · pays $3,400 · clears about $2,280"); then the
-  owner's story of what happened, readable; then the small print (parts, fuel, the fee, distance).
-  On arrival, before any work: the plane's papers, a paper sheet with the pilot's discrepancy (the
-  squawk, written up) and the plane's logbook (a few past entries: tach time, what was done, who
-  signed; the last one before it sat, for a plane that sat); "Start the walk-around" closes it.
-- **Risk gate**: no clock (D2): the entries carry tach hours, never dates or days. Values: tach hours
-  and past entries are story, not mechanical values; nothing from the manuals changes. Flow: the
-  lesson's squawk notes wait for the papers to close (they open only with no sheet up). Saves: the
-  entries are worked out from the job (its registration seeds them), never stored. Checks: self-test
-  measures the call row's sizes (difficulty > where-and-pay > story > small print), opens the papers
-  on arrival with the discrepancy and at least two entries and no day figure, and closes them;
-  screenshots of the map and the papers.
-- **Acceptance**: as M1 below.
+(None. Iteration 32 is in review; see the log in `docs/PROCESS.md`. Next toward beta: U5 and U6.)
 
 ## Next
 

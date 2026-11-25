@@ -5,21 +5,28 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 33 (2026-11-25): one money format and the small text fixes (U5, U6).** Toward beta.
+**Iteration 34 (2026-11-25): the apprenticeship as a side-panel quest (A2).** Toward beta.
 
-- **Goal**: money reads the same everywhere, and the small text slips from the audit are gone.
-- **Items (U5)**: every money figure the player sees has thousands separators ("$4,250"), one
-  helper for it. **(U6)**, what's still open of it: the pinned squawk and the work order's owner
-  report use curly quotes; no full stop after a question ("magneto?."); the calls walkthrough says
-  how the calls are ordered; the task list marks the next task and drops the "To do:" prefix
-  (state shown by icon and word as before); badge offers in the quiet label style; a dark backing
-  behind the badge row so it reads over sky and snow. (Already done elsewhere: the cockpit foot line
-  wraps (C1), the squawk card's quotes (U7), the inspector's note went with the entry sheet (L1).)
-- **Risk gate**: text only, no rules. Layout: longer figures with commas must still fit their rows
-  (screenshots of the map, ticket, logbook, catalog). Checks: self-test reads every sheet, card and
-  the HUD for "$" followed by four or more bare digits; finds no ".", after "?"; the task list's
-  next task marked; screenshots.
-- **Acceptance**: as U5 and U6 below.
+- **Goal**: the apprenticeship reads like a quest tracker at the side of the screen, and nothing
+  pops up or needs dismissing when a lesson ends.
+- **Items (A2)**: the checklist card becomes the quest panel, top left where the card is:
+  "Apprenticeship, 3 jobs"; each job a line with its state (done, in progress, locked) and its
+  reward (the bonus, and the compression tester on job 2); the current job's steps under it,
+  ticking as today. A finished job keeps "Learned: ..." and the line that says what comes next
+  until you start the walk-around on the next plane. The reward pop-up on the map goes. Q (rebindable,
+  "Fold the quest panel") folds it to the title and the step you're on. Hidden over sheets, work
+  scenes, the cockpit and the ticket, as the card was. The bonus stays on the ticket.
+- **Risk gate**: what could break: the lesson flow (rewards, the gift, the next lesson's calls)
+  and the tutorial self-tests that read the old pop-up; a soft-lock if anything waited on the
+  pop-up's button (nothing gates on it: the self-test proves the next lesson starts); the panel
+  covering the tool roll or the call list (it's hidden over every sheet, checked); its height at
+  1280x720 with eleven steps (checked: the panel's bottom stays on screen); a save taken between
+  lessons (the finished-job note is in `tut`, saved; checked across a save and load); Q clashing
+  with another key (Q is free in the world; the menu's own Q stays the menu's). No numbers change.
+- **Acceptance**: as A2 below: no overlay after a lesson; the panel shows the quest, the three
+  jobs' states, the steps and the rewards; the note survives a save and load; folds with Q; the
+  three tutorial runs and the screenshot runs pass, with a screenshot of the panel mid-lesson and
+  after a lesson.
 
 ## Next
 
@@ -86,7 +93,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
   task list marks the next task and drops "To do:"; badge offers in the label style; the
   inspector's note in accent ink; a backing behind the badge row. Acceptance: each visible in a
   screenshot; the cut-off line checked by the self-test.~~ In iteration 33.
-- **A2. The apprenticeship as a side-panel quest, not a pop-up** (Thad, 2026-11-23: "i dont want
+- ~~**A2. The apprenticeship as a side-panel quest, not a pop-up** (Thad, 2026-11-23: "i dont want
   that apprenticeship to be a pop up"; "it should be more of a sidepanel quest type behavior").
   The apprenticeship lives in a quest panel at the side of the screen, like a quest tracker: the
   quest ("Apprenticeship, 3 jobs"), each job as an objective with its state (done, in progress,
@@ -96,7 +103,8 @@ needs; and someone who has never played it gets through the apprenticeship witho
   or needs dismissing. The bonus money stays on the ticket. Collapsible, and hidden over sheets
   and the cockpit like the tracker. Acceptance: no overlay after a lesson; the panel shows the
   quest, the three jobs' states, the steps and the rewards; it survives a save and load;
-  self-test checks; screenshots at 1280x720 (it must not cover the work scenes' tool roll).
+  self-test checks; screenshots at 1280x720 (it must not cover the work scenes' tool roll).~~ In
+  iteration 34.
 - **R1. Registration numbers instead of plane descriptions everywhere** (Thad, 2026-11-23: "the
   red plane or this other plane kinda looks sloppy, it doesn't really look like something that
   you would see in the real world"). The map, job sheets, work orders, logbook, radio and owner

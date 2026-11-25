@@ -210,9 +210,8 @@ func run(main, args: PackedStringArray) -> void:
 	var lesson_steps: Array = g.tutorial.steps().map(func(st): return st.id)
 	var job: Dictionary = g.jobs[0]
 	if "--all-faults" in args:  # every broken part one plane can have at once, for screenshots
-		var excl: Array = g.PLANE_TYPES.filter(func(t): return t[0] == job.type)[0][2]
 		g._assign_faults(job, g.FAULTS.keys().filter(func(id): return not g.FAULTS[id].get("ground", false) \
-			and id != "fod" and not id in excl and id != "storage"))
+			and id != "fod" and id != "storage"))
 		job.years = 9  # a long-sat plane: grime, stale fuel, dry engine, stuck door
 		job.washed = false
 		job.annual = false
@@ -235,7 +234,9 @@ func run(main, args: PackedStringArray) -> void:
 	_trip_probe()
 	await g._travel(job, 0)
 	var trip_ms := Time.get_ticks_msec() - trip_start
+	var arrived: String = g.msg.text
 	var papers_ok: bool = await _papers_ok(job, shot)
+	papers_ok = _names_ok(job, arrived) and papers_ok
 	papers_ok = await _next_task_ok(job, shot) and papers_ok
 	if lesson > 0:  # the squawk notes: no quiz, one button, and it ticks the step
 		g.tutorial._show_notes(job)
@@ -1971,6 +1972,36 @@ func _text_format_ok() -> bool:
 	var joined_ok: bool = g.sentences_joined(["Plug, lead or magneto?", "Rough", ""]) == "Plug, lead or magneto? Rough."
 	var ok: bool = bad.is_empty() and joined_ok and g._thousands(1234567) == "1,234,567"
 	print("text format: bare money or stop after a question %s, sentences joined %s" % ["none" if bad.is_empty() else str(bad), joined_ok])
+	return ok
+
+
+## R1: planes go by tail number. The arrival line, the work order, the clipboard, the task list and
+## the fuel truck name the plane by its N-number (the work order and task list with "Piper J-3"
+## after it), and none of the five old type descriptions shows anywhere.
+func _names_ok(job: Dictionary, arrived: String) -> bool:
+	var reg: String = g.registration(job)
+	var old := ["High-wing trainer", "Rag-wing taildragger", "Bush plane", "Vintage tourer", "Utility hauler"]
+	var texts: PackedStringArray = [arrived]
+	var titles := {}
+	for opener in ["clipboard", "tasks", "truck"]:
+		g._close_panel()
+		match opener:
+			"clipboard": g._pocket("clipboard")
+			"tasks": g._open_tasks()
+			"truck": g._open_truck()
+		titles[opener] = g._list_title
+		texts.append(g._list_title)
+		for pg in g._pages:
+			for r in pg:
+				texts.append(" ".join(PackedStringArray(Array(r).filter(func(x): return x is String))))
+	g._close_panel()
+	var all := "\n".join(texts)
+	var no_old: bool = not old.any(func(o): return all.contains(o))
+	var arrive_ok: bool = not arrived.begins_with("Arrived") or arrived.contains(reg)
+	var order_ok: bool = String(titles.clipboard).contains(reg + ", " + g.MAKE_MODEL)
+	var tasks_ok: bool = all.contains("%s, %s at %s" % [reg, g.MAKE_MODEL, job.city])
+	var ok: bool = no_old and arrive_ok and order_ok and tasks_ok
+	print("names: by tail number %s (arrival %s \"%s\", work order %s, task list %s), no old type names %s" % [ok, arrive_ok, arrived.left(48), order_ok, tasks_ok, no_old])
 	return ok
 
 

@@ -475,7 +475,7 @@ func _draw() -> void:
 	var o := _origin()
 	var k := _k()
 	draw_rect(Rect2(Vector2.ZERO, size), Style.COLOR_SURFACE_HUD)
-	draw_string(Style.caps(900, Style.SIZE_XL), Vector2(o.x, 38), "%s  -  %s" % [job.type.to_upper(), vdef(view).name.to_upper()],
+	draw_string(Style.caps(900, Style.SIZE_XL), Vector2(o.x, 38), "%s  \u00b7  %s" % [main.plane_name(job), vdef(view).name.to_upper()],
 		HORIZONTAL_ALIGNMENT_LEFT, -1, Style.SIZE_XL, Style.COLOR_TEXT_HUD)
 	var status: String = ("Cowl closed and fastened. Unlatch it with the screwdriver to get in." if view == "cowled"
 		else "Cowl open. Close it up before you leave the engine." if zone == "engine"

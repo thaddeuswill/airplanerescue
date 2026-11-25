@@ -323,18 +323,26 @@ const ZONES := {
 	"battery": {"name": "battery bay", "pos": Vector3(0.45, 1.45, 1.7), "size": Vector3(0.3, 0.6, 0.8)},
 	"tail": {"name": "tail & rudder", "pos": Vector3(0, 2.0, 4.7), "size": Vector3(1.6, 1.6, 1.4)},
 }
-# Name, base pay, and the faults this type never gets. The rag-wing is the J-3 Cub with a
-# Continental C85-12 (starter, generator, battery); its brakes are drums with expander tubes, and
-# the brake job shows exactly that (blocks round the tube), so every type can get it.
-const PLANE_TYPES := [["High-wing trainer", 1500, []],
-	["Rag-wing taildragger", 2000, []],
-	["Bush plane", 2500, []], ["Vintage tourer", 3000, []], ["Utility hauler", 3500, []]]
+## Every plane is the same airplane (Thad, 2026-11-25: "only difference between planes is tail
+## number"): a Piper J-3 Cub with a Continental C85-12 (starter, generator, battery) and drum brakes
+## with expander tubes. Planes are named by their N-number (R1); this is what follows it on paper.
+const MAKE_MODEL := "Piper J-3"
+## The pay every call starts from before its faults, years and difficulty: $2,500, the average of
+## the five old types' bases ($1,500 to $3,500), so a career pays the same on average (R1). A game
+## value, to be checked by the economy run (BT4).
+const BASE_PAY := 2500
 
 
-## True for planes with no starter: you swing the prop by hand. (Every type has one now that
-## the Cub runs a C85-12; a flat battery still means hand-propping, see _run_up.)
-func _hand_propped(job: Dictionary) -> bool:
-	return PLANE_TYPES.any(func(t): return t[0] == job.type and "starter" in t[2])
+## True for planes with no starter: you swing the prop by hand. Never: the C85-12 has one; a flat
+## battery still means hand-propping (see _run_up).
+func _hand_propped(_job: Dictionary) -> bool:
+	return false
+
+
+## A plane as the player reads it: its tail number. (Saved jobs keep the old "type" field so an
+## old plane's number, worked out from its fields, doesn't change; it's never shown.)
+func plane_name(job: Dictionary) -> String:
+	return registration(job)
 
 var money := 3000:
 	set(v):
@@ -799,13 +807,12 @@ func _spawn_job() -> void:
 	var near := options.filter(func(c): return miles(location, c) < NEAR_MILES)
 	if near.size() > 0 and not jobs.any(func(j): return j.city != location and miles(location, j.city) < NEAR_MILES):
 		options = near
-	var t: Array = PLANE_TYPES[rng.randi() % PLANE_TYPES.size()]
 	# The career ramps up with every rescue (docs/quick-specs/difficulty-2026-11-12.md): the first
 	# calls are things you can see or hear; troubleshooting, long-sat wrecks, annuals and planes
 	# that can't be saved come later, and so do more faults per plane and owners in a hurry.
 	var r: int = maxi(0, rescued + performance_form())  # pitched to how the last jobs went (P4); never below a fresh career
 	var ids := FAULTS.keys().filter(func(id): return not id in NEGLECT_FAULTS and not id in GROUND_FAULTS and id != "fod" \
-		and not id in t[2] and not FAULTS[id].get("ground", false) and (r >= 2 or (FAULTS[id].get("diags", []).is_empty() and not SUSPECTS.has(id))))  # look-alikes start on job 3
+		and not FAULTS[id].get("ground", false) and (r >= 2 or (FAULTS[id].get("diags", []).is_empty() and not SUSPECTS.has(id))))  # look-alikes start on job 3
 	ids.shuffle()
 	var most: int = mini(5, 2 + r / 2)
 	var fewest: int = mini(most, 1 + r / 4)
@@ -838,7 +845,7 @@ func _spawn_job() -> void:
 			picks.append("bungee")
 	if r >= 2 and lesson == 0 and rng.randf() < 0.06:  # now and then a plane that can't be fixed where it sits
 		picks.push_front(GROUND_FAULTS[rng.randi() % GROUND_FAULTS.size()])
-	var job := {"city": options[rng.randi() % options.size()], "type": t[0], "years": years, "washed": years == 0, "lesson": lesson > 0,
+	var job := {"city": options[rng.randi() % options.size()], "type": MAKE_MODEL, "years": years, "washed": years == 0, "lesson": lesson > 0,
 		"fixed": {}, "found": {}, "checked": {}, "work": {}, "annual": rank == "ia" and lesson == 0 and rng.randf() < 0.15,  # an annual needs an IA
 		"spent": {"fuel": 0, "parts": 0, "mail": 0}, "fuel": rng.randf_range(0.03, 0.3), "parked": "apron",
 		"owner": OWNERS[rng.randi() % OWNERS.size()], "tried": {}, "hidden": ""}
@@ -847,7 +854,7 @@ func _spawn_job() -> void:
 	var cost := 0
 	for id in job.faults:
 		cost += FAULTS[id].cost + (60 if job.diag.has(id) else 0)  # troubleshooting pays too
-	job.reward = _pay_for(t[1] + cost + years * 150 + (250 if job.annual else 0), call_difficulty(job), lesson > 0)
+	job.reward = _pay_for(BASE_PAY + cost + years * 150 + (250 if job.annual else 0), call_difficulty(job), lesson > 0)
 	# Sometimes the cowl comes off for one job and shows you another behind it.
 	if r >= 2 and lesson == 0 and job.faults.any(func(id): return FAULTS[id].zone == "engine") and rng.randf() < 0.35:
 		var pick := HIDDEN_CLUES.keys().filter(func(id): return not job.faults.has(id))
@@ -1054,7 +1061,7 @@ func _travel(job: Dictionary, cost: int) -> void:
 	sound.cruise(false)
 	_hide_loading()
 	if alive:
-		_say("Arrived in %s. Walk around the %s: the floating markers show each spot to inspect (E)." % [job.city, job.type])
+		_say("Arrived in %s. Walk around %s: the floating markers show each spot to inspect (E)." % [job.city, plane_name(job)])
 		_open_papers(job)  # the plane's papers first, before any work (M1)
 
 
@@ -2112,7 +2119,7 @@ func _ground_job() -> void:
 	var why: Array = job.faults.filter(func(id): return FAULTS[id].get("ground", false) and job.found.has(id))
 	if not why.is_empty():
 		earn_badge("hard_call")  # grounded it for a reason that grounds it (B1)
-	logbook.append({"city": job.city, "type": job.type, "pay": fee, "grounded": true,
+	logbook.append({"city": job.city, "type": job.type, "reg": registration(job), "pay": fee, "grounded": true,
 		"work": why.map(func(id): return "Grounded: " + FAULTS[id].name), "years": job.get("years", 0),
 		"fuel": job.spent.get("fuel", 0), "parts": job.spent.get("parts", 0)})
 	jobs.erase(job)
@@ -2122,7 +2129,7 @@ func _ground_job() -> void:
 		plane = null
 	while jobs.size() < MAX_JOBS:
 		_spawn_job()
-	_say("Grounded the %s and told the owner straight. They paid $%s for the diagnosis." % [job.type, _thousands(fee)])
+	_say("Grounded %s and told the owner straight. They paid $%s for the diagnosis." % [plane_name(job), _thousands(fee)])
 	sound.pen()
 	_save_game()
 	_open_travel()
@@ -2260,7 +2267,7 @@ func _flight_failed(result: String) -> void:
 		var bill := mini(money, CRASH_BILL + HANGAR_FEE)  # the damage, and the job's hangar fee (D2)
 		money -= bill
 		var spent: Dictionary = job.get("spent", {})
-		logbook.append({"city": job.city, "type": job.type, "pay": 0, "work": ["Crashed on the ferry flight: " + what],
+		logbook.append({"city": job.city, "type": job.type, "reg": registration(job), "pay": 0, "work": ["Crashed on the ferry flight: " + what],
 			"years": job.get("years", 0), "fuel": spent.get("fuel", 0), "parts": spent.get("parts", 0)})
 		jobs.erase(job)
 		_load_field(location, null)
@@ -2268,7 +2275,7 @@ func _flight_failed(result: String) -> void:
 			_spawn_job()
 		_save_game()
 		sound.low_tone()
-		_open_panel("Crashed", [["You walked away. The %s didn't.\nHit too hard, or stalled on the way down." % job.type], [missed],
+		_open_panel("Crashed", [["You walked away. %s didn't.\nHit too hard, or stalled on the way down." % plane_name(job)], [missed],
 			["What it cost\nThe job, and $%s insurance excess. It's in your logbook." % _thousands(bill)],
 			["Next time\n" + ("Hold the Down arrow after lift-off and keep climbing until you're clear." if hill
 				else "Check every spot before you sign. If the engine quits, Up arrow lowers the nose: keep above 45 kt, then Down arrow to flare.")]])
@@ -2329,7 +2336,7 @@ func _sign_off() -> void:
 	var earlier := logbook.filter(func(e): return e.pay > 0 and e.has("owner") and e.city != job.city)
 	if earlier.size() > 0 and rng.randf() < 0.4:  # now and then, word from a plane you saved before
 		var e: Dictionary = earlier[rng.randi() % earlier.size()]
-		var news := "Radio: %s in %s says the %s flew %d hours this season, not a squawk." % [e.owner, e.city, e.type, rng.randi_range(12, 60)]
+		var news := "Radio: %s in %s says %s flew %d hours this season, not a squawk." % [e.owner, e.city, e.get("reg", "their Cub"), rng.randi_range(12, 60)]
 		get_tree().create_timer(9.0).timeout.connect(func(): if is_node_ready(): log_line(news))
 	if tutorial.rescued_one():  # a lesson done: the calls on the map become the next lesson's
 		jobs.clear()
@@ -4221,7 +4228,7 @@ func _open_tasks() -> void:
 	if job == null or job.city != location:
 		_open_panel("Task list", [["No plane here. Take a call from the MAP on the hangar workbench."]])
 		return
-	var rows := [["%s at %s" % [job.type, job.city]]]
+	var rows := [["%s, %s at %s" % [plane_name(job), MAKE_MODEL, job.city]]]
 	var next_done := false
 	for t in task_list(job):  # the next task stands out; plain to-dos carry no prefix; other states keep their word (U6)
 		var st: Array = TASK_STATES[t.state]
@@ -5279,7 +5286,7 @@ func _fuel_plane() -> int:
 	job.fuel = 1.0  # on the owner's account (F5): it's their plane, so it's their fuel
 	job["owner_fuel"] = int(job.get("owner_fuel", 0)) + cost
 	_save_game()
-	_say("Pumped %d gal of 100LL into the %s." % [gal, job.type])
+	_say("Pumped %d gal of 100LL into %s." % [gal, plane_name(job)])
 	_save_game()
 	return cost
 
@@ -5297,13 +5304,13 @@ func _open_truck() -> void:
 	if job:
 		var gal := roundi((1.0 - job.get("fuel", 1.0)) * TANK_GAL)
 		if job.faults.has("stale_fuel") and not job.fixed.has("stale_fuel"):
-			rows.append(["The %s's tanks are full of stale fuel. Drain and sump them first (left wing)." % job.type])
+			rows.append(["%s's tanks are full of stale fuel. Drain and sump them first (left wing)." % plane_name(job)])
 		elif job.get("parked", "apron") == "hangar":
 			rows.append(["The plane's in the hangar. Roll it out to the apron first: no fueling indoors."])
 		elif gal <= 0:
-			rows.append(["The %s's tanks are full." % job.type])
+			rows.append(["%s's tanks are full." % plane_name(job)])
 		else:
-			rows.append(["Fuel the %s: %d gal of 100LL" % [job.type, gal], "Pump", _pump_and_reopen, true])
+			rows.append(["Fuel %s: %d gal of 100LL" % [plane_name(job), gal], "Pump", _pump_and_reopen, true])
 	else:
 		rows.append(["No plane to fuel at this field."])
 	var for_owner: bool = job != null and job.faults.has("stale_fuel") and not job.fixed.has("stale_fuel")
@@ -5591,7 +5598,7 @@ func _open_inspection(at := standing_at) -> void:
 	if not guide("medium"):  # hard: signing off is your call, and so is what's wrong with it
 		if at == "cabin" and fuel >= 0.5 and not in_hangar:
 			rows.append(["Sign the logbook and fly it out to the owner.", "Sign off & take off", _hard_take_off, true])
-		_open_panel(("Work order: " if at != "" else "Clipboard: ") + job.type + (("  (at the %s)" % ZONES[at].name) if at != "" else ""), rows, true)
+		_open_panel(("Work order: " if at != "" else "Clipboard: ") + plane_name(job) + ", " + MAKE_MODEL + (("  (at the %s)" % ZONES[at].name) if at != "" else ""), rows, true)
 		_refresh_markers()
 		return
 	var signed: bool = job.get("signed", false)
@@ -5607,7 +5614,7 @@ func _open_inspection(at := standing_at) -> void:
 		rows.append(["Airworthy! " + ("Roll it out of the hangar, " if in_hangar else "") + ("fuel it at the truck, " if fuel < 0.5 else "") + "then climb in at the cabin to fly it out."])
 	elif not all_checked:
 		rows.append(["Check every spot and do a run-up before you sign it off."])
-	_open_panel(("Work order: " if at != "" else "Clipboard: ") + job.type + (("  (at the %s)" % ZONES[at].name) if at != "" else ""), rows, true,
+	_open_panel(("Work order: " if at != "" else "Clipboard: ") + plane_name(job) + ", " + MAKE_MODEL + (("  (at the %s)" % ZONES[at].name) if at != "" else ""), rows, true,
 		"stamp_airworthy" if done and signed else ("stamp_inspected" if all_checked else ""))
 	_refresh_markers()
 

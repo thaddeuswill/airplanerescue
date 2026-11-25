@@ -2591,6 +2591,45 @@ func _references_ok(job: Dictionary, shot: String) -> bool:
 ## top, then at least two logbook entries with tach hours and a signature, no day figures, the same
 ## history every time for the same plane; "Start the walk-around" closes it. And the map's calls read
 ## difficulty first: rating > where and pay > story > small print, by size.
+## H1: the plane's history. On the run's own plane: every trail entry is a trail of a fault it
+## really has. For every fault with a trail: a plane with it shows the trail; no trail names its
+## fault or its part; a plane without it never shows it; six or more entries, newest first, tach
+## times falling and above zero; the oil-change trail is the oldest entry, hundreds of hours back.
+func _history_ok(job: Dictionary, entries: Array) -> bool:
+	var bad: PackedStringArray = []
+	for r in entries:
+		var tag: String = r[5].get("trail", "")
+		if tag != "" and not tag in job.faults:
+			bad.append("run plane shows a trail of %s it doesn't have" % tag)
+	var tach_of := func(e: Array) -> float: return float(String(e[0]).trim_prefix("Tach ").replace(",", ""))
+	for id in g.LOG_CLUES:
+		var reg_job := {"city": "Omaha", "type": "Test", "faults": [id], "years": 3, "reg": "N%dH" % (100 + g.LOG_CLUES.keys().find(id))}
+		var book: Array = g.plane_logbook(reg_job)
+		var mine: Array = book.filter(func(e): return e[3] == id)
+		if mine.size() != g.LOG_CLUES[id].size():
+			bad.append("%s: %d trail entries" % [id, mine.size()])
+		var f: Dictionary = g.FAULTS[id]
+		for e in mine:
+			var t: String = String(e[1]).to_lower()
+			if t.contains(String(f.name).to_lower()) or (String(f.part) != "" and t.contains(String(f.part).to_lower())):
+				bad.append("%s: gives it away: %s" % [id, e[1]])
+		if book.size() < 6:
+			bad.append("%s: only %d entries" % [id, book.size()])
+		for k in book.size() - 1:
+			if tach_of.call(book[k]) <= tach_of.call(book[k + 1]) or tach_of.call(book[k + 1]) <= 0.0:
+				bad.append("%s: tach not falling" % id)
+				break
+		if id == "oil_change" and (book[-1][3] != "oil_change" or tach_of.call(book[-2]) - tach_of.call(book[-1]) < 300.0):
+			bad.append("oil_change: not the oldest entry hundreds of hours back")
+		var other := reg_job.duplicate()
+		other.faults = ["tire"] if id != "tire" else ["brakes"]
+		if g.plane_logbook(other).any(func(e): return e[3] == id):
+			bad.append("%s shows on a plane without it" % id)
+	if not bad.is_empty():
+		print("HISTORY: ", bad)
+	return bad.is_empty()
+
+
 func _papers_ok(job: Dictionary, shot: String) -> bool:
 	var sheet_ok: bool = g.panel != null and g._list_title.begins_with("Aircraft papers") and g._list_title.ends_with(g.registration(job))
 	var rows: Array = []
@@ -2601,7 +2640,7 @@ func _papers_ok(job: Dictionary, shot: String) -> bool:
 	var entries: Array = rows.filter(func(r): return name_of.call(r) == "Entry")
 	var day_rx := RegEx.create_from_string("(?i)\\bday\\b|\\bdays\\b|19[0-9][0-9]|20[0-9][0-9]")
 	var content_ok: bool = disc.size() == 1 and String(disc[0][0]).contains(g._symptoms(job)) and entries.size() >= 2 \
-		and entries.all(func(r): return String(r[0]).begins_with("Tach ") and String(r[0]).contains("A&P")) \
+		and entries.all(func(r): return String(r[0]).begins_with("Tach ") and String(r[0]).get_slice("\n", 0).contains(", ")) \
 		and not entries.any(func(r): return day_rx.search(String(r[0])) != null) \
 		and g.plane_logbook(job) == g.plane_logbook(job.duplicate(true))
 	await _snap(shot, "papers", 0.3)
@@ -2626,6 +2665,7 @@ func _papers_ok(job: Dictionary, shot: String) -> bool:
 		order_ok = rating.get_theme_color("font_color") == want and sz.call("Rating") > sz.call("Where") and sz.call("Where") > sz.call("Story") and sz.call("Story") > sz.call("Small") and sz.call("Small") > 0
 	await _snap(shot, "calls_m1", 0.3)
 	g._close_panel()
-	var ok: bool = sheet_ok and content_ok and closes and order_ok
+	var trails_ok: bool = _history_ok(job, entries)
+	var ok: bool = sheet_ok and content_ok and closes and order_ok and trails_ok
 	print("papers: on arrival %s, discrepancy and %d entries %s, closes to the walk-around %s; calls difficulty first %s" % [sheet_ok, entries.size(), content_ok, closes, order_ok])
 	return ok

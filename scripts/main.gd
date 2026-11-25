@@ -622,22 +622,97 @@ const PAST_WORK := ["Annual inspection completed. Aircraft found airworthy.",
 const PAST_HANDS := ["R. Haines, A&P", "M. Ortega, A&P IA", "D. Kowalski, A&P", "L. Whitfield, A&P", "J. Baptiste, A&P IA"]
 
 
-## The plane's logbook before you (M1): three entries, newest first, worked out from its
-## registration so the same plane always shows the same history; a plane that sat ends with storage.
+## Trails a fault leaves in the plane's logbook (H1): entries a sharp reader catches, never naming
+## the fault or its part. Real logbook research: an entry that's missing, work signed by someone who
+## can't sign for it, a follow-up never logged, the same fix again and again, a finding put off,
+## work that leads to the trouble. {fault: [entries, oldest first]}. "oil_change" is a missing
+## entry: its one line is the newest oil change, put at the bottom, hundreds of hours back.
+const LOG_CLUES := {
+	"oil_change": ["Changed oil, cleaned the oil screen. No metal found."],
+	"magneto": ["Left ignition unit overhauled at home by the owner. Reinstalled and run."],
+	"mag_timing": ["Engine accessories removed for overhaul and reinstalled. Timing not recorded."],
+	"hot_mag": ["Replaced the ignition switch with a used one from the owner's spares."],
+	"ign_lead": ["Reinstalled the engine after the mount was rewelded. Leads re-routed by the owner."],
+	"prop_bolts": ["Removed the propeller to repair the spinner bulkhead. Reinstalled; to be re-torqued after the first runs."],
+	"prop_dress": ["Based on a gravel strip for the season."],
+	"brakes": ["Adjusted the brakes. Taxi-tested.", "Adjusted the brakes again. Taxi-tested."],
+	"brake_bleed": ["Replaced the right brake hose. Refilled the reservoir."],
+	"brake_master": ["Topped up the brake reservoir. Small seep noted at the left pedal."],
+	"wire_chafe": ["Installed a new radio. Ran the wiring behind the panel; no clamps on hand."],
+	"fuel_vent": ["Painted the airplane, fuel caps and all."],
+	"water_fuel": ["Fuel cap gaskets cracked. New ones ordered."],
+	"compass": ["Installed a speaker on the instrument panel."],
+	"weight_balance": ["New tires and seat cushions installed."],
+	"exhaust_check": ["Welded a crack in the exhaust. Owner declined a new one."],
+	"worn_rings": ["Owner reports adding oil between changes, more each time."],
+	"cam_wear": ["Oil filter cut open: a few bright flakes. Owner to monitor."],
+	"piston_scuff": ["Oil filter cut open: a little dull grey paste. Owner to monitor."],
+	"bronze_bushing": ["Oil filter cut open: a few gold-colored specks. Owner to monitor."],
+	"fabric_test": ["Fabric punch-tested at the annual: passed, near the low limit."],
+	"fabric_rot": ["Fabric punch-tested at the annual: passed, near the low limit."],
+	"tmp_strut": ["Hard landing reported by the pilot. Looked over the gear: no damage found."],
+	"bungee": ["Shock cords: original. Inspected, serviceable."],
+	"tailwheel": ["Tailwheel steering arms bent back by hand after a ground loop."],
+	"stale_fuel": ["Topped off the tanks before storage. No stabilizer added."],
+}
+## Why a plane sat (with "put away for storage"), and who owned it before. Plain and short.
+const STORAGE_WHY := ["The owner's medical lapsed.", "The owner passed; the estate kept it.", "Hangar rent went up; moved to a tie-down.",
+	"The owner moved out of state.", "Waiting on an engine that never came."]
+const PAST_OWNERS := ["H. Lindqvist", "C. Delacroix", "T. Okafor", "B. Marsh", "E. Ferreira", "G. Halvorsen"]
+
+
+## The plane's logbook before you (M1, deeper in H1): six to eight entries, newest first, worked out
+## from its registration and its faults, so the same plane always reads the same. Each fault with a
+## trail leaves its entries (LOG_CLUES); a sale, and why it sat if it did, give it a past; generic
+## work fills the rest, leaving out anything that would contradict a trail.
+## Each entry: [tach, what was done, who signed, the fault it's a trail of or ""].
 func plane_logbook(job: Dictionary) -> Array:
 	var r := RandomNumberGenerator.new()
 	r.seed = hash("logbook|" + registration(job))
-	var tach := r.randf_range(380.0, 2400.0)
-	var out: Array = []
+	var hand := func() -> String: return PAST_HANDS[r.randi() % PAST_HANDS.size()]
 	var years: int = int(job.get("years", 0))
-	if years >= 2:
-		out.append(["%s" % _tach(tach), "Flown home and tied down. Put away for storage, not preserved.", PAST_HANDS[r.randi() % PAST_HANDS.size()]])
-		tach -= r.randf_range(2.0, 20.0)
+	var faults: Array = job.get("faults", [])
+	# The body of the history, oldest first, before tach times go on.
+	var body: Array = []  # [text, signer, tag]
+	var owner: String = PAST_OWNERS[r.randi() % PAST_OWNERS.size()]
+	body.append(["Sold to %s. Logbooks transferred with the airplane." % owner, owner + ", owner", ""])
 	var picks := PAST_WORK.duplicate()
-	while out.size() < 3:
-		var w: String = picks.pop_at(r.randi() % picks.size())
-		out.append([_tach(tach), w, PAST_HANDS[r.randi() % PAST_HANDS.size()]])
-		tach -= r.randf_range(15.0, 120.0)
+	if "oil_change" in faults:  # the missing entry: no oil change but the oldest
+		picks = picks.filter(func(w): return not w.begins_with("Changed oil"))
+	if faults.any(func(id): return id in ["water_fuel", "fuel_strainer"]):
+		picks = picks.filter(func(w): return not w.begins_with("Cleaned the fuel strainer"))
+	var trails: Array = []
+	for id in faults:
+		if LOG_CLUES.has(id) and id != "oil_change":
+			for t in LOG_CLUES[id]:
+				var who: String = (owner + ", owner (no certificate number)") if id == "magneto" else hand.call()
+				trails.append([t, who, id])
+	trails.sort_custom(func(x, y): return x[2] != "brakes" and y[2] == "brakes")  # a repeat fix goes in last, so nothing splits it
+	var want := 6 + r.randi() % 3  # six to eight entries
+	var fill: int = maxi(want - 1 - trails.size() - (1 if years >= 2 else 0) - (1 if "oil_change" in faults else 0), 1)
+	for _i in fill:
+		if picks.is_empty():
+			break
+		body.append([picks.pop_at(r.randi() % picks.size()), hand.call(), ""])
+	for t in trails:  # each trail at its own place in the history; a repeat fix stays in order, close together
+		var at := 1 + r.randi() % body.size()
+		if t[2] == "brakes" and t[0].contains("again"):
+			at = body.find(trails.filter(func(x): return x[2] == "brakes")[0]) + 1
+		body.insert(at, t)
+	if years >= 2:
+		body.append(["Flown home and tied down. Put away for storage, not preserved. " + STORAGE_WHY[r.randi() % STORAGE_WHY.size()], hand.call(), ""])
+	if "oil_change" in faults:
+		body.push_front([LOG_CLUES.oil_change[0], hand.call(), "oil_change"])
+	# Tach times, newest first: the plane flew between entries; a long gap after the oil change.
+	var tach := r.randf_range(1800.0, 2900.0)  # room for every gap below without running under zero
+	var out: Array = []
+	for i in range(body.size() - 1, -1, -1):
+		var e: Array = body[i]
+		out.append([_tach(tach), e[0], e[1], e[2]])
+		var gap := r.randf_range(2.0, 12.0) if (e[2] == "brakes" and String(e[0]).contains("again")) else r.randf_range(15.0, 120.0)
+		if i == 1 and "oil_change" in faults:
+			gap = r.randf_range(320.0, 600.0)  # hundreds of hours since the newest oil change
+		tach -= gap
 	return out
 
 
@@ -650,7 +725,7 @@ func _open_papers(job: Dictionary) -> void:
 	var rows: Array = [["Pilot's discrepancy\n" + _symptoms(job), "", null, false, "", {"lead": Style.SIZE_LG, "name": "Discrepancy"}],
 		["Aircraft logbook, newest first"]]
 	for e in plane_logbook(job):
-		rows.append(["%s   %s\n%s" % [e[0], e[2], e[1]], "", null, false, "", {"name": "Entry"}])
+		rows.append(["%s   %s\n%s" % [e[0], e[2], e[1]], "", null, false, "", {"name": "Entry", "trail": e[3]}])
 	rows.append(["", "Start the walk-around", _close_panel, true])
 	_open_panel("Aircraft papers: %s" % registration(job), rows)
 

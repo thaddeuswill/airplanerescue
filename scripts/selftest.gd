@@ -197,6 +197,7 @@ func run(main, args: PackedStringArray) -> void:
 	_at("edge tests")
 	var edges_ok: bool = _edge_tests() and _torque_test() and _faults_test() and Work.spin_dir("tight") < 0.0 and Work.spin_dir("loose") > 0.0 and Work.spin_dir("snug") > 0.0
 	var scenes_ok = _scene_tests()
+	scenes_ok = _routes_ok() and scenes_ok
 	var lesson := 0
 	for a in args:
 		if a.begins_with("--tutorial"):  # --tutorial=N: play lesson N's job (tutorial.gd), checking every step ticks
@@ -1484,6 +1485,68 @@ func _answer_quiz(id: String) -> bool:
 ## Every work scene, fresh, on a plane of its own: it can be finished with the full kit, traps
 ## don't count, each test's readings lead to the right call for every fault it can find,
 ## grounding a plane pays and ends the job, and a cold engine needs preheating.
+## AP1: a bad magneto fixed both ways. Each time: a fresh job with the magneto found bad, nothing in
+## stock; the parts counter offers the overhauled magneto and the points and condenser; buy what
+## the route needs; open it from the engine's rear view; solve it; the magneto is fixed (never
+## counted as a wrong suspect) and the long way cost you far less than the swap.
+func _routes_ok() -> bool:
+	var saved = [g.money, g.jobs, g.current_job, g.tools.duplicate(), g.inventory.duplicate(), g.held, g.location]
+	var bad: PackedStringArray = []
+	var spent := {}
+	for scene in ["magneto", "magneto_points"]:
+		g.money = 100000
+		g.tools = {"screwdriver": true, "ratchet": true, "torque": true, "pliers": true, "rag": true, "timing": true}
+		g.held = "timing"
+		g.inventory = {}
+		for mtl in g.SUPPLIES:  # shop supplies (gaskets, paste, safety wire) on hand, as a working mechanic has
+			if g.SUPPLIES[mtl].has("qty"):
+				g.inventory[mtl] = 99
+		var j := {"city": g.location, "type": g.MAKE_MODEL, "faults": [], "fixed": {}, "found": {}, "checked": {}, "work": {},
+			"reward": 1000, "spent": {"fuel": 0, "parts": 0, "mail": 0}}
+		g._assign_faults(j, ["magneto"])
+		j.found["magneto"] = true
+		g.jobs = [j]
+		g.current_job = j
+		g._open_shop()
+		var items: Array = []
+		for sec in g.panel._sections:
+			items.append_array(sec.get("items", []))
+		var names: Array = items.map(func(it): return it.name)
+		var want: Array = ["Magneto"] if scene == "magneto" else g.PIECE_ROUTES[scene].pieces.map(func(pid): return g.piece_part(pid).name)
+		for n in ["Magneto"] + g.PIECE_ROUTES.magneto_points.pieces.map(func(pid): return g.piece_part(pid).name):
+			if not n in names:
+				bad.append("the counter doesn't sell " + n)
+		var m0: int = g.money
+		for it in items:
+			if it.name in want:
+				it.buy.call()
+		spent[scene] = m0 - g.money
+		g._close_panel()
+		g.bay_open_scene(scene, "engine")
+		var w = g.panel
+		if not (w is Work) or not w.solve():
+			bad.append("%s: didn't solve" % scene)
+			if w is Work:
+				for e in w.els:
+					if e.type != "view" and not w.done():
+						print("   ROUTE ", scene, " ", e.id, " ", w.st[e.id], " ", w.action(e))
+			continue
+		if not j.fixed.has("magneto") or j.get("tried", {}).has("magneto") or j.get("tried", {}).has(scene):
+			bad.append("%s: magneto not fixed (fixed %s, tried %s)" % [scene, j.fixed, j.get("tried", {})])
+		g._close_panel()
+	if spent.size() == 2 and not (spent.magneto_points > 0 and spent.magneto_points * 5 < spent.magneto):
+		bad.append("costs: swap $%d, points and condenser $%d" % [spent.magneto, spent.magneto_points])
+	g.money = saved[0]
+	g.jobs = saved[1]
+	g.current_job = saved[2]
+	g.tools = saved[3]
+	g.inventory = saved[4]
+	g.held = saved[5]
+	g._close_panel()
+	print("assembly or pieces: both routes fix the magneto %s, cost %s" % ["true" if bad.is_empty() else str(bad), spent])
+	return bad.is_empty()
+
+
 func _scene_tests() -> bool:
 	var saved = [g.money, g.jobs, g.current_job, null, g.tools, g.inventory, g.badges.duplicate(), g.streaks.duplicate()]
 	var ok := true
@@ -1498,6 +1561,9 @@ func _scene_tests() -> bool:
 	for id in g.FAULTS:
 		if g.FAULTS[id].part != "":
 			g.inventory[g.FAULTS[id].part] = 5
+	for route in g.PIECE_ROUTES:
+		for pid in g.PIECE_ROUTES[route].pieces:
+			g.inventory[g.piece_part(pid).name] = 5
 	var fake = func(faults: Array, type := "Test") -> Dictionary:
 		var j := {"city": g.location, "type": type, "faults": [], "fixed": {}, "found": {}, "checked": {}, "work": {},
 			"reward": 1000, "spent": {"fuel": 0, "parts": 0, "mail": 0}}
@@ -1509,8 +1575,9 @@ func _scene_tests() -> bool:
 		_at("scene test " + scene)
 		if scene in g.TESTS:  # driven elsewhere
 			continue  # driven below, through each fault it can find
-		var j: Dictionary = fake.call([scene] if g.FAULTS.has(scene) else [])
-		j.found[scene] = true
+		var fid: String = g.route_fault(scene)  # a piece-part route (AP1) on a plane with its fault
+		var j: Dictionary = fake.call([fid] if g.FAULTS.has(fid) else [])
+		j.found[fid] = true
 		if scene == "hand_prop":
 			g._open_work(scene, func(): pass)
 		else:

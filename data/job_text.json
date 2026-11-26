@@ -677,6 +677,38 @@
    }
   }
  },
+ "magneto_points": {
+  "title": "Accessory case: left magneto, breaker points and condenser",
+  "els": {
+   "timing": {
+    "name": "Time to engine: No. 1 at 30 deg BTC; rotate until the points open",
+    "label": "Time to engine: No. 1 at 30 deg BTC; rotate until the points open"
+   },
+   "gap": {
+    "name": "Set the breaker point gap with a feeler gauge to the magneto manufacturer's figure",
+    "label": "Set the breaker point gap with a feeler gauge to the magneto manufacturer's figure"
+   },
+   "points": {
+    "name": "Remove the breaker points; install a new set",
+    "label": "Remove the breaker points; install a new set"
+   },
+   "condenser": {
+    "name": "Remove the condenser; install a new one",
+    "label": "Remove the condenser; install a new one"
+   },
+   "cap": {
+    "name": "Breaker cover"
+   },
+   "plead": {
+    "name": "Magneto ground lead (P-lead)",
+    "verb_off": "Disconnect the ground lead at the terminal",
+    "verb_on": "Connect the ground lead (if open, the magneto is HOT)"
+   },
+   "cowl": {
+    "name": "Cowling"
+   }
+  }
+ },
  "oil_change": {
   "title": "Engine, lower: sump drain and suction screen · Cont. 7-12, 7-13",
   "els": {

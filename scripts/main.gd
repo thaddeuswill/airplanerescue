@@ -1466,7 +1466,7 @@ func _preheat() -> void:
 ## Opens the 2D work scene for this fault: real tools, every screw and bolt (scripts/work.gd).
 func _repair(id: String) -> void:
 	playlog("repair start " + id)
-	_open_work(id, func(): _work_done(id))
+	_open_work(id, func(): _work_done(route_fault(id)))
 
 
 var _last_work: Array = []  # [scene, on_done] of the work scene last opened
@@ -1480,7 +1480,7 @@ var station_zone := ""  # the spot a work scene was opened from: Esc goes back t
 const PLACES := {
 	"propeller": "Prop hub & blades", "prop_dress": "Blade leading edges", "prop_track": "Track the blades", "prop_bolts": "Prop bolts",
 	"spark_plugs": "Spark plugs", "oil_leak": "Rocker cover gaskets", "bird_nest": "Top of the engine", "starter": "Starter",
-	"magneto": "Swap a magneto", "fuel_line": "Fuel line, firewall", "pre_oil": "Pre-oil", "spark_test": "Spark test",
+	"magneto": "Swap a magneto", "magneto_points": "Magneto points and condenser", "fuel_line": "Fuel line, firewall", "pre_oil": "Pre-oil", "spark_test": "Spark test",
 	"cold_cylinder": "Cold cylinder check", "compression": "Compression test", "reading_plugs": "Read the plugs",
 	"oil_screen": "Oil screen", "hot_mag": "Magneto P-leads", "fuel_vent": "Fuel cap vent", "water_fuel": "Sump the gascolator",
 	"oil_change": "Change the oil", "fuel_strainer": "Fuel strainer", "exhaust_check": "Muffler & heat muff",
@@ -1626,6 +1626,7 @@ func station_open(zone: String, id: String) -> void:
 
 func _station_done(id: String) -> void:
 	var job: Dictionary = current_job
+	id = route_fault(id)  # the long way round fixes the same fault (AP1)
 	if job.faults.has(id) and job.found.has(id) and not job.fixed.has(id):
 		_work_done(id)
 
@@ -1651,7 +1652,7 @@ var _manual_back := false  # opened from a work scene: closing it goes back ther
 ## The page for what you're working on: the scene in front of you, else the first open fault.
 func _manual_job() -> String:
 	if panel is Work:
-		return panel.fault
+		return route_fault(panel.fault)
 	if current_job:
 		for id in current_job.faults:
 			var t := _test_for(current_job, id)
@@ -2079,7 +2080,30 @@ func task_done(scene: String, eid: String) -> void:
 
 
 ## Names and parts for the work-scene title and bench.
+## Piece-part routes (AP1): another way to fix a fault, with the IPC's piece parts instead of the
+## full assembly. {scene id: {fault it fixes, name, piece part ids in c85_parts.json}}. The owner's
+## quote prices the assembly; the pieces cost you less and take more steps.
+const PIECE_ROUTES := {
+	"magneto_points": {"fault": "magneto", "name": "New points and condenser", "pieces": ["points", "condenser"]},
+}
+
+
+## The fault a scene fixes: itself, or for a piece-part route the fault it's another way to fix.
+func route_fault(scene: String) -> String:
+	return PIECE_ROUTES[scene].fault if PIECE_ROUTES.has(scene) else scene
+
+
+## A piece part from the parts book: {id, name, price, no}. Its name is what the work scene uses up.
+func piece_part(id: String) -> Dictionary:
+	for p in parts_data.get("parts", []):
+		if p.id == id:
+			return {"id": id, "name": p.name, "price": int(p.price), "no": p.get("no", "")}
+	return {}
+
+
 func scene_info(id: String) -> Dictionary:
+	if PIECE_ROUTES.has(id):
+		return {"name": FAULTS[PIECE_ROUTES[id].fault].name, "part": ""}
 	if FAULTS.has(id):
 		return {"name": FAULTS[id].name, "part": FAULTS[id].part}
 	if TESTS.has(id):
@@ -5978,6 +6002,21 @@ func _open_shop() -> void:
 			"icon": _catalog_icon(id, "icon_" + id), "price": price, "mail": mail,
 			"have": str(inventory.get(part, 0)), "needed": needed.has(part), "can": money >= price, "short": maxi(0, price - money),
 			"buy": func(): _buy(part, price, mail)})
+	for route in PIECE_ROUTES:  # the IPC's piece parts, for the long way round (AP1)
+		var need_route: bool = current_job != null and current_job.found.has(PIECE_ROUTES[route].fault) \
+			and not current_job.fixed.has(PIECE_ROUTES[route].fault)
+		for pid in PIECE_ROUTES[route].pieces:
+			var pp := piece_part(pid)
+			if pp.is_empty() or listed.has(pp.name):
+				continue
+			listed[pp.name] = true
+			var pmail := not _stocked(pid)
+			var pprice: int = pp.price if not pmail else int(pp.price * 1.25)
+			var pname: String = pp.name
+			parts.append({"name": pname, "no": pp.no, "blurb": "Piece part for %s: %s." % [FAULTS[PIECE_ROUTES[route].fault].name.to_lower(), PIECE_ROUTES[route].name.to_lower()],
+				"icon": _catalog_icon(pid, "icon_" + PIECE_ROUTES[route].fault), "price": pprice, "mail": pmail,
+				"have": str(inventory.get(pname, 0)), "needed": need_route, "can": money >= pprice, "short": maxi(0, pprice - money),
+				"buy": func(): _buy(pname, pprice, pmail)})
 	parts.sort_custom(func(a, b): return a.needed and not b.needed)  # what this job needs comes first
 	var shelf := SUPPLIES.keys().filter(_on_shelf)  # the rest is mail order from the hangar
 	var sections := [{"id": "parts", "tab": "Parts", "head": "Section A: Aircraft parts", "items": parts}]

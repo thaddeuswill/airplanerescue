@@ -114,14 +114,15 @@ func setup(m, fault_id: String, j: Dictionary) -> void:
 	art = def.get("art", fault_id)
 	sub = def.title
 	els = def.els.duplicate()
-	if m.FAULTS.has(fault_id):
-		diagram = _tex("diagrams/" + m.FAULTS[fault_id].get("diagram", fault_id))
-		if m.FAULTS[fault_id].has("ref"):
-			sub += "   -   " + m.FAULTS[fault_id].ref
-	var is_fault: bool = job.get("faults", []).has(fault_id)
-	healthy = m.FAULTS.has(fault_id) and not (is_fault and (job.found.has(fault_id) or m._how(job, fault_id) == "walk"))
-	if healthy or (is_fault and not job.found.has(fault_id)):
-		title_name = m.PLACES.get(fault_id, title_name)  # the place, not the diagnosis
+	var fid: String = m.route_fault(fault_id)  # a piece-part route (AP1) is judged by the fault it fixes
+	if m.FAULTS.has(fid):
+		diagram = _tex("diagrams/" + m.FAULTS[fid].get("diagram", fid))
+		if m.FAULTS[fid].has("ref"):
+			sub += "   -   " + m.FAULTS[fid].ref
+	var is_fault: bool = job.get("faults", []).has(fid)
+	healthy = m.FAULTS.has(fid) and not (is_fault and (job.found.has(fid) or m._how(job, fid) == "walk"))
+	if healthy or (is_fault and not job.found.has(fid)):
+		title_name = m.PLACES.get(fault_id, m.PLACES.get(fid, title_name))  # the place, not the diagnosis
 	if healthy:
 		part_name = ""
 	head = title_name
@@ -1428,6 +1429,23 @@ static func scenes() -> Dictionary:
 		+ [_cover("cap", "Harness outlet plate", Rect2(mr.position + Vector2(30, 20), Vector2(160, 70)), ["cowl"], {"col": Color(0.2, 0.2, 0.5)})]
 		+ _at("cap", [mr.position + Vector2(44, 55), mr.position + Vector2(176, 55)], "screw", "screwdriver")
 		+ [_cover("plead", "P-lead", Rect2(510, 170, 300, 60), ["cowl"], {"tool": "ratchet", "col": Color(0.6, 0.6, 0.62),
+			"verb_off": "Unscrew the P-lead union nut", "verb_on": "Reconnect the P-lead (or the mag stays hot)"})] + _cowl()}
+
+	# Magneto, the long way (AP1): the same magneto left on the engine, its breaker cover off, new
+	# points and condenser, the gap set with a feeler gauge, then timed to the engine as a swap is.
+	# The point gap isn't in the documents yet (JOBS_ATA.md: "Need point gap"), so no figure shows.
+	s.magneto_points = {"title": "Engine, rear accessory case: left magneto, breaker points", "deco": engine_deco, "art": "magneto", "els": [
+		_task("timing", "Time it: No. 1 at 30 deg BTC, turn the case till the light shows the points opening", Rect2(130, 260, 260, 50), "screwdriver", ["cowl"],
+			{"fixture": true, "requires": ["gap"], "col": Color(0.2, 0.3, 0.2, 0.85), "hold": 3.0}),
+		_task("gap", "Set the point gap with a feeler gauge to the magneto maker's figure", Rect2(500, 300, 220, 40), "screwdriver", ["cowl", "cap", "plead"],
+			{"requires": ["points", "condenser"], "col": Color(0.3, 0.3, 0.2, 0.85), "hold": 1.5}),
+		_task("points", "Remove the old breaker points; install the new set", Rect2(520, 160, 110, 60), "screwdriver", ["cowl", "cap", "plead"],
+			{"uses": "Breaker points set", "col": Color(0.55, 0.55, 0.58, 0.9), "hold": 1.2}),
+		_task("condenser", "Remove the old condenser; install the new one", Rect2(640, 160, 60, 60), "screwdriver", ["cowl", "cap", "plead"],
+			{"uses": "Condenser", "col": Color(0.4, 0.45, 0.5, 0.9), "hold": 1.0})]
+		+ [_cover("cap", "Breaker cover", Rect2(mr.position + Vector2(30, 20), Vector2(160, 70)), ["cowl"], {"col": Color(0.2, 0.2, 0.5)})]
+		+ _at("cap", [mr.position + Vector2(44, 55), mr.position + Vector2(176, 55)], "screw", "screwdriver")
+		+ [_cover("plead", "P-lead", Rect2(510, 100, 300, 50), ["cowl"], {"tool": "ratchet", "col": Color(0.6, 0.6, 0.62),
 			"verb_off": "Unscrew the P-lead union nut", "verb_on": "Reconnect the P-lead (or the mag stays hot)"})] + _cowl()}
 
 	# Carb heat: cable clamp at the heat box, new cable, then check the door's full travel.

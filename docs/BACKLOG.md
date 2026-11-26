@@ -5,34 +5,32 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 37 (2026-11-26): the full assembly or the piece parts, starting with the magneto (AP1).**
-Toward beta.
+**Iteration 38 (2026-11-26): walk round the engine by arrows; only the jobs you have the tools for
+(E1).** Toward beta. Taken ahead of the BT items as Thad's newest request about the core loop.
 
-- **Goal**: a bad magneto can be fixed two ways, and the player chooses.
-- **Settled by Thad 2026-11-25**: the parts book's game prices stand as balance (marked unverified
-  as today; BT4 looks at them); the magneto goes first (the carburetor has no piece parts in the
-  data and waits); the point gap shows no number until Thad supplies one (it stays listed as
-  missing in `JOBS_ATA.md`).
-- **Items (AP1)**:
-  - Each magneto in the engine's rear view offers both: "Swap the magneto" (the full overhauled
-    magneto, as today) and "Replace the points and condenser" (a new scene, `magneto_points`).
-  - The piece-part scene: cowl, harness outlet plate off, P-lead off; fit the new breaker points;
-    fit the new condenser; set the point gap with a feeler gauge to the magneto maker's figure (no
-    number shown); time it to the engine, No. 1 at 30 deg BTC (the settled left-mag figure) until the light
-    shows the points opening; P-lead, plate and cowl back on. Finishing it fixes the magneto, as
-    the swap does.
-  - The parts counter sells the breaker points set and the condenser at the parts book's prices
-    (shelf, or 25% more by mail, like every part).
-  - Settled at planning: money. The owner's quote stays as today (it prices the overhauled
-    magneto); the piece parts cost you far less, so the long way keeps the difference and the
-    swap saves steps. No other economy change; BT4 checks it.
-- **Risk gate**: what could break: a soft-lock (the new scene must solve: `_scene_tests` solves it
-  on a plane with a bad magneto); the fault being marked a wrong suspect (the new scene's id isn't a
-  fault: it maps to "magneto" wherever a scene id is read as a fault: finishing, the healthy check,
-  the manual page); a healthy magneto opened the long way (opens healthy, nothing used, as the swap
-  does); money (the pieces are parts, not supplies: not billed to the owner twice). No save change.
-- **Acceptance**: both routes solvable by `solve()`; the counter sells both; the self-test fixes a
-  bad magneto each way (buying the parts each needs) and the job finishes; screenshots of the new scene.
+- **Goal**: the open engine is explored by moving round it, and a part never offers work you can't do.
+- **Items (E1)**, settled at planning:
+  - Arrows on the picture's edges, each labelled with where it goes, move you round the open
+    engine as if walking round it: from the left side, right to the rear accessory case, up to the
+    top, down underneath; from the rear case, right on to the firewall, left back to the side; from
+    the top or underneath, back down or up to the side, right to the rear case; and so on. Every
+    view is reached by arrows alone. The view tabs under the picture go (the arrows replace them);
+    "Close the cowl" stays where it is.
+  - No front view this iteration: there's no art for one and its parts would need placing; it goes
+    in the backlog as E2. The other spots (wheels, tail, cabin) keep their tabs; they have one row of
+    views, not an engine to walk round.
+  - Tools: a part offers only the jobs whose tool is in your roll (or, for an instrument, in your
+    hand), on every difficulty. Easy no longer lists the rest greyed out; instead a quiet line on
+    the card says what would open more work there and where it is ("More work here with the timing
+    light (red toolbox)").
+- **Risk gate**: what could break: a view no longer reachable (checked: the self-test walks the
+  arrows from the side and reaches every view, and each arrow's way back exists); the self-test's
+  own walk of the views (it calls the view change directly; kept); a job that can't be found or
+  fixed on Easy without the greyed hint (the quiet line keeps the hint; the self-test checks no
+  card offers a job without its tool and that Easy shows the line when one is missing); arrows over
+  parts or the tool roll at 1280x720 (they sit in the margin round the picture; screenshots).
+  No numbers, no save change.
+- **Acceptance**: as E1.
 
 ## Next
 
@@ -121,7 +119,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
   (C85-12); the five type descriptions go, and only the N-number tells planes apart (how pay and
   difficulty vary by type today is settled at planning). Acceptance: no type description left in
   player text; self-test checks; screenshots.~~ In iteration 36.
-- **E1. Walk round the engine by arrows; only the jobs you have the tools for** (Thad, 2026-11-25:
+- ~~**E1. Walk round the engine by arrows; only the jobs you have the tools for** (Thad, 2026-11-25:
   "moving around the engine in the scenes by click arrow to get to the front bottom and side of the
   engine to navigate the engine and only scenes with tools pop up if you have that tool in
   inventory").
@@ -138,7 +136,10 @@ needs; and someone who has never played it gets through the apprenticeship witho
   - Acceptance: every view is reached by arrows alone; the arrows match the engine's layout;
     no part shows a job without its tool in the roll on any difficulty; the self-test walks
     every view by arrow and checks no job shows without its tool; screenshots at 1280x720 (the
-    arrows mustn't cover parts or the tool roll).
+    arrows mustn't cover parts or the tool roll).~~ In iteration 38.
+- **E2. A front view of the engine** (from E1). The arrows can't reach the front of the engine: there
+  is no front view. Needs its art (the prop hub, the nose case and the front of the cylinders) and
+  its parts placed. Acceptance: reached by arrow from the side; its parts offer their jobs.
 - **P1. Paint schemes** (Thad, 2026-11-25: "we can work on color uv mapping for dif styles but for
   right now thats it"). Later, not toward beta: different colour schemes on the one Cub model through
   its UV mapping, so planes look different as well as carrying different tail numbers. Acceptance to

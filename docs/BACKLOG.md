@@ -5,26 +5,34 @@ criteria. Done items move to the iteration log in `docs/PROCESS.md`.
 
 ## Current iteration
 
-**Iteration 36 (2026-11-25): registration numbers instead of plane descriptions (R1).** Toward beta.
+**Iteration 37 (2026-11-26): the full assembly or the piece parts, starting with the magneto (AP1).**
+Toward beta.
 
-- **Goal**: planes are named the way a mechanic names them: by tail number.
-- **Items (R1)**, settled by Thad 2026-11-25 ("only difference between planes is tail number"):
-  every plane is a Piper J-3 with a C85-12. The five type descriptions go. Player text names the
-  plane by its N-number: the arrival line, the work order and clipboard titles ("Work order:
-  N591UZ, Piper J-3"), the task list ("N591UZ, Piper J-3 at Omaha"), the fuel truck, the spot
-  header, the grounded and crash messages, radio news of a plane you saved.
-  Settled at planning: pay. Each type carried a base pay ($1,500 to $3,500); with one airplane
-  there is one base, **$2,500**, the average of the five, so the career's pay is the same on
-  average. It's a game value, not a manual one, and goes to BT4 (the economy over 20+ jobs) to
-  check. The types' "no starter" list was empty for all five, so nothing changes there.
-- **Risk gate**: what could break: old saves (their jobs and logbook carry a type, and an old job
-  without a stored N-number makes one from its fields, type included): the type field is kept
-  on saved jobs and logbook entries and simply not shown, so an old plane keeps its number; no
-  save change. Pay spread narrows (difficulty, faults and years still set it). Text that still
-  shows a description: the self-test reads the arrival line, the work order, the clipboard, the
-  task list, the fuel truck and the spot header for any of the five old names and for the
-  registration.
-- **Acceptance**: as R1: no type description left in player text; self-test checks; screenshots.
+- **Goal**: a bad magneto can be fixed two ways, and the player chooses.
+- **Settled by Thad 2026-11-25**: the parts book's game prices stand as balance (marked unverified
+  as today; BT4 looks at them); the magneto goes first (the carburetor has no piece parts in the
+  data and waits); the point gap shows no number until Thad supplies one (it stays listed as
+  missing in `JOBS_ATA.md`).
+- **Items (AP1)**:
+  - Each magneto in the engine's rear view offers both: "Swap the magneto" (the full overhauled
+    magneto, as today) and "Replace the points and condenser" (a new scene, `magneto_points`).
+  - The piece-part scene: cowl, harness outlet plate off, P-lead off; fit the new breaker points;
+    fit the new condenser; set the point gap with a feeler gauge to the magneto maker's figure (no
+    number shown); time it to the engine, No. 1 at 30 deg BTC (the settled left-mag figure) until the light
+    shows the points opening; P-lead, plate and cowl back on. Finishing it fixes the magneto, as
+    the swap does.
+  - The parts counter sells the breaker points set and the condenser at the parts book's prices
+    (shelf, or 25% more by mail, like every part).
+  - Settled at planning: money. The owner's quote stays as today (it prices the overhauled
+    magneto); the piece parts cost you far less, so the long way keeps the difference and the
+    swap saves steps. No other economy change; BT4 checks it.
+- **Risk gate**: what could break: a soft-lock (the new scene must solve: `_scene_tests` solves it
+  on a plane with a bad magneto); the fault being marked a wrong suspect (the new scene's id isn't a
+  fault: it maps to "magneto" wherever a scene id is read as a fault: finishing, the healthy check,
+  the manual page); a healthy magneto opened the long way (opens healthy, nothing used, as the swap
+  does); money (the pieces are parts, not supplies: not billed to the owner twice). No save change.
+- **Acceptance**: both routes solvable by `solve()`; the counter sells both; the self-test fixes a
+  bad magneto each way (buying the parts each needs) and the job finishes; screenshots of the new scene.
 
 ## Next
 
@@ -135,7 +143,7 @@ needs; and someone who has never played it gets through the apprenticeship witho
   right now thats it"). Later, not toward beta: different colour schemes on the one Cub model through
   its UV mapping, so planes look different as well as carrying different tail numbers. Acceptance to
   be set when it's planned.
-- **AP1. Buy the full assembly or the piece parts** (Thad, 2026-11-25: "so when you repair stuff
+- ~~**AP1. Buy the full assembly or the piece parts** (Thad, 2026-11-25: "so when you repair stuff
   will you have to buy these separate or full assy for the players id love full assys and indiv").
   Today each repair takes one part, bought whole (the fault's `part`); the catalog's piece parts are
   look-up only. Wanted: for repairs where the IPC has the pieces, a choice: the full assembly (costs
@@ -146,7 +154,8 @@ needs; and someone who has never played it gets through the apprenticeship witho
   routes (start with the magneto and the carburetor), and prices: in `c85_parts.json` 56 of 93 parts are
   sourced (Continental or Piper, verified) and 37 are game values (unverified); Thad decides whether
   the game values stand as balance or need sources. Acceptance: both routes solvable by `solve()` for each chosen repair;
-  the shop sells both; self-test buys each route and finishes the job; screenshots.
+  the shop sells both; self-test buys each route and finishes the job; screenshots.~~ In iteration
+  37 (the magneto; the carburetor and others to follow as their piece parts are sourced).
 - **BT1. Torque you can feel** (beta tip 35). The wrench clicks, the needle snaps and the scene
   nudges when a fastener reaches its band; an over-torque sounds and looks wrong. Acceptance: the
   cue fires at the band and only there; self-test checks; a short screen capture.

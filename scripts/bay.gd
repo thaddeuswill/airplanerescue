@@ -20,6 +20,21 @@ const VIEWS := {
 	"firewall": {"name": "Firewall", "art": "fuel_strainer"},
 }
 const OPEN_VIEWS := ["left", "top", "rear", "below", "firewall"]
+## Walking round the open engine (E1, Thad: "moving around the engine ... by click arrow"): from each
+## view, where each arrow goes. Round the side to the rear accessory case and on to the firewall;
+## up over the top; down underneath. Every view is reached by arrows alone, and back again.
+const ARROWS := {
+	"left": {"right": "rear", "up": "top", "down": "below"},
+	"rear": {"left": "left", "right": "firewall", "up": "top", "down": "below"},
+	"firewall": {"left": "rear", "up": "top", "down": "below"},
+	"top": {"left": "left", "right": "rear", "down": "left"},
+	"below": {"left": "left", "right": "rear", "up": "left"},
+}
+## What an arrow says it leads to.
+const ARROW_NAMES := {"left": "Left side", "top": "Over the top", "rear": "Rear case", "below": "Underneath", "firewall": "Firewall"}
+const ARROW_GLYPH := {"left": "\u25C0", "right": "\u25B6", "up": "\u25B2", "down": "\u25BC"}
+const ARROW_MARGIN := 170.0  # room each side of the picture for the side arrows
+const ARROW_BAND := 40.0  # room above the picture for the up arrow
 
 ## Parts per view: id, name, rects (one part can sit in several places), "look" (visible faults
 ## whose tell is here) and "acts" ([tool, what you do, scene or #action]). Scenes in main.TESTS open
@@ -191,12 +206,19 @@ func vdef(v: String) -> Dictionary:
 
 # ---------- layout ----------
 
+## True while the open engine is shown: the arrows need their margins round the picture.
+func _arrowed() -> bool:
+	return zone == "engine" and view != "cowled"
+
+
 func _k() -> float:
+	if _arrowed():
+		return minf((size.x - ARROW_MARGIN * 2) / VIEW.x, (size.y - 150 - ARROW_BAND) / VIEW.y)
 	return minf(size.x / VIEW.x, (size.y - 150) / VIEW.y)
 
 
 func _origin() -> Vector2:
-	return Vector2((size.x - VIEW.x * _k()) / 2, 86)
+	return Vector2((size.x - VIEW.x * _k()) / 2, 86 + (ARROW_BAND if _arrowed() else 0.0))
 
 
 func _to_view(p: Vector2) -> Vector2:
@@ -206,15 +228,37 @@ func _to_view(p: Vector2) -> Vector2:
 var _tabs: HBoxContainer
 
 
+var _arrows: Array = []  # the arrow buttons round the open engine (E1)
+
+
 func _build_tabs() -> void:
 	if _tabs:
 		_tabs.queue_free()
+	for b in _arrows:
+		b.queue_free()
+	_arrows = []
 	_tabs = HBoxContainer.new()
 	_tabs.add_theme_constant_override("separation", Style.SPACE_2)
 	add_child(_tabs)
 	if view == "cowled":
 		return
-	for v in views():
+	if _arrowed():  # the engine is walked round by arrows, not tabs
+		for dir in ARROWS[view]:
+			var to: String = ARROWS[view][dir]
+			var b := Button.new()
+			b.name = "Arrow_" + dir
+			b.set_meta("to", to)
+			var label: String = ARROW_NAMES[to].to_upper()
+			b.text = (ARROW_GLYPH[dir] + "  " + label) if dir != "right" else (label + "  " + ARROW_GLYPH[dir])
+			_hud_quiet(b)
+			b.add_theme_font_size_override("font_size", Style.SIZE_SM)
+			b.custom_minimum_size = Vector2(ARROW_MARGIN - 24, 40) if dir in ["left", "right"] else Vector2(180, 32)
+			b.focus_mode = Control.FOCUS_NONE
+			b.tooltip_text = "Go to: " + vdef(to).name
+			b.pressed.connect(func(): _go(to))
+			add_child(b)
+			_arrows.append(b)
+	for v in ([] if _arrowed() else views()):
 		var b := Button.new()
 		b.text = vdef(v).name.split(":")[0].split(",")[0].to_upper()
 		if v == view:
@@ -265,6 +309,24 @@ func _hud_quiet(b: Button) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and _tabs:
 		_tabs.position = Vector2(_origin().x, _origin().y + VIEW.y * _k() + 10)
+		_place_arrows()
+
+
+## The arrows in the margins: left and right beside the picture, halfway down; up in the band above
+## it; down in the row under it, centred (the cowl button is at the row's left).
+func _place_arrows() -> void:
+	var o := _origin()
+	var pic := Rect2(o, VIEW * _k())
+	for b: Button in _arrows:
+		if not is_instance_valid(b):
+			continue
+		b.reset_size()
+		var sz: Vector2 = b.get_combined_minimum_size()
+		match String(b.name).trim_prefix("Arrow_"):
+			"left": b.position = Vector2(pic.position.x - sz.x - 12, pic.get_center().y - sz.y / 2)
+			"right": b.position = Vector2(pic.end.x + 12, pic.get_center().y - sz.y / 2)
+			"up": b.position = Vector2(pic.get_center().x - sz.x / 2, pic.position.y - sz.y - 4)
+			"down": b.position = Vector2(pic.get_center().x - sz.x / 2, pic.end.y + 10)
 
 
 func _go(v: String) -> void:
@@ -320,6 +382,7 @@ func _due(scene: String) -> bool:
 ## with where the tool is.
 func actions(part: Dictionary) -> Array:
 	var out := [{"text": "Look closer", "do": "#look", "ok": true}]
+	var missing: Array = []  # tools this part's other jobs need that you aren't carrying
 	var job: Dictionary = main.current_job
 	for a in part.acts:
 		if a.size() > 3 and a[3] == "found" and not job.found.has(a[2]):
@@ -327,10 +390,12 @@ func actions(part: Dictionary) -> Array:
 		var ok: bool = a[0] == "hand" or (main.tools.has(a[0]) and (not a[0] in main.INSTRUMENTS or main.held == a[0]))
 		if ok:
 			out.append({"text": a[1], "do": a[2], "ok": true, "tool": a[0], "due": _due(a[2])})
-		elif main.guide("easy"):
-			var where: String = "take the %s from your toolbox" % main.SUPPLIES[a[0]].name.to_lower() if main.tools.has(a[0]) \
-				else "you don't own a %s yet" % Work.TOOLS[a[0]].to_lower()
-			out.append({"text": "%s (%s)" % [a[1], where], "do": "", "ok": false})
+		elif not a[0] in missing:
+			missing.append(a[0])
+	# Only the work you have the tools for (E1). Easy says, quietly, what would open more.
+	if missing.size() > 0 and main.guide("easy"):
+		var with: Array = missing.map(func(t): return ("the %s (red toolbox)" if main.tools.has(t) else "a %s (not in your roll yet)") % Work.TOOLS[t].to_lower())
+		out.append({"text": "More work here with " + " or ".join(with) + ".", "do": "", "ok": false, "hint": true})
 	return out
 
 
@@ -366,7 +431,8 @@ func _open_card(part: Dictionary, at: Vector2) -> void:
 	col.add_child(Style.label(part.name.to_upper(), "accent", Style.SIZE_MD, 900))
 	# One obvious next action: what's written up here comes first, as the one red button; the rest
 	# of what you could do here folds under "Other work here" so a busy part doesn't stall you.
-	var all := actions(part)
+	var all := actions(part).filter(func(a): return not a.get("hint", false))
+	var hints: Array = actions(part).filter(func(a): return a.get("hint", false))
 	var due: Array = all.filter(func(a): return a.get("due", false))
 	var rest: Array = all.filter(func(a): return not a.get("due", false))
 	var fold := due.size() > 0 and rest.filter(func(a): return a.do != "#look").size() >= 2  # folding one away only adds a click
@@ -392,6 +458,12 @@ func _open_card(part: Dictionary, at: Vector2) -> void:
 		col.add_child(toggle)
 		more.visible = false
 	col.add_child(more)
+	for h in hints:  # a quiet line, not a greyed-out job (E1)
+		var l := Style.label(h.text, "muted", Style.SIZE_SM, 600)
+		l.name = "ToolHint"
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size.x = 260
+		col.add_child(l)
 	add_child(card)
 	card.reset_size()
 	card.position = Vector2(clampf(at.x + 12, 8, size.x - card.size.x - 8), clampf(at.y + 12, 8, size.y - card.size.y - 8))

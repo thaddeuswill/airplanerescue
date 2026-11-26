@@ -389,6 +389,7 @@ func run(main, args: PackedStringArray) -> void:
 				await _snap(shot, "spot_%s_%s" % [z, v])
 		g._close_panel()
 		g.station_zone = ""
+	ok = _engine_walk_ok() and ok
 	if not g.guide("medium"):  # hard: no clues; you find things by opening up the right place
 		for id in job.faults:
 			if g._how(job, id) == "walk" and g.PLACES.has(id):
@@ -1485,6 +1486,71 @@ func _answer_quiz(id: String) -> bool:
 ## Every work scene, fresh, on a plane of its own: it can be finished with the full kit, traps
 ## don't count, each test's readings lead to the right call for every fault it can find,
 ## grounding a plane pays and ends the job, and a cold engine needs preheating.
+## E1: the open engine is walked round by arrows, and a part offers only work you have the tools for.
+## From the side, pressing arrows alone reaches every view (and every view has a way on); each arrow
+## sits outside the picture and on screen; no view tabs. With an empty roll, no part offers a job
+## that needs a tool; on Easy a part with such jobs says what would open them, on Medium it doesn't.
+func _engine_walk_ok() -> bool:
+	var saved = [g.tools.duplicate(), g.held, g.difficulty, g.bay_view]
+	g.tools["screwdriver"] = true
+	g._close_panel()
+	g._open_station("engine")
+	if not (g.panel is Bay) or (g.cowl_closed(g.current_job) and not g.bay_open_cowl()):
+		print("ENGINE WALK: couldn't open the cowl")
+		return false
+	var bay = g.panel
+	bay._go("left")
+	var seen := {"left": true}
+	var todo := ["left"]
+	var bad: PackedStringArray = []
+	var screen: Rect2 = bay.get_viewport_rect()
+	while todo.size() > 0:
+		var v: String = todo.pop_front()
+		bay._go(v)
+		var pic := Rect2(bay._origin(), bay.VIEW * bay._k())
+		var arrows: Array = bay._arrows.filter(func(b): return is_instance_valid(b) and not b.is_queued_for_deletion())
+		if arrows.is_empty():
+			bad.append(v + ": no arrows")
+		if bay._tabs.get_children().any(func(b): return b is Button and String(b.text) != "CLOSE THE COWL"):
+			bad.append(v + ": view tabs still there")
+		for b in arrows:
+			var r: Rect2 = Rect2(b.position, b.get_combined_minimum_size())
+			if r.intersects(pic) or not screen.encloses(r):
+				bad.append("%s: arrow %s at %s over the picture %s or off screen" % [v, b.name, r, pic])
+			var to: String = b.get_meta("to")
+			if not seen.has(to):
+				seen[to] = true
+				todo.append(to)
+	if seen.size() != Bay.OPEN_VIEWS.size():
+		bad.append("reached only " + str(seen.keys()))
+	# Tools: an empty roll offers nothing that needs a tool; Easy says what would.
+	g.tools = {}
+	g.held = ""
+	for diff in ["easy", "medium"]:
+		g.difficulty = diff
+		var hinted := false
+		for v in Bay.OPEN_VIEWS:
+			bay.view = v
+			for p in bay.parts():
+				var acts: Array = bay.actions(p)
+				for a in acts:
+					if a.get("ok", false) and a.has("tool") and a.tool != "hand":
+						bad.append("%s %s offers %s without its tool" % [diff, p.id, a.text])
+				hinted = hinted or acts.any(func(a): return a.get("hint", false))
+		if hinted != (diff == "easy"):
+			bad.append("%s: tool hint shown %s" % [diff, hinted])
+	g.tools = saved[0]
+	g.held = saved[1]
+	g.difficulty = saved[2]
+	bay.view = "left"
+	g.bay_view = "left"
+	if g.bay_close_cowl() == "":
+		pass
+	g._close_panel()
+	print("engine walk: arrows reach every view and stay off the picture, tools only with the tool %s" % ("true" if bad.is_empty() else str(bad)))
+	return bad.is_empty()
+
+
 ## AP1: a bad magneto fixed both ways. Each time: a fresh job with the magneto found bad, nothing in
 ## stock; the parts counter offers the overhauled magneto and the points and condenser; buy what
 ## the route needs; open it from the engine's rear view; solve it; the magneto is fixed (never

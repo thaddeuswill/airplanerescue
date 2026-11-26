@@ -1031,7 +1031,7 @@ func walk_pages(id: String) -> Array:
 					["RED !", "Stays on it until it's fixed."],
 					["RED BUTTON", "The written-up job, on that part's card."]]],
 				["bay_tabs", "WALK ROUND IT", "The tabs move you round the spot.", [
-					["ENGINE", "Close the cowl before you leave."]]]]
+					["ENGINE", "Arrows round the picture walk you round it. Close the cowl before you leave."]]]]
 		"tasks":
 			return [["sheet", "YOUR TASK LIST", "This job, as it stands (%s). Only what you know about." % k.call("tasks"), [
 				["DONE", "Green check. Nothing more to do."],

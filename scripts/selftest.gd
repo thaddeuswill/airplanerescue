@@ -1515,8 +1515,12 @@ func _engine_walk_ok() -> bool:
 			bad.append(v + ": view tabs still there")
 		for b in arrows:
 			var r: Rect2 = Rect2(b.position, b.get_combined_minimum_size())
-			if r.intersects(pic) or not screen.encloses(r):
-				bad.append("%s: arrow %s at %s over the picture %s or off screen" % [v, b.name, r, pic])
+			var dir: String = b.get_meta("dir", "")
+			var side_ok: bool = {"left": r.end.x <= pic.position.x, "right": r.position.x >= pic.end.x,
+				"up": r.end.y <= pic.position.y, "down": r.position.y >= pic.end.y}.get(dir, false)
+			var mid_ok: bool = (absf(r.get_center().y - pic.get_center().y) < 30.0) if dir in ["left", "right"] else (absf(r.get_center().x - pic.get_center().x) < 30.0)
+			if r.intersects(pic) or not screen.encloses(r) or not side_ok or not mid_ok:
+				bad.append("%s: arrow %s at %s not beside the picture %s on its side, or off screen" % [v, dir, r, pic])
 			var to: String = b.get_meta("to")
 			if not seen.has(to):
 				seen[to] = true

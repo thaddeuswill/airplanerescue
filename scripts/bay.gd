@@ -248,6 +248,7 @@ func _build_tabs() -> void:
 			var b := Button.new()
 			b.name = "Arrow_" + dir
 			b.set_meta("to", to)
+			b.set_meta("dir", dir)  # placed by this, never by name: a freed twin renames it
 			var label: String = ARROW_NAMES[to].to_upper()
 			b.text = (ARROW_GLYPH[dir] + "  " + label) if dir != "right" else (label + "  " + ARROW_GLYPH[dir])
 			_hud_quiet(b)
@@ -322,7 +323,7 @@ func _place_arrows() -> void:
 			continue
 		b.reset_size()
 		var sz: Vector2 = b.get_combined_minimum_size()
-		match String(b.name).trim_prefix("Arrow_"):
+		match String(b.get_meta("dir", "")):
 			"left": b.position = Vector2(pic.position.x - sz.x - 12, pic.get_center().y - sz.y / 2)
 			"right": b.position = Vector2(pic.end.x + 12, pic.get_center().y - sz.y / 2)
 			"up": b.position = Vector2(pic.get_center().x - sz.x / 2, pic.position.y - sz.y - 4)
